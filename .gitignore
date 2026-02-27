@@ -1,0 +1,52 @@
+# Python
+*.pyc
+*.pyo
+*.pyd
+__pycache__/
+*.so
+
+# Virtualenv / venv
+venv/
+env/
+ENV/
+
+# Django
+*.log
+*.pot
+*.pyc
+*.sqlite3
+db.sqlite3
+media/
+*.py[cod]
+
+# Static files (collected)
+staticfiles/
+
+# PyCharm
+.idea/
+*.iml
+*.iws
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# VS Code (if anyone uses it)
+.vscode/
+
+# Coverage / Testing
+.coverage
+htmlcov/
+.tox/
+pytest_cache/
+
+# Backup files
+*.bak
+*.swp
+*~
+
+# ENV / secrets
+.env
+.env.local
+.env.*.local
