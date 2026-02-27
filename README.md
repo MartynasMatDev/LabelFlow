@@ -1,53 +1,169 @@
-# LabelFlow — Paleidimo gidas
+# 🏷️ LabelFlow
 
-## Struktūra
+**LabelFlow** is a Django-based web application developed as a **team / university project**. The goal of the project is to build a platform for managing projects, teams, and image-labeling workflows.
 
-```
-my_annotation_project/
+---
+
+## 🎓 Project Context
+
+| Field | Details |
+|---|---|
+| **Project type** | University / Team Project |
+| **Backend** | Django |
+| **Frontend** | HTML, CSS, JavaScript |
+| **Database** | SQLite (default) |
+| **Version control** | Git & GitHub |
+| **Collaboration model** | Feature-based development with pull requests |
+
+---
+
+## 📁 Project Structure
+
+```text
+labelflow/
 ├── manage.py
-├── requirements.txt
-├── my_annotation_project/
+├── requirements.txt            # Project dependencies
+├── labelflow/                  # Django project configuration
 │   ├── __init__.py
 │   ├── settings.py
 │   ├── urls.py
 │   └── wsgi.py
 ├── apps/
-│   ├── accounts/          # Registracija, prisijungimas, profilis
-│   ├── projects/          # Projektai, komandos valdymas
-│   └── images/            # Paveikslėlių įkėlimas ir sąrašas
+│   ├── accounts/               # Authentication, profiles
+│   ├── projects/               # Projects & team management
+│   └── images/                 # Image upload and listing
 ├── static/
 │   ├── css/main.css
 │   └── js/main.js
-├── media/                 # Vartotojų įkelti failai (auto)
-└── templates/
-    ├── base.html
-    ├── index.html
-    ├── registration/
-    │   ├── login.html
-    │   └── register.html
-    └── app/
-        ├── app_base.html
-        ├── dashboard.html
-        ├── project_list.html
-        ├── project_create.html
-        ├── project_detail.html
-        ├── image_list.html
-        ├── image_upload.html
-        ├── profile.html
-        └── team_management.html
+├── media/                      # User-uploaded files
+└── templates/                  # HTML templates
 ```
 
 ---
 
-## 1. Reikalavimai
+## ✅ Requirements
 
-- **Python** 3.10 ar naujesnė versija
-- **pip** paketų valdytojas
+- Python 3.12 (recommended)
+- pip
+- Git
+- PyCharm (recommended for development)
 
-Patikrinkite:
+**Check versions:**
 ```bash
 python --version
 pip --version
 ```
 
 ---
+
+## 🚀 Setup & Run
+
+### 1️⃣ Clone the repository
+
+```bash
+git clone https://github.com/your-username/labelflow.git
+cd labelflow
+```
+
+### 2️⃣ Create and activate virtual environment
+
+**Linux / macOS:**
+```bash
+python -m venv venv
+source venv/bin/activate
+```
+
+**Windows:**
+```bash
+python -m venv venv
+venv\Scripts\activate
+```
+
+### 3️⃣ Install dependencies
+
+```bash
+pip install -r requirements.txt
+```
+
+### 4️⃣ Run migrations
+
+```bash
+python manage.py migrate
+```
+
+### 5️⃣ Create superuser *(optional)*
+
+```bash
+python manage.py createsuperuser
+```
+
+### 6️⃣ Start development server
+
+```bash
+python manage.py runserver
+```
+
+Open: [http://127.0.0.1:8000/](http://127.0.0.1:8000/)
+
+---
+
+## 🧠 PyCharm Setup
+
+1. Open PyCharm
+2. Click **Open** → select the `labelflow/` directory
+3. Configure interpreter: **File → Settings → Python Interpreter** → Add Virtualenv → Python 3.12
+4. Install dependencies: `pip install -r requirements.txt`
+5. Create Django Run Configuration:
+   - **Host:** `127.0.0.1`
+   - **Port:** `8000`
+   - **Environment variable:** `DJANGO_SETTINGS_MODULE=labelflow.settings`
+
+---
+
+## 🔐 Features
+
+- User registration & login
+- User profiles
+- Project and team management
+- Image upload & listing
+- Role-based access (basic)
+
+---
+
+## 🧪 Development Commands
+
+```bash
+python manage.py makemigrations
+python manage.py migrate
+python manage.py test
+```
+
+---
+
+## 🌿 Branching Strategy
+
+> ⚠️ **Direct pushes to `main` are not allowed.**
+
+```text
+feature/* → dev → main
+```
+
+| Branch | Purpose |
+|---|---|
+| `main` | Stable, production-ready code |
+| `dev` | Integration branch |
+| `feature/*` | Individual tasks or features |
+
+For detailed contribution guidelines, see [CONTRIBUTING.md](CONTRIBUTING.md).
+
+---
+
+## 📄 License
+
+This project is created for educational purposes.
+
+---
+
+## 🤝 Contributing
+
+Please read [CONTRIBUTING.md](CONTRIBUTING.md) before creating branches or pull requests.
