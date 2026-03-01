@@ -1,0 +1,157 @@
+{% extends "app/app_base.html" %}
+{% block app_title %}Team — {{ project.name }}{% endblock %}
+{% block toolbar_title %}{{ project.name }} — Team{% endblock %}
+
+{% block toolbar_actions %}
+<button class="btn btn-primary btn-sm" onclick="openModal('add-member-modal')">+ Add member</button>
+{% endblock %}
+
+{% block app_content %}
+<div class="page-header">
+  <div class="page-title">
+    <h1>Team Management</h1>
+    <p>{{ project.name }} · {{ members.count }} member(s)</p>
+  </div>
+  <div class="page-actions">
+    <a href="{% url 'project_detail' project.id %}" class="btn btn-ghost btn-sm">← Project</a>
+    <button class="btn btn-primary btn-sm" onclick="openModal('add-member-modal')">+ Add member</button>
+  </div>
+</div>
+
+<div class="team-layout">
+  <!-- Members list -->
+  <div>
+    <div class="card card-flat">
+      <div class="section-header" style="padding:18px 22px 0;">
+        <h2>Team Members</h2>
+        <span class="badge badge-muted">{{ members.count }} / ∞</span>
+      </div>
+      <div style="padding-bottom:8px;">
+        {% for member in members %}
+        <div class="member-row">
+          <div class="avatar avatar-md avatar-c{{ forloop.counter0|add:"0"|divisibleby:5 }}">{{ member.get_initials }}</div>
+          <div class="member-row-info">
+            <div class="member-row-name">
+              {{ member.user.get_full_name|default:member.user.username }}
+              {% if member.user == request.user %}
+                <span class="badge badge-accent" style="font-size:10px;margin-left:6px;">You</span>
+              {% endif %}
+              {% if member.user == project.created_by %}
+                <span class="badge badge-muted" style="font-size:10px;margin-left:4px;">Creator</span>
+              {% endif %}
+            </div>
+            <div class="member-row-email">{{ member.user.email }}</div>
+          </div>
+
+          <div class="flex items-center gap-2">
+            {% if member.user != project.created_by %}
+            <form method="post" style="display:inline;">
+              {% csrf_token %}
+              <input type="hidden" name="action" value="change_role">
+              <input type="hidden" name="member_id" value="{{ member.id }}">
+              <select class="role-select" name="role" onchange="this.form.submit()">
+                {% for value, label in role_choices %}
+                <option value="{{ value }}" {% if member.role == value %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+              </select>
+            </form>
+            <form method="post" style="display:inline;"
+                  onsubmit="return confirm('Remove {{ member.user.get_full_name|default:member.user.username }} from the project?')">
+              {% csrf_token %}
+              <input type="hidden" name="action" value="remove_member">
+              <input type="hidden" name="member_id" value="{{ member.id }}">
+              <button type="submit" class="btn btn-icon btn-danger btn-sm" title="Remove">✕</button>
+            </form>
+            {% else %}
+            <select class="role-select" disabled>
+              <option>Administrator</option>
+            </select>
+            {% endif %}
+          </div>
+        </div>
+        {% empty %}
+        <div class="empty-state" style="padding:40px 20px;">
+          <div class="empty-icon">⬔</div>
+          <h3>No members</h3>
+          <p>Add the first team members</p>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Sidebar info -->
+  <div>
+    <div class="card" style="margin-bottom:16px;">
+      <h3 style="font-size:13px;margin-bottom:14px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;font-family:'DM Mono',monospace;">
+        Roles
+      </h3>
+
+      <div class="role-info-card">
+        <h4><span class="badge badge-accent" style="font-size:10px;">Admin</span> Administrator</h4>
+        <p>Full access: project settings, member management, data deletion, exporting.</p>
+      </div>
+      <div class="role-info-card">
+        <h4><span class="badge badge-success" style="font-size:10px;">Ann</span> Annotator</h4>
+        <p>Can upload images and create and edit annotations.</p>
+      </div>
+      <div class="role-info-card" style="margin-bottom:0;">
+        <h4><span class="badge badge-muted" style="font-size:10px;">Rev</span> Reviewer</h4>
+        <p>Read-only access. Can view annotations and export data.</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3 style="font-size:13px;margin-bottom:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;font-family:'DM Mono',monospace;">
+        Project Info
+      </h3>
+      <div class="flex flex-col gap-2 text-sm">
+        <div class="flex justify-between">
+          <span class="text-muted">Project</span>
+          <span>{{ project.name|truncatechars:20 }}</span>
+        </div>
+        <div class="flex justify-between">
+          <span class="text-muted">Members</span>
+          <span class="font-mono">{{ members.count }}</span>
+        </div>
+        <div class="flex justify-between">
+          <span class="text-muted">Creator</span>
+          <span>{{ project.created_by.get_full_name|default:project.created_by.username }}</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block modals %}
+<div class="modal-overlay" id="add-member-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <h2>Add Team Member</h2>
+      <button class="modal-close" onclick="closeModal('add-member-modal')">✕</button>
+    </div>
+    <form method="post" action="{% url 'team_management' project.id %}">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="add_member">
+      <div class="form-group">
+        <label>Username</label>
+        <input type="text" name="username" placeholder="e.g. john123" required autofocus>
+        <div class="form-hint">The user must have an account in the LabelFlow system.</div>
+      </div>
+      <div class="form-group">
+        <label>Role</label>
+        <select name="role">
+          {% for value, label in role_choices %}
+          <option value="{{ value }}" {% if value == 'annotator' %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-ghost" onclick="closeModal('add-member-modal')">Cancel</button>
+        <button type="submit" class="btn btn-primary">Add member →</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
