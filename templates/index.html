@@ -1,0 +1,94 @@
+{% extends "base.html" %}
+{% block title %}LabelFlow — Image Annotation Platform{% endblock %}
+
+{% block body %}
+<nav class="web-nav">
+  <a href="/" class="web-nav-logo">Label<em>Flow</em></a>
+  <div class="web-nav-links">
+    <a href="#" class="btn btn-ghost">Sign in</a>
+    <a href="#" class="btn btn-primary">Get started free</a>
+  </div>
+</nav>
+
+<section class="hero">
+  <div class="hero-grid-bg"></div>
+  <div class="hero-glow"></div>
+  <div style="position:relative; max-width:860px; margin:0 auto;" class="fade-up">
+    <div class="hero-tag">◆ Image Annotation Platform</div>
+    <h1>Data that trains<br><em>great AI</em></h1>
+    <p class="hero-lead">A professional annotation system for teams and researchers. Bounding boxes, polygons, classification — all in one tool.</p>
+    <div class="hero-cta">
+      <a href="#" class="btn btn-primary btn-lg">Create an account →</a>
+      <a href="#" class="btn btn-secondary btn-lg">Sign in</a>
+    </div>
+  </div>
+</section>
+
+<div class="stats-strip fade-up" style="max-width:680px;margin:0 auto 80px;">
+  <div class="stat-item"><span class="stat-num">4+</span><span class="stat-lbl">annotation types</span></div>
+  <div class="stat-item"><span class="stat-num">5</span><span class="stat-lbl">export formats</span></div>
+  <div class="stat-item"><span class="stat-num">∞</span><span class="stat-lbl">projects</span></div>
+</div>
+
+<section class="features-section">
+  <div class="features-header">
+    <h2>Everything you need to annotate</h2>
+    <p>From upload to export — one seamless workflow</p>
+  </div>
+  <div class="features-grid stagger">
+    <div class="feature-card">
+      <span class="feature-icon">⬡</span>
+      <h3>Precise annotation tools</h3>
+      <p>Bounding boxes, polygons, classification tags — for accurate data labeling.</p>
+    </div>
+    <div class="feature-card">
+      <span class="feature-icon">◈</span>
+      <h3>Team management</h3>
+      <p>Multi-user support with roles: admin, annotator, and reviewer.</p>
+    </div>
+    <div class="feature-card">
+      <span class="feature-icon">◎</span>
+      <h3>Project organization</h3>
+      <p>Separate projects with their own datasets, teams, and settings.</p>
+    </div>
+    <div class="feature-card">
+      <span class="feature-icon">⬕</span>
+      <h3>Fast export</h3>
+      <p>COCO JSON, Pascal VOC, YOLO TXT, CSV — ready in seconds.</p>
+    </div>
+    <div class="feature-card">
+      <span class="feature-icon">⬔</span>
+      <h3>REST API</h3>
+      <p>Integrate with your infrastructure. Automate your data pipeline.</p>
+    </div>
+    <div class="feature-card">
+      <span class="feature-icon">◉</span>
+      <h3>Image management</h3>
+      <p>Upload individual files or entire folders. Sort, filter, and search with ease.</p>
+    </div>
+  </div>
+</section>
+
+<section class="formats-section">
+  <h2>Export formats</h2>
+  <p>All major machine learning formats supported</p>
+  <div class="format-chips">
+    <div class="format-chip">COCO JSON</div>
+    <div class="format-chip">Pascal VOC XML</div>
+    <div class="format-chip">YOLO TXT</div>
+    <div class="format-chip">CSV</div>
+    <div class="format-chip">JSON</div>
+  </div>
+</section>
+
+<section class="cta-section">
+  <h2>Get started today</h2>
+  <p>Free account, unlimited projects. Perfect for students and teams alike.</p>
+  <a href="#" class="btn btn-primary btn-lg">Sign up for free</a>
+</section>
+
+<footer class="web-footer">
+  <a href="/" class="web-footer-logo">Label<em>Flow</em></a>
+  <span>© 2026 LabelFlow · built with Django</span>
+</footer>
+{% endblock %}
