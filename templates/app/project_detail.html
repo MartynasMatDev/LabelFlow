@@ -3,9 +3,9 @@
 {% block toolbar_title %}{{ project.name }}{% endblock %}
 
 {% block toolbar_actions %}
-<a href="{% url 'image_upload' %}?project={{ project.id }}" class="btn btn-secondary btn-sm">↑ Įkelti</a>
+<a href="{% url 'image_upload' %}?project={{ project.id }}" class="btn btn-secondary btn-sm">↑ Upload</a>
 {% if is_admin %}
-<a href="{% url 'team_management' project.id %}" class="btn btn-ghost btn-sm">⬔ Komanda</a>
+<a href="{% url 'team_management' project.id %}" class="btn btn-ghost btn-sm">⬔ Team</a>
 {% endif %}
 {% endblock %}
 
@@ -18,14 +18,14 @@
     </div>
     <p>
       {{ project.get_annotation_type_display }}
-      · sukurta {{ project.created_at|date:"Y-m-d" }}
-      · {{ project.image_count }} paveikslėliai
+      · created {{ project.created_at|date:"Y-m-d" }}
+      · {{ project.image_count }} images
       {% if user_role %} · <span class="badge badge-accent" style="font-size:10px;">{{ user_role }}</span>{% endif %}
     </p>
   </div>
   <div class="page-actions">
-    <a href="{% url 'project_images' project.id %}" class="btn btn-secondary btn-sm">Visi paveikslėliai</a>
-    {% if is_admin %}<a href="{% url 'team_management' project.id %}" class="btn btn-primary btn-sm">Komanda</a>{% endif %}
+    <a href="{% url 'project_images' project.id %}" class="btn btn-secondary btn-sm">All images</a>
+    {% if is_admin %}<a href="{% url 'team_management' project.id %}" class="btn btn-primary btn-sm">Team</a>{% endif %}
   </div>
 </div>
 
@@ -39,8 +39,8 @@
   <!-- Images preview -->
   <div class="card card-flat">
     <div class="section-header" style="padding:18px 22px 0;">
-      <h2>Paveikslėliai</h2>
-      <a href="{% url 'project_images' project.id %}" class="btn btn-ghost btn-sm">Visi →</a>
+      <h2>Images</h2>
+      <a href="{% url 'project_images' project.id %}" class="btn btn-ghost btn-sm">All →</a>
     </div>
     <div style="padding:16px 18px;">
       {% if images %}
@@ -58,9 +58,9 @@
       {% else %}
       <div class="empty-state" style="padding:32px 20px;">
         <div class="empty-icon">⬡</div>
-        <h3>Dar nėra paveikslėlių</h3>
-        <p>Įkelkite pirmuosius paveikslėlius</p>
-        <a href="{% url 'image_upload' %}?project={{ project.id }}" class="btn btn-primary btn-sm mt-4">↑ Įkelti</a>
+        <h3>No images yet</h3>
+        <p>Upload the first images</p>
+        <a href="{% url 'image_upload' %}?project={{ project.id }}" class="btn btn-primary btn-sm mt-4">↑ Upload</a>
       </div>
       {% endif %}
     </div>
@@ -69,46 +69,54 @@
   <!-- Info -->
   <div>
     <div class="card" style="margin-bottom:16px;">
-      <h3 style="font-size:13px;margin-bottom:14px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;font-family:'DM Mono',monospace;">Projekto info</h3>
+      <h3 style="font-size:13px;margin-bottom:14px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;font-family:'DM Mono',monospace;">
+        Project Info
+      </h3>
       <div style="display:flex;flex-direction:column;gap:10px;">
         <div class="flex justify-between text-sm">
-          <span class="text-muted">Tipas</span>
+          <span class="text-muted">Type</span>
           <span>{{ project.get_annotation_type_display }}</span>
         </div>
         <div class="flex justify-between text-sm">
-          <span class="text-muted">Paveikslėliai</span>
+          <span class="text-muted">Images</span>
           <span class="font-mono">{{ project.image_count }}</span>
         </div>
         <div class="flex justify-between text-sm">
-          <span class="text-muted">Nariai</span>
+          <span class="text-muted">Members</span>
           <span class="font-mono">{{ project.member_count }}</span>
         </div>
         <div class="flex justify-between text-sm">
-          <span class="text-muted">Sukurta</span>
+          <span class="text-muted">Created</span>
           <span class="font-mono">{{ project.created_at|date:"Y-m-d" }}</span>
         </div>
         <div class="flex justify-between text-sm">
-          <span class="text-muted">Atnaujinta</span>
+          <span class="text-muted">Updated</span>
           <span class="font-mono">{{ project.updated_at|date:"Y-m-d" }}</span>
         </div>
       </div>
     </div>
 
     <div class="card">
-      <h3 style="font-size:13px;margin-bottom:14px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;font-family:'DM Mono',monospace;">Komanda</h3>
+      <h3 style="font-size:13px;margin-bottom:14px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;font-family:'DM Mono',monospace;">
+        Team
+      </h3>
       {% for member in project.members.all %}
       <div class="flex items-center gap-2" style="margin-bottom:10px;">
         <div class="avatar avatar-sm avatar-c{{ forloop.counter0|divisibleby:5 }}">{{ member.get_initials }}</div>
         <div style="flex:1;min-width:0;">
-          <div style="font-size:13px;font-weight:600;">{{ member.user.get_full_name|default:member.user.username }}</div>
+          <div style="font-size:13px;font-weight:600;">
+            {{ member.user.get_full_name|default:member.user.username }}
+          </div>
           <div style="font-size:11px;color:var(--text-muted);">{{ member.get_role_display }}</div>
         </div>
       </div>
       {% empty %}
-      <p class="text-sm text-muted">Nėra narių</p>
+      <p class="text-sm text-muted">No members</p>
       {% endfor %}
       {% if is_admin %}
-      <a href="{% url 'team_management' project.id %}" class="btn btn-ghost btn-sm btn-full mt-2">Valdyti komandą</a>
+      <a href="{% url 'team_management' project.id %}" class="btn btn-ghost btn-sm btn-full mt-2">
+        Manage team
+      </a>
       {% endif %}
     </div>
   </div>

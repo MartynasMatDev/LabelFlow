@@ -5,9 +5,9 @@ from django.contrib.auth.models import User
 class Project(models.Model):
     ANNOTATION_TYPE_CHOICES = [
         ('bbox', 'Bounding Box'),
-        ('polygon', 'Poligonas'),
-        ('classification', 'Klasifikavimas'),
-        ('mixed', 'Mišrus'),
+        ('polygon', 'Poligon'),
+        ('classification', 'Classification'),
+        ('mixed', 'Mixed'),
     ]
 
     name            = models.CharField(max_length=200)
@@ -45,3 +45,27 @@ class Project(models.Model):
     @property
     def member_count(self):
         return self.members.count()
+
+
+class ProjectMember(models.Model):
+    ROLE_CHOICES = [
+        ('admin', 'Administrator'),
+        ('annotator', 'Annotator'),
+        ('viewer', 'Reviewer'),
+    ]
+    project   = models.ForeignKey(Project, on_delete=models.CASCADE, related_name='members')
+    user      = models.ForeignKey(User, on_delete=models.CASCADE, related_name='project_memberships')
+    role      = models.CharField(max_length=20, choices=ROLE_CHOICES, default='annotator')
+    joined_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('project', 'user')
+        ordering = ['joined_at']
+
+    def __str__(self):
+        return f"{self.user.username} — {self.project.name} ({self.get_role_display()})"
+
+    def get_initials(self):
+        first = self.user.first_name[:1].upper() if self.user.first_name else ''
+        last  = self.user.last_name[:1].upper()  if self.user.last_name  else ''
+        return (first + last) or self.user.username[:2].upper()
