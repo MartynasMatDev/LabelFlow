@@ -1,58 +1,71 @@
-from django.shortcuts import render, redirect, get_object_or_404
-from django.contrib.auth.decorators import login_required
+from django.db import models
 from django.contrib.auth.models import User
-from django.contrib import messages
-from django.db.models import Q
-from .models import Project
 
 
-def _user_projects(user):
-    return Project.objects.filter(
-        Q(members__user=user) | Q(created_by=user)
-    ).distinct()
+class Project(models.Model):
+    ANNOTATION_TYPE_CHOICES = [
+        ('bbox', 'Bounding Box'),
+        ('polygon', 'Poligonas'),
+        ('classification', 'Klasifikavimas'),
+        ('mixed', 'Mišrus'),
+    ]
+
+    name            = models.CharField(max_length=200)
+    description     = models.TextField(blank=True)
+    annotation_type = models.CharField(max_length=20, choices=ANNOTATION_TYPE_CHOICES, default='bbox')
+    emoji           = models.CharField(max_length=4, default='◈')
+    created_by      = models.ForeignKey(User, on_delete=models.CASCADE, related_name='owned_projects')
+    created_at      = models.DateTimeField(auto_now_add=True)
+    updated_at      = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-updated_at']
+
+    def __str__(self):
+        return self.name
+
+    def get_user_role(self, user):
+        """Returns the role of a user in this project, or None."""
+        membership = self.members.filter(user=user).first()
+        return membership.role if membership else None
+
+    def user_has_access(self, user):
+        return self.members.filter(user=user).exists() or self.created_by == user
+
+    def user_is_admin(self, user):
+        if self.created_by == user:
+            return True
+        membership = self.members.filter(user=user).first()
+        return membership and membership.role == 'admin'
+
+    @property
+    def image_count(self):
+        return self.images.count()
+
+    @property
+    def member_count(self):
+        return self.members.count()
 
 
+class ProjectMember(models.Model):
+    ROLE_CHOICES = [
+        ('admin', 'Administratorius'),
+        ('annotator', 'Anotatorius'),
+        ('viewer', 'Peržiūrėtojas'),
+    ]
+    project   = models.ForeignKey(Project, on_delete=models.CASCADE, related_name='members')
+    user      = models.ForeignKey(User, on_delete=models.CASCADE, related_name='project_memberships')
+    role      = models.CharField(max_length=20, choices=ROLE_CHOICES, default='annotator')
+    joined_at = models.DateTimeField(auto_now_add=True)
 
-@login_required
-def project_create(request):
-    if request.method == 'POST':
-        name            = request.POST.get('name', '').strip()
-        description     = request.POST.get('description', '').strip()
-        annotation_type = request.POST.get('annotation_type', 'bbox')
-        emoji           = request.POST.get('emoji', '◈').strip() or '◈'
+    class Meta:
+        unique_together = ('project', 'user')
+        ordering = ['joined_at']
 
-        if not name:
-            messages.error(request, 'Projekto pavadinimas yra privalomas.')
-            return render(request, 'app/project_create.html', {'active_nav': 'projects'})
+    def __str__(self):
+        return f"{self.user.username} — {self.project.name} ({self.get_role_display()})"
 
-        project = Project.objects.create(
-            name=name,
-            description=description,
-            annotation_type=annotation_type,
-            emoji=emoji,
-            created_by=request.user,
-        )
-        # Auto-add creator as admin
-        ProjectMember.objects.create(project=project, user=request.user, role='admin')
-        messages.success(request, f'Projektas „{name}" sukurtas sėkmingai.')
-        return redirect('project_list')
-
-    return render(request, 'app/project_create.html', {'active_nav': 'projects'})
-
-
-@login_required
-def project_detail(request, project_id):
-    project = get_object_or_404(Project, id=project_id)
-    if not project.user_has_access(request.user):
-        messages.error(request, 'Neturite prieigos prie šio projekto.')
-        return redirect('project_list')
-    from apps.images.models import Image
-    images = Image.objects.filter(project=project).order_by('-uploaded_at')[:6]
-    ctx = {
-        'active_nav': 'projects',
-        'project': project,
-        'images': images,
-        'user_role': project.get_user_role(request.user) or 'admin',
-        'is_admin': project.user_is_admin(request.user),
-    }
-    return render(request, 'app/project_detail.html', ctx)
+    def get_initials(self):
+        first = self.user.first_name[:1].upper() if self.user.first_name else ''
+        last  = self.user.last_name[:1].upper()  if self.user.last_name  else ''
+        return (first + last) or self.user.username[:2].upper()
