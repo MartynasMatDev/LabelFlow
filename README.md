@@ -62,7 +62,7 @@ pip --version
 
 ```bash
 git clone https://github.com/your-username/labelflow.git
-cd labelflow
+cd labelflowdelete
 ```
 
 ### 2️⃣ Create and activate virtual environment
