@@ -1,0 +1,83 @@
+{% extends "base.html" %}
+{% block title %}Log in — LabelFlow{% endblock %}
+
+{% block body %}
+<a href="/" class="back-link">← Go back</a>
+<div class="auth-layout">
+  <!-- Left side -->
+  <div class="auth-side">
+    <a href="/" class="side-logo">
+      <span style="font-family:'Syne',sans-serif;font-weight:800;font-size:20px;letter-spacing:-.035em;color:var(--text);">Label<em style="color:var(--accent-bright);font-style:normal;">Flow</em></span>
+    </a>
+    <div class="side-content">
+      <h2>Return to your <em>work</em></h2>
+      <p>Continue annotation projects, manage your team, and export data.</p>
+      <div class="side-features">
+        <div class="side-feature">
+          <div class="side-feature-icon">⬡</div>
+          <div>
+            <h4>All projects in one place</h4>
+            <p>Quickly access your data sets</p>
+          </div>
+        </div>
+        <div class="side-feature">
+          <div class="side-feature-icon">◈</div>
+          <div>
+            <h4>Teamwork</h4>
+            <p>Synchronized with changes made by the entire team</p>
+          </div>
+        </div>
+        <div class="side-feature">
+          <div class="side-feature-icon">◎</div>
+          <div>
+            <h4>Safe log in</h4>
+            <p>Your data is protected and private</p>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="auth-side-footer">© 2024 LabelFlow</div>
+  </div>
+
+  <!-- Right: form -->
+  <div class="auth-main">
+    <div class="auth-box fade-up">
+      <div class="auth-box-header">
+        <h1>Log in</h1>
+        <p>Welcome back LabelFlow</p>
+      </div>
+
+      {% if form.errors %}
+      <div class="alert alert-error">Incorrect username or password.</div>
+      {% endif %}
+
+      {% if messages %}
+        {% for message in messages %}
+        <div class="alert alert-{{ message.tags }}">{{ message }}</div>
+        {% endfor %}
+      {% endif %}
+
+      <form method="post">
+        {% csrf_token %}
+        <input type="hidden" name="next" value="{{ next }}">
+        <div class="form-group">
+          <label for="id_username">Username</label>
+          <input type="text" name="username" id="id_username" placeholder="jono123" autofocus required>
+        </div>
+        <div class="form-group">
+          <label for="id_password">
+            Password
+            <a href="#" style="float:right;font-size:12px;color:var(--accent-bright);">Forgot your password?</a>
+          </label>
+          <input type="password" name="password" id="id_password" placeholder="••••••••" required>
+        </div>
+        <button type="submit" class="btn btn-primary btn-full btn-lg">Log in →</button>
+      </form>
+
+      <div class="auth-footer-link">
+        Don't have an account? <a href="{% url 'register' %}">Register for free</a>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
