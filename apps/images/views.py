@@ -116,3 +116,8 @@ def image_delete(request, image_id):
         image.delete()
         messages.success(request, f'Paveikslėlis „{image.name}" ištrintas.')
     return redirect('project_images', project_id=project.id)
+
+def image_detail(request, pk):
+    from .models import Image
+    image = Image.objects.get(pk=pk)
+    return render(request, "app/image_detail.html", {"image": image})
