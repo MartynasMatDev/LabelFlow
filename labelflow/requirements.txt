@@ -1,0 +1,7 @@
+asgiref==3.11.1
+Django==4.2.29
+django-crispy-forms==2.5
+pillow==12.1.1
+sqlparse==0.5.5
+tzdata==2025.3
+whitenoise==6.12.0
