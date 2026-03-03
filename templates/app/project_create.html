@@ -1,0 +1,68 @@
+{% extends "app/app_base.html" %}
+{% block app_title %}New Project{% endblock %}
+{% block toolbar_title %}New Project{% endblock %}
+
+{% block app_content %}
+<div class="page-header">
+  <div class="page-title">
+    <h1>Create Project</h1>
+    <p>Fill in the information for a new project</p>
+  </div>
+</div>
+
+<div style="max-width:600px;">
+  <form method="post">
+    {% csrf_token %}
+
+    <div class="card" style="margin-bottom:16px;">
+      <h3 style="font-size:15px;margin-bottom:20px;">Basic Information</h3>
+      <div class="form-group">
+        <label for="name">Project Name *</label>
+        <input type="text" id="name" name="name" placeholder="e.g. Medical Images 2024"
+               value="{{ request.POST.name|default:'' }}" required autofocus>
+      </div>
+      <div class="form-group">
+        <label for="description">Description <span class="text-muted">(optional)</span></label>
+        <textarea id="description" name="description" rows="3"
+                  placeholder="Short project description...">{{ request.POST.description|default:'' }}</textarea>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+        <div class="form-group">
+          <label for="annotation_type">Annotation Type</label>
+          <select id="annotation_type" name="annotation_type">
+            <option value="bbox"           {% if request.POST.annotation_type == 'bbox' %}selected{% endif %}>Bounding Box</option>
+            <option value="polygon"        {% if request.POST.annotation_type == 'polygon' %}selected{% endif %}>Polygon</option>
+            <option value="classification" {% if request.POST.annotation_type == 'classification' %}selected{% endif %}>Classification</option>
+            <option value="mixed"          {% if request.POST.annotation_type == 'mixed' %}selected{% endif %}>Mixed</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label for="emoji">Project Icon</label>
+          <input type="text" id="emoji" name="emoji" placeholder="◈" maxlength="4"
+                 value="{{ request.POST.emoji|default:'◈' }}"
+                 style="font-size:20px; text-align:center;">
+          <div class="form-hint">Emoji or symbol</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:20px;">
+      <h3 style="font-size:15px;margin-bottom:6px;">Privacy</h3>
+      <p style="font-size:13px;color:var(--text-muted);margin-bottom:16px;">
+        The new project will be private — visible only to you and invited team members.
+      </p>
+      <div class="flex items-center gap-2">
+        <input type="checkbox" id="add_self" name="add_self" checked style="width:auto;" disabled>
+        <label for="add_self" style="margin:0;font-size:13px;color:var(--text-muted);">
+          Automatically add me as an administrator
+        </label>
+      </div>
+    </div>
+
+    <div class="flex gap-2" style="justify-content:flex-end;">
+      <a href="{% url 'project_list' %}" class="btn btn-ghost">Cancel</a>
+      <button type="submit" class="btn btn-primary">Create Project →</button>
+    </div>
+  </form>
+</div>
+{% endblock %}
