@@ -1,5 +1,6 @@
 {% extends "base.html" %}
-{% block title %}{% block app_title %}App{% endblock %} — LabelFlow{% endblock %}
+
+{% block title %}App — LabelFlow{% endblock %}
 
 {% block body %}
 <div class="app-shell">
@@ -11,6 +12,10 @@
     </a>
 
     <nav class="nav-section">
+      <div class="nav-label">Main</div>
+      <a href="{% url 'dashboard' %}" class="nav-item {% if active_nav == 'dashboard' %}active{% endif %}">
+        <span class="nav-icon">◈</span> Dashboard
+      </a>
 
       <div class="nav-label">Projects</div>
       <a href="{% url 'project_list' %}" class="nav-item {% if active_nav == 'projects' %}active{% endif %}">
@@ -41,7 +46,9 @@
 
     <div class="sidebar-bottom">
       <a href="{% url 'profile' %}" class="user-item">
-        <div class="avatar avatar-md avatar-c0">{{ request.user.first_name.0|default:request.user.username.0|upper }}{{ request.user.last_name.0|upper }}</div>
+        <div class="avatar avatar-md avatar-c0">
+          {{ request.user.first_name.0|default:request.user.username.0|upper }}{{ request.user.last_name.0|upper }}
+        </div>
         <div class="user-info">
           <div class="user-name">{{ request.user.get_full_name|default:request.user.username }}</div>
           <div class="user-role">{{ user_role|default:"User" }}</div>
@@ -66,8 +73,10 @@
 
     <div class="flex gap-2">
       {% block toolbar_actions %}{% endblock %}
-      <a href="{% url 'profile' %}" class="btn btn-icon btn-ghost" title="Profilis">
-        <div class="avatar avatar-sm avatar-c0">{{ request.user.first_name.0|default:request.user.username.0|upper }}{{ request.user.last_name.0|upper }}</div>
+      <a href="{% url 'profile' %}" class="btn btn-icon btn-ghost" title="Profile">
+        <div class="avatar avatar-sm avatar-c0">
+          {{ request.user.first_name.0|default:request.user.username.0|upper }}{{ request.user.last_name.0|upper }}
+        </div>
       </a>
     </div>
   </header>

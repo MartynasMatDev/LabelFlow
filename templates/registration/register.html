@@ -6,10 +6,12 @@
 <div class="auth-layout">
   <div class="auth-side">
     <a href="/" class="side-logo">
-      <span style="font-family:'Syne',sans-serif;font-weight:800;font-size:20px;letter-spacing:-.035em;color:var(--text);">Label<em style="color:var(--accent-bright);font-style:normal;">Flow</em></span>
+      <span style="font-family:'Syne',sans-serif;font-weight:800;font-size:20px;letter-spacing:-.035em;color:var(--text);">
+        Label<em style="color:var(--accent-bright);font-style:normal;">Flow</em>
+      </span>
     </a>
     <div class="side-content">
-      <h2>Start <em>annotating </em>today</h2>
+      <h2>Start <em>annotating</em> today</h2>
       <p>Free account. Unlimited projects. All annotation tools at once.</p>
       <div class="side-features">
         <div class="side-feature">
@@ -29,20 +31,20 @@
         <div class="side-feature">
           <div class="side-feature-icon">◉</div>
           <div>
-            <h4>Free trail includes:</h4>
-            <p>Teams up to 5 members</p>
+            <h4>Team up to 5 members</h4>
+            <p>Included in free plan</p>
           </div>
         </div>
       </div>
     </div>
-    <div class="auth-side-footer">© 2024 LabelFlow</div>
+    <div class="auth-side-footer">© 2026 LabelFlow</div>
   </div>
 
   <div class="auth-main">
     <div class="auth-box fade-up">
       <div class="auth-box-header">
         <h1>Create an account</h1>
-        <p>Sign up for free</p>
+        <p>Sign up for free — no credit card required</p>
       </div>
 
       {% if form.non_field_errors %}
@@ -55,7 +57,7 @@
         {% csrf_token %}
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
           <div class="form-group">
-            <label for="{{ form.first_name.id_for_label }}">Name</label>
+            <label for="{{ form.first_name.id_for_label }}">First name</label>
             <input type="text" name="first_name" id="{{ form.first_name.id_for_label }}"
                    value="{{ form.first_name.value|default:'' }}" placeholder="Jonas" required>
             {% if form.first_name.errors %}<div class="form-error">{{ form.first_name.errors|join:", " }}</div>{% endif %}
@@ -77,141 +79,19 @@
           <label for="{{ form.username.id_for_label }}">Username</label>
           <input type="text" name="username" id="{{ form.username.id_for_label }}"
                  value="{{ form.username.value|default:'' }}" placeholder="jonas123" required>
-          <div class="form-hint">Naudojamas prisijungimui. Tik raidės, skaičiai ir _</div>
+          <div class="form-hint">Used for login. Letters, numbers, and _ only</div>
           {% if form.username.errors %}<div class="form-error">{{ form.username.errors|join:", " }}</div>{% endif %}
         </div>
         <div class="form-group">
           <label for="{{ form.password1.id_for_label }}">Password</label>
           <input type="password" name="password1" id="{{ form.password1.id_for_label }}"
-                 placeholder="Mažiausiai 8 simboliai" required>
+                 placeholder="At least 8 characters" required>
           {% if form.password1.errors %}<div class="form-error">{{ form.password1.errors|join:", " }}</div>{% endif %}
         </div>
         <div class="form-group">
           <label for="{{ form.password2.id_for_label }}">Repeat password</label>
           <input type="password" name="password2" id="{{ form.password2.id_for_label }}"
-                 placeholder="Pakartokite slaptažodį" required>
-          <div id="pw-match" class="form-hint" style="display:none;"></div>
-          {% if form.password2.errors %}<div class="form-error">{{ form.password2.errors|join:", " }}</div>{% endif %}
-        </div>
-        <button type="submit" class="btn btn-primary btn-full btn-lg">Register →</button>
-      </form>
-
-      <div class="auth-footer-link">
-        Already have an account? <a href="{% url 'login' %}">Log in</a>
-      </div>
-    </div>
-  </div>
-</div>
-{% endblock %}
-
-{% block extra_scripts %}
-const pw1 = document.getElementById('{{ form.password1.id_for_label }}');
-const pw2 = document.getElementById('{{ form.password2.id_for_label }}');
-const hint = document.getElementById('pw-match');
-pw2.addEventListener('input', () => {
-  if (!pw2.value) { hint.style.display='none'; return; }
-  hint.style.display = 'block';
-  if (pw1.value === pw2.value) {
-    hint.textContent = '✓ Passwords match';
-    hint.style.color = 'var(--success)';
-  } else {
-    hint.textContent = '✗ Passwords do not match';
-    hint.style.color = 'var(--danger)';
-  }
-});
-{% endblock %}
-{% extends "base.html" %}
-{% block title %}Registration — LabelFlow{% endblock %}
-
-{% block body %}
-<a href="/" class="back-link">← Go back</a>
-<div class="auth-layout">
-  <div class="auth-side">
-    <a href="/" class="side-logo">
-      <span style="font-family:'Syne',sans-serif;font-weight:800;font-size:20px;letter-spacing:-.035em;color:var(--text);">Label<em style="color:var(--accent-bright);font-style:normal;">Flow</em></span>
-    </a>
-    <div class="side-content">
-      <h2>Start <em>annotating </em>today</h2>
-      <p>Free account. Unlimited projects. All annotation tools at once.</p>
-      <div class="side-features">
-        <div class="side-feature">
-          <div class="side-feature-icon">⬕</div>
-          <div>
-            <h4>Free plan</h4>
-            <p>Unlimited projects and images</p>
-          </div>
-        </div>
-        <div class="side-feature">
-          <div class="side-feature-icon">⬔</div>
-          <div>
-            <h4>All export formats</h4>
-            <p>COCO, YOLO, VOC, CSV — all included</p>
-          </div>
-        </div>
-        <div class="side-feature">
-          <div class="side-feature-icon">◉</div>
-          <div>
-            <h4>Free trail includes:</h4>
-            <p>Teams up to 5 members</p>
-          </div>
-        </div>
-      </div>
-    </div>
-    <div class="auth-side-footer">© 2024 LabelFlow</div>
-  </div>
-
-  <div class="auth-main">
-    <div class="auth-box fade-up">
-      <div class="auth-box-header">
-        <h1>Create an account</h1>
-        <p>Sign up for free</p>
-      </div>
-
-      {% if form.non_field_errors %}
-      <div class="alert alert-error">
-        {% for error in form.non_field_errors %}{{ error }}{% endfor %}
-      </div>
-      {% endif %}
-
-      <form method="post" novalidate>
-        {% csrf_token %}
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
-          <div class="form-group">
-            <label for="{{ form.first_name.id_for_label }}">Name</label>
-            <input type="text" name="first_name" id="{{ form.first_name.id_for_label }}"
-                   value="{{ form.first_name.value|default:'' }}" placeholder="Jonas" required>
-            {% if form.first_name.errors %}<div class="form-error">{{ form.first_name.errors|join:", " }}</div>{% endif %}
-          </div>
-          <div class="form-group">
-            <label for="{{ form.last_name.id_for_label }}">Last name</label>
-            <input type="text" name="last_name" id="{{ form.last_name.id_for_label }}"
-                   value="{{ form.last_name.value|default:'' }}" placeholder="Jonaitis" required>
-            {% if form.last_name.errors %}<div class="form-error">{{ form.last_name.errors|join:", " }}</div>{% endif %}
-          </div>
-        </div>
-        <div class="form-group">
-          <label for="{{ form.email.id_for_label }}">Email</label>
-          <input type="email" name="email" id="{{ form.email.id_for_label }}"
-                 value="{{ form.email.value|default:'' }}" placeholder="jonas@example.com" required>
-          {% if form.email.errors %}<div class="form-error">{{ form.email.errors|join:", " }}</div>{% endif %}
-        </div>
-        <div class="form-group">
-          <label for="{{ form.username.id_for_label }}">Username</label>
-          <input type="text" name="username" id="{{ form.username.id_for_label }}"
-                 value="{{ form.username.value|default:'' }}" placeholder="jonas123" required>
-          <div class="form-hint">Naudojamas prisijungimui. Tik raidės, skaičiai ir _</div>
-          {% if form.username.errors %}<div class="form-error">{{ form.username.errors|join:", " }}</div>{% endif %}
-        </div>
-        <div class="form-group">
-          <label for="{{ form.password1.id_for_label }}">Password</label>
-          <input type="password" name="password1" id="{{ form.password1.id_for_label }}"
-                 placeholder="Mažiausiai 8 simboliai" required>
-          {% if form.password1.errors %}<div class="form-error">{{ form.password1.errors|join:", " }}</div>{% endif %}
-        </div>
-        <div class="form-group">
-          <label for="{{ form.password2.id_for_label }}">Repeat password</label>
-          <input type="password" name="password2" id="{{ form.password2.id_for_label }}"
-                 placeholder="Pakartokite slaptažodį" required>
+                 placeholder="Repeat password" required>
           <div id="pw-match" class="form-hint" style="display:none;"></div>
           {% if form.password2.errors %}<div class="form-error">{{ form.password2.errors|join:", " }}</div>{% endif %}
         </div>
