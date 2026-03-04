@@ -1,0 +1,124 @@
+{% extends "app/app_base.html" %}
+{% block app_title %}{{ project.name }}{% endblock %}
+{% block toolbar_title %}{{ project.name }}{% endblock %}
+
+{% block toolbar_actions %}
+<a href="{% url 'image_upload' %}?project={{ project.id }}" class="btn btn-secondary btn-sm">↑ Upload</a>
+{% if is_admin %}
+<a href="{% url 'team_management' project.id %}" class="btn btn-ghost btn-sm">⬔ Team</a>
+{% endif %}
+{% endblock %}
+
+{% block app_content %}
+<div class="page-header">
+  <div class="page-title">
+    <div class="flex items-center gap-3" style="margin-bottom:4px;">
+      <span style="font-size:28px;">{{ project.emoji }}</span>
+      <h1>{{ project.name }}</h1>
+    </div>
+    <p>
+      {{ project.get_annotation_type_display }}
+      · created {{ project.created_at|date:"Y-m-d" }}
+      · {{ project.image_count }} images
+      {% if user_role %} · <span class="badge badge-accent" style="font-size:10px;">{{ user_role }}</span>{% endif %}
+    </p>
+  </div>
+  <div class="page-actions">
+    <a href="{% url 'project_images' project.id %}" class="btn btn-secondary btn-sm">All images</a>
+    {% if is_admin %}<a href="{% url 'team_management' project.id %}" class="btn btn-primary btn-sm">Team</a>{% endif %}
+  </div>
+</div>
+
+{% if project.description %}
+<div class="card" style="margin-bottom:20px;">
+  <p style="font-size:14px;color:var(--text-muted);">{{ project.description }}</p>
+</div>
+{% endif %}
+
+<div class="dashboard-grid">
+  <!-- Images preview -->
+  <div class="card card-flat">
+    <div class="section-header" style="padding:18px 22px 0;">
+      <h2>Images</h2>
+      <a href="{% url 'project_images' project.id %}" class="btn btn-ghost btn-sm">All →</a>
+    </div>
+    <div style="padding:16px 18px;">
+      {% if images %}
+      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:8px;">
+        {% for image in images %}
+        <div style="aspect-ratio:4/3;background:var(--surface2);border-radius:8px;overflow:hidden;border:1px solid var(--border);">
+          {% if image.image_file %}
+          <img src="{{ image.image_file.url }}" alt="{{ image.name }}" style="width:100%;height:100%;object-fit:cover;" loading="lazy">
+          {% else %}
+          <div style="display:flex;align-items:center;justify-content:center;height:100%;font-size:20px;color:var(--text-dim);">⬡</div>
+          {% endif %}
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div class="empty-state" style="padding:32px 20px;">
+        <div class="empty-icon">⬡</div>
+        <h3>No images yet</h3>
+        <p>Upload the first images</p>
+        <a href="{% url 'image_upload' %}?project={{ project.id }}" class="btn btn-primary btn-sm mt-4">↑ Upload</a>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Info -->
+  <div>
+    <div class="card" style="margin-bottom:16px;">
+      <h3 style="font-size:13px;margin-bottom:14px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;font-family:'DM Mono',monospace;">
+        Project Info
+      </h3>
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        <div class="flex justify-between text-sm">
+          <span class="text-muted">Type</span>
+          <span>{{ project.get_annotation_type_display }}</span>
+        </div>
+        <div class="flex justify-between text-sm">
+          <span class="text-muted">Images</span>
+          <span class="font-mono">{{ project.image_count }}</span>
+        </div>
+        <div class="flex justify-between text-sm">
+          <span class="text-muted">Members</span>
+          <span class="font-mono">{{ project.member_count }}</span>
+        </div>
+        <div class="flex justify-between text-sm">
+          <span class="text-muted">Created</span>
+          <span class="font-mono">{{ project.created_at|date:"Y-m-d" }}</span>
+        </div>
+        <div class="flex justify-between text-sm">
+          <span class="text-muted">Updated</span>
+          <span class="font-mono">{{ project.updated_at|date:"Y-m-d" }}</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3 style="font-size:13px;margin-bottom:14px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;font-family:'DM Mono',monospace;">
+        Team
+      </h3>
+      {% for member in project.members.all %}
+      <div class="flex items-center gap-2" style="margin-bottom:10px;">
+        <div class="avatar avatar-sm avatar-c{{ forloop.counter0|divisibleby:5 }}">{{ member.get_initials }}</div>
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:13px;font-weight:600;">
+            {{ member.user.get_full_name|default:member.user.username }}
+          </div>
+          <div style="font-size:11px;color:var(--text-muted);">{{ member.get_role_display }}</div>
+        </div>
+      </div>
+      {% empty %}
+      <p class="text-sm text-muted">No members</p>
+      {% endfor %}
+      {% if is_admin %}
+      <a href="{% url 'team_management' project.id %}" class="btn btn-ghost btn-sm btn-full mt-2">
+        Manage team
+      </a>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}
