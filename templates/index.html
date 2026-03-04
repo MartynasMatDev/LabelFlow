@@ -5,8 +5,8 @@
 <nav class="web-nav">
   <a href="/" class="web-nav-logo">Label<em>Flow</em></a>
   <div class="web-nav-links">
-    <a href="#" class="btn btn-ghost">Sign in</a>
-    <a href="#" class="btn btn-primary">Get started free</a>
+    <a href="{% url 'login' %}" class="btn btn-ghost">Sign in</a>
+    <a href="{% url 'register' %}" class="btn btn-primary">Get started free</a>
   </div>
 </nav>
 
@@ -16,10 +16,13 @@
   <div style="position:relative; max-width:860px; margin:0 auto;" class="fade-up">
     <div class="hero-tag">◆ Image Annotation Platform</div>
     <h1>Data that trains<br><em>great AI</em></h1>
-    <p class="hero-lead">A professional annotation system for teams and researchers. Bounding boxes, polygons, classification — all in one tool.</p>
+    <p class="hero-lead">
+      A professional annotation system for teams and researchers.
+      Bounding boxes, polygons, classification — all in one tool.
+    </p>
     <div class="hero-cta">
-      <a href="#" class="btn btn-primary btn-lg">Create an account →</a>
-      <a href="#" class="btn btn-secondary btn-lg">Sign in</a>
+      <a href="{% url 'register' %}" class="btn btn-primary btn-lg">Create an account →</a>
+      <a href="{% url 'login' %}" class="btn btn-secondary btn-lg">Sign in</a>
     </div>
   </div>
 </section>
@@ -84,7 +87,7 @@
 <section class="cta-section">
   <h2>Get started today</h2>
   <p>Free account, unlimited projects. Perfect for students and teams alike.</p>
-  <a href="#" class="btn btn-primary btn-lg">Sign up for free</a>
+  <a href="{% url 'register' %}" class="btn btn-primary btn-lg">Sign up for free</a>
 </section>
 
 <footer class="web-footer">

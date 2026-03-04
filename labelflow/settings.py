@@ -16,6 +16,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+
     # Local apps
     'apps.accounts',
     'apps.projects',
@@ -33,6 +34,7 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
+# ✅ Project name fixed
 ROOT_URLCONF = 'labelflow.urls'
 
 TEMPLATES = [
@@ -55,6 +57,7 @@ TEMPLATES = [
     },
 ]
 
+# ✅ Project name fixed
 WSGI_APPLICATION = 'labelflow.wsgi.application'
 
 DATABASES = {
@@ -71,10 +74,16 @@ AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator'},
 ]
 
+# 🌍 Internationalization
 LANGUAGE_CODE = 'lt'
 TIME_ZONE = 'Europe/Vilnius'
 USE_I18N = True
 USE_TZ = True
+
+# ✅ Recommended for translations
+LOCALE_PATHS = [
+    BASE_DIR / 'locale',
+]
 
 STATIC_URL = '/static/'
 STATICFILES_DIRS = [BASE_DIR / 'static']
@@ -86,12 +95,12 @@ MEDIA_ROOT = BASE_DIR / 'media'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-# Auth redirects
+# 🔐 Auth redirects
 LOGIN_URL = '/accounts/login/'
 LOGIN_REDIRECT_URL = '/app/'
 LOGOUT_REDIRECT_URL = '/'
 
-# Messages
+# 💬 Messages
 from django.contrib.messages import constants as messages
 MESSAGE_TAGS = {
     messages.DEBUG: 'info',
