@@ -162,8 +162,3 @@ For detailed contribution guidelines, see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 This project is created for educational purposes.
 
----
-
-## 🤝 Contributing
-
-Please read [CONTRIBUTING.md](CONTRIBUTING.md) before creating branches or pull requests.

@@ -1,0 +1,169 @@
+{% extends "app/app_base.html" %}
+{% block app_title %}Profile{% endblock %}
+{% block toolbar_title %}My account{% endblock %}
+
+{% block app_content %}
+<div class="page-header">
+  <div class="page-title">
+    <h1>Profile and settings</h1>
+    <p>Manage your account and security</p>
+  </div>
+</div>
+
+<div class="profile-layout">
+  <!-- Left card -->
+  <div>
+    <div class="card profile-card" style="margin-bottom:16px;">
+      <div class="profile-avatar-wrap">
+        <div class="avatar avatar-xl avatar-c0" style="margin:0 auto;">
+          {{ request.user.first_name.0|default:request.user.username.0|upper }}{{ request.user.last_name.0|upper }}
+        </div>
+      </div>
+      <h2 style="margin-top:12px;font-size:18px;">{{ request.user.get_full_name|default:request.user.username }}</h2>
+      <div style="font-size:13px;color:var(--text-muted);margin-bottom:10px;">{{ request.user.email }}</div>
+      <span class="badge badge-accent">{{ user_role|default:"User" }}</span>
+
+      <div style="display:flex;justify-content:space-around;padding:14px 0 0;border-top:1px solid var(--border);margin-top:16px;">
+        <div style="text-align:center;">
+          <div style="font-family:'Syne',sans-serif;font-size:22px;font-weight:800;color:var(--text);">{{ project_count|default:"0" }}</div>
+          <div style="font-size:11px;color:var(--text-muted);">Projects</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3 style="font-size:13px;margin-bottom:12px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;font-family:'DM Mono',monospace;">Quick links</h3>
+      <div class="flex flex-col gap-2">
+        <a href="{% url 'project_list' %}" class="btn btn-ghost btn-full">◈ My projects</a>
+        <a href="{% url 'image_upload' %}" class="btn btn-ghost btn-full">⬡ Upload images</a>
+      </div>
+    </div>
+  </div>
+
+  <!-- Right tabs -->
+  <div data-tabs>
+    <div class="tab-bar">
+      <button class="tab-btn active" data-tab="profile" onclick="switchTab('profile')">Profile</button>
+      <button class="tab-btn" data-tab="security" onclick="switchTab('security')">Security</button>
+      <button class="tab-btn" data-tab="notifications" onclick="switchTab('notifications')">Notifications</button>
+    </div>
+
+    <!-- Profile tab -->
+    <div class="tab-pane active" id="tab-profile">
+      <form method="post">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="update_profile">
+        <div class="card" style="margin-bottom:16px;">
+          <h3 style="font-size:15px;margin-bottom:18px;">Personal information</h3>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px;">
+            <div class="form-group">
+              <label>First name</label>
+              <input type="text" name="first_name" value="{{ request.user.first_name }}" placeholder="First name">
+            </div>
+            <div class="form-group">
+              <label>Last name</label>
+              <input type="text" name="last_name" value="{{ request.user.last_name }}" placeholder="Last name">
+            </div>
+          </div>
+          <div class="form-group">
+            <label>Email</label>
+            <input type="email" name="email" value="{{ request.user.email }}" placeholder="email@example.com">
+          </div>
+          <div class="form-group">
+            <label>Username</label>
+            <input type="text" value="{{ request.user.username }}" disabled style="opacity:.6;cursor:not-allowed;">
+            <div class="form-hint">Username can not be changed</div>
+          </div>
+          <div class="form-group" style="margin-bottom:0;">
+            <label>Bio <span class="text-muted">(optional)</span></label>
+            <textarea name="bio" rows="2" placeholder="Add bio...">{{ profile_obj.bio }}</textarea>
+          </div>
+        </div>
+        <div class="card" style="margin-bottom:16px;">
+          <h3 style="font-size:15px;margin-bottom:18px;">Organization</h3>
+          <div class="form-group">
+            <label>Organization</label>
+            <input type="text" name="organization" value="{{ profile_obj.organization }}" placeholder="ex. Vilniaus Universitetas">
+          </div>
+          <div class="form-group" style="margin-bottom:0;">
+            <label>Job title</label>
+            <input type="text" name="job_title" value="{{ profile_obj.job_title }}" placeholder="ex. ML inžinierius">
+          </div>
+        </div>
+        <div class="flex gap-2 justify-end">
+          <button type="submit" class="btn btn-primary">Save changes</button>
+        </div>
+      </form>
+    </div>
+
+    <!-- Security tab -->
+    <div class="tab-pane" id="tab-security">
+      <form method="post">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="change_password">
+        <div class="card" style="margin-bottom:16px;">
+          <h3 style="font-size:15px;margin-bottom:18px;">Change password</h3>
+          <div class="form-group">
+            <label>Current password</label>
+            <input type="password" name="old_password" placeholder="Current password" required>
+          </div>
+          <div class="form-group">
+            <label>New password</label>
+            <input type="password" name="new_password1" placeholder="Password must be at least 8 characters long" required>
+          </div>
+          <div class="form-group" style="margin-bottom:0;">
+            <label>Repeat new password</label>
+            <input type="password" name="new_password2" placeholder="Repeat new password" required>
+          </div>
+        </div>
+        <div class="flex gap-2 justify-end">
+          <button type="submit" class="btn btn-primary">Change password</button>
+        </div>
+      </form>
+
+      <div class="danger-zone">
+        <h3>Danger zone</h3>
+        <p>Once the account is deleted all your data will be lost. You can not undo this action.</p>
+        <button class="btn btn-danger btn-sm" onclick="if(confirm('Are you sure you want to delete your account? All your data will be lost.')) window.location='/accounts/delete/'">Delete account</button>
+      </div>
+    </div>
+
+    <!-- Notifications tab -->
+    <div class="tab-pane" id="tab-notifications">
+      <form method="post">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="update_notifications">
+        <div class="card">
+          <h3 style="font-size:15px;margin-bottom:18px;">Email notifications</h3>
+          <div class="flex flex-col gap-4">
+            <div class="flex justify-between items-center">
+              <div>
+                <div style="font-size:14px;font-weight:500;">Team invites</div>
+                <div style="font-size:12px;color:var(--text-muted);">Notify when a team invite has been received</div>
+              </div>
+              <input type="checkbox" name="notify_team_invites" value="1" {% if profile_obj.notify_team_invites %}checked{% endif %} style="width:auto;">
+            </div>
+            <div class="flex justify-between items-center">
+              <div>
+                <div style="font-size:14px;font-weight:500;">Comments</div>
+                <div style="font-size:12px;color:var(--text-muted);">Notify when a new comment has been added to your annotation</div>
+              </div>
+              <input type="checkbox" name="notify_comments" value="1" {% if profile_obj.notify_comments %}checked{% endif %} style="width:auto;">
+            </div>
+            <div class="flex justify-between items-center">
+              <div>
+                <div style="font-size:14px;font-weight:500;">Weekly report</div>
+                <div style="font-size:12px;color:var(--text-muted);">Send a weekly report to email</div>
+              </div>
+              <input type="checkbox" name="notify_weekly" value="1" {% if profile_obj.notify_weekly %}checked{% endif %} style="width:auto;">
+            </div>
+          </div>
+        </div>
+        <div class="flex gap-2 justify-end mt-4">
+          <button type="submit" class="btn btn-primary">Save</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

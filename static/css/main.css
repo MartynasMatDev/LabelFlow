@@ -1084,3 +1084,12 @@ hr, .divider { border: none; border-top: 1px solid var(--border); margin: 22px 0
   .toolbar { grid-column: 1; }
   .app-content { grid-column: 1; padding: 16px; }
 }
+.image-card-link * {
+  color: var(--text) !important;
+}
+.image-card-link:visited,
+.image-card-link:hover,
+.image-card-link:active {
+  color: inherit;
+  text-decoration: none;
+}
