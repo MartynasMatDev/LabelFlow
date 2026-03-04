@@ -55,7 +55,6 @@
   </label>
 
   <span style="flex:1;"></span>
-
   <div class="view-toggle">
     <button type="button" class="view-btn active" id="btn-grid" onclick="setView('grid')" title="Tinklelis">⊞</button>
     <button type="button" class="view-btn" id="btn-list" onclick="setView('list')" title="Sąrašas">≡</button>
@@ -94,6 +93,7 @@
   </a>
   {% endfor %}
 </div>
+
 <!-- LIST VIEW -->
 <div class="image-list-view" id="image-list-view">
   <div class="card card-flat">
@@ -105,41 +105,41 @@
       <div style="width:60px;"></div>
     </div>
     {% for image in images %}
-<div class="image-list-row">
-  <div class="image-list-thumb">
-    {% if image.image_file %}
-      <img src="{{ image.image_file.url }}" alt="">
-    {% endif %}
-  </div>
+    <div class="image-list-row">
+      <div class="image-list-thumb">
+        {% if image.image_file %}
+          <img src="{{ image.image_file.url }}" alt="">
+        {% endif %}
+      </div>
 
-  <div class="image-list-name truncate">
-    {{ image.name }}
-  </div>
+      <div class="image-list-name truncate">
+        {{ image.name }}
+      </div>
 
-  <div class="image-list-status">
-    <span class="status-dot {{ image.status }}"></span>
-    {{ image.get_status_display }}
-  </div>
+      <div class="image-list-status">
+        <span class="status-dot {{ image.status }}"></span>
+        {{ image.get_status_display }}
+      </div>
 
-  <div class="image-list-date">
-    {{ image.uploaded_at|date:"Y-m-d" }}
-  </div>
+      <div class="image-list-date">
+        {{ image.uploaded_at|date:"Y-m-d" }}
+      </div>
 
-  <div style="width:60px;text-align:right;">
-    {% if project %}
-    <form method="post"
-          action="{% url 'image_delete' image.id %}"
-          style="display:inline;"
-          onsubmit="return confirm('Ištrinti „{{ image.name }}“?')">
-      {% csrf_token %}
-      <button type="submit"
-              class="btn btn-icon btn-danger btn-sm"
-              title="Ištrinti">✕</button>
-    </form>
-    {% endif %}
-  </div>
-</div>
-{% endfor %}
+      <div style="width:60px;text-align:right;">
+        {% if project %}
+        <form method="post"
+              action="{% url 'image_delete' image.id %}"
+              style="display:inline;"
+              onsubmit="return confirm('Ištrinti „{{ image.name }}“?')">
+          {% csrf_token %}
+          <button type="submit"
+                  class="btn btn-icon btn-danger btn-sm"
+                  title="Ištrinti">✕</button>
+        </form>
+        {% endif %}
+      </div>
+    </div>
+    {% endfor %}
   </div>
 </div>
 
