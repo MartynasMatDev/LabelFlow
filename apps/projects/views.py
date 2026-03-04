@@ -94,35 +94,35 @@ def team_management(request, project_id):
     if request.method == 'POST':
         action = request.POST.get('action')
 
+        # ── Add member ──────────────────────────────
         if action == 'add_member':
             username = request.POST.get('username', '').strip()
             role     = request.POST.get('role', 'annotator')
+
             try:
                 user = User.objects.get(username=username)
-                if user == request.user:
-                    messages.warning(request, 'You are already a member of this project.')
-                else:
-                    _, created = ProjectMember.objects.get_or_create(
-                        project=project, user=user,
-                        defaults={'role': role}
-                    )
-                    if created:
-                        messages.success(request, f'Member {user.get_full_name() or user.username} added.')
-                    else:
-                        messages.warning(request, f'{user.username} jis already member of this project')
             except User.DoesNotExist:
-                messages.error(request, f'User „{username}" not found.')
+                messages.error(request, f'User "{username}" not found.')
+                return redirect('team_management', project_id=project.id)
 
+            if ProjectMember.objects.filter(project=project, user=user).exists():
+                messages.warning(request, f'{user.username} is already a member of this project.')
+            else:
+                ProjectMember.objects.create(project=project, user=user, role=role)
+                messages.success(request, f'{user.get_full_name() or user.username} added to the team.')
+
+        # ── Remove member ───────────────────────────
         elif action == 'remove_member':
             member_id = request.POST.get('member_id')
             membership = get_object_or_404(ProjectMember, id=member_id, project=project)
             if membership.user == project.created_by:
-                messages.error(request, 'Cannot remove creator from this project.')
+                messages.error(request, 'Cannot remove the project creator.')
             else:
                 name = membership.user.get_full_name() or membership.user.username
                 membership.delete()
-                messages.success(request, f'Narys {name} pašalintas.')
+                messages.success(request, f'{name} has been removed from the team.')
 
+        # ── Change role ────────────────────────────
         elif action == 'change_role':
             member_id = request.POST.get('member_id')
             new_role  = request.POST.get('role')
@@ -134,6 +134,7 @@ def team_management(request, project_id):
 
         return redirect('team_management', project_id=project.id)
 
+    # ── GET: Show members ───────────────────────
     members = project.members.select_related('user').all()
     ctx = {
         'active_nav': 'team',
