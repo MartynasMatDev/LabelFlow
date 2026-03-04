@@ -1,0 +1,18 @@
+{% extends "app/app_base.html" %}
+
+{% block app_title %}{{ image.name }}{% endblock %}
+
+{% block app_content %}
+<div class="page-header">
+  <h1>{{ image.name }}</h1>
+  <p>Statusas: {{ image.get_status_display }}</p>
+</div>
+
+<div class="card">
+  {% if image.image_file %}
+    <img src="{{ image.image_file.url }}" style="max-width:100%;">
+  {% endif %}
+</div>
+
+<a href="{% url 'image_list' %}" class="btn btn-secondary mt-4">← Atgal</a>
+{% endblock %}
