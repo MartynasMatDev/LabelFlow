@@ -1,9 +1,10 @@
 {% extends "app/app_base.html" %}
+
 {% block app_title %}Team — {{ project.name }}{% endblock %}
 {% block toolbar_title %}{{ project.name }} — Team{% endblock %}
 
 {% block toolbar_actions %}
-<button class="btn btn-primary btn-sm" onclick="openModal('add-member-modal')">+ Add member</button>
+<button class="btn btn-primary btn-sm" data-open-modal="add-member-modal">+ Add Member</button>
 {% endblock %}
 
 {% block app_content %}
@@ -14,7 +15,7 @@
   </div>
   <div class="page-actions">
     <a href="{% url 'project_detail' project.id %}" class="btn btn-ghost btn-sm">← Project</a>
-    <button class="btn btn-primary btn-sm" onclick="openModal('add-member-modal')">+ Add member</button>
+    <button class="btn btn-primary btn-sm" data-open-modal="add-member-modal">+ Add Member</button>
   </div>
 </div>
 
@@ -33,12 +34,8 @@
           <div class="member-row-info">
             <div class="member-row-name">
               {{ member.user.get_full_name|default:member.user.username }}
-              {% if member.user == request.user %}
-                <span class="badge badge-accent" style="font-size:10px;margin-left:6px;">You</span>
-              {% endif %}
-              {% if member.user == project.created_by %}
-                <span class="badge badge-muted" style="font-size:10px;margin-left:4px;">Creator</span>
-              {% endif %}
+              {% if member.user == request.user %}<span class="badge badge-accent" style="font-size:10px;margin-left:6px;">You</span>{% endif %}
+              {% if member.user == project.created_by %}<span class="badge badge-muted" style="font-size:10px;margin-left:4px;">Creator</span>{% endif %}
             </div>
             <div class="member-row-email">{{ member.user.email }}</div>
           </div>
@@ -55,8 +52,7 @@
                 {% endfor %}
               </select>
             </form>
-            <form method="post" style="display:inline;"
-                  onsubmit="return confirm('Remove {{ member.user.get_full_name|default:member.user.username }} from the project?')">
+            <form method="post" style="display:inline;" onsubmit="return confirm('Remove {{ member.user.get_full_name|default:member.user.username }} from the project?')">
               {% csrf_token %}
               <input type="hidden" name="action" value="remove_member">
               <input type="hidden" name="member_id" value="{{ member.id }}">
@@ -73,7 +69,7 @@
         <div class="empty-state" style="padding:40px 20px;">
           <div class="empty-icon">⬔</div>
           <h3>No members</h3>
-          <p>Add the first team members</p>
+          <p>Add your first team members</p>
         </div>
         {% endfor %}
       </div>
@@ -83,17 +79,15 @@
   <!-- Sidebar info -->
   <div>
     <div class="card" style="margin-bottom:16px;">
-      <h3 style="font-size:13px;margin-bottom:14px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;font-family:'DM Mono',monospace;">
-        Roles
-      </h3>
+      <h3 style="font-size:13px;margin-bottom:14px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;font-family:'DM Mono',monospace;">Roles</h3>
 
       <div class="role-info-card">
         <h4><span class="badge badge-accent" style="font-size:10px;">Admin</span> Administrator</h4>
-        <p>Full access: project settings, member management, data deletion, exporting.</p>
+        <p>Full access: project settings, member management, data deletion, export.</p>
       </div>
       <div class="role-info-card">
         <h4><span class="badge badge-success" style="font-size:10px;">Ann</span> Annotator</h4>
-        <p>Can upload images and create and edit annotations.</p>
+        <p>Can upload images and create or edit annotations.</p>
       </div>
       <div class="role-info-card" style="margin-bottom:0;">
         <h4><span class="badge badge-muted" style="font-size:10px;">Rev</span> Reviewer</h4>
@@ -102,9 +96,7 @@
     </div>
 
     <div class="card">
-      <h3 style="font-size:13px;margin-bottom:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;font-family:'DM Mono',monospace;">
-        Project Info
-      </h3>
+      <h3 style="font-size:13px;margin-bottom:10px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;font-family:'DM Mono',monospace;">Project Info</h3>
       <div class="flex flex-col gap-2 text-sm">
         <div class="flex justify-between">
           <span class="text-muted">Project</span>
@@ -129,7 +121,7 @@
   <div class="modal">
     <div class="modal-header">
       <h2>Add Team Member</h2>
-      <button class="modal-close" onclick="closeModal('add-member-modal')">✕</button>
+      <button class="modal-close">✕</button>
     </div>
     <form method="post" action="{% url 'team_management' project.id %}">
       {% csrf_token %}
@@ -137,7 +129,7 @@
       <div class="form-group">
         <label>Username</label>
         <input type="text" name="username" placeholder="e.g. john123" required autofocus>
-        <div class="form-hint">The user must have an account in the LabelFlow system.</div>
+        <div class="form-hint">User must have an account in LabelFlow.</div>
       </div>
       <div class="form-group">
         <label>Role</label>
@@ -148,8 +140,8 @@
         </select>
       </div>
       <div class="modal-footer">
-        <button type="button" class="btn btn-ghost" onclick="closeModal('add-member-modal')">Cancel</button>
-        <button type="submit" class="btn btn-primary">Add member →</button>
+        <button type="button" class="btn btn-ghost modal-close">Cancel</button>
+        <button type="submit" class="btn btn-primary">Add Member →</button>
       </div>
     </form>
   </div>
