@@ -1,0 +1,138 @@
+{% extends "app/app_base.html" %}
+{% block app_title %}Paveikslėliai{% endblock %}
+{% block toolbar_title %}{% if project %}{{ project.name }} — Paveikslėliai{% else %}Visi paveikslėliai{% endif %}{% endblock %}
+
+{% block toolbar_actions %}
+<a href="{% url 'image_upload' %}{% if project %}?project={{ project.id }}{% endif %}" class="btn btn-primary btn-sm">↑ Įkelti</a>
+{% endblock %}
+
+{% block app_content %}
+<div class="page-header">
+  <div class="page-title">
+    <h1>{% if project %}{{ project.name }}{% else %}Paveikslėliai{% endif %}</h1>
+    <p>{{ image_count }} paveikslėlis(-iai) rasta</p>
+  </div>
+  <div class="page-actions">
+    <a href="{% url 'image_upload' %}{% if project %}?project={{ project.id }}{% endif %}" class="btn btn-primary btn-sm">↑ Įkelti paveikslėlius</a>
+  </div>
+</div>
+
+<!-- Filters -->
+<form method="get" class="filters-bar">
+  <div class="search-wrap">
+    <span class="search-icon">⌕</span>
+    <input type="search" name="q" value="{{ q }}" placeholder="Ieškoti pavedinime...">
+  </div>
+  <input type="date" name="start_date" value="{{ start_date }}">
+  <input type="date" name="end_date" value="{{ end_date }}">
+  <select name="status" onchange="this.form.submit()">
+    <option value="">Visi statusai</option>
+    <option value="pending"  {% if status_filter == 'pending' %}selected{% endif %}>Laukia</option>
+    <option value="partial"  {% if status_filter == 'partial' %}selected{% endif %}>Dalinai</option>
+    <option value="done"     {% if status_filter == 'done' %}selected{% endif %}>Anotavota</option>
+  </select>
+  <select name="sort" onchange="this.form.submit()">
+    <option value="-uploaded_at" {% if sort == '-uploaded_at' %}selected{% endif %}>Naujausi</option>
+    <option value="name"         {% if sort == 'name' %}selected{% endif %}>Pavadinimas ↑</option>
+    <option value="-name"        {% if sort == '-name' %}selected{% endif %}>Pavadinimas ↓</option>
+    <option value="status"       {% if sort == 'status' %}selected{% endif %}>Statusas</option>
+  </select>
+  <span style="flex:1;"></span>
+  <div class="view-toggle">
+    <button type="button" class="view-btn active" id="btn-grid" onclick="setView('grid')" title="Tinklelis">⊞</button>
+    <button type="button" class="view-btn" id="btn-list" onclick="setView('list')" title="Sąrašas">≡</button>
+  </div>
+</form>
+
+{% if images %}
+
+<!-- GRID VIEW -->
+<div class="image-grid stagger" id="image-grid-view">
+  {% for image in images %}
+  <a href="{% url 'image_detail' image.id %}"
+     class="image-grid-card image-card-link"
+     aria-label="{{ image.name }}">
+
+    <div class="image-thumb">
+      {% if image.image_file %}
+        <img src="{{ image.image_file.url }}"
+             alt="{{ image.name }}"
+             loading="lazy">
+      {% else %}
+        <span class="image-thumb-ph">⬡</span>
+      {% endif %}
+      <span class="image-status-dot {{ image.status }}"></span>
+    </div>
+
+    <div class="image-info">
+      <div class="image-name truncate">{{ image.name }}</div>
+      <div class="image-meta">
+        {% if image.resolution != '—' %}{{ image.resolution }} · {% endif %}
+        <span class="status-dot {{ image.status }}"></span>
+        {{ image.get_status_display }}
+      </div>
+    </div>
+
+  </a>
+  {% endfor %}
+</div>
+<!-- LIST VIEW -->
+<div class="image-list-view" id="image-list-view">
+  <div class="card card-flat">
+    <div style="display:flex;padding:9px 18px;border-bottom:1px solid var(--border);background:var(--surface2);">
+      <div style="width:64px;flex-shrink:0;"></div>
+      <div style="flex:1;font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;">Pavadinimas</div>
+      <div style="width:110px;font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;">Statusas</div>
+      <div style="width:120px;text-align:right;font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;">Įkelta</div>
+      <div style="width:60px;"></div>
+    </div>
+    {% for image in images %}
+<div class="image-list-row">
+  <div class="image-list-thumb">
+    {% if image.image_file %}
+      <img src="{{ image.image_file.url }}" alt="">
+    {% endif %}
+  </div>
+
+  <div class="image-list-name truncate">
+    {{ image.name }}
+  </div>
+
+  <div class="image-list-status">
+    <span class="status-dot {{ image.status }}"></span>
+    {{ image.get_status_display }}
+  </div>
+
+  <div class="image-list-date">
+    {{ image.uploaded_at|date:"Y-m-d" }}
+  </div>
+
+  <div style="width:60px;text-align:right;">
+    {% if project %}
+    <form method="post"
+          action="{% url 'image_delete' image.id %}"
+          style="display:inline;"
+          onsubmit="return confirm('Ištrinti „{{ image.name }}“?')">
+      {% csrf_token %}
+      <button type="submit"
+              class="btn btn-icon btn-danger btn-sm"
+              title="Ištrinti">✕</button>
+    </form>
+    {% endif %}
+  </div>
+</div>
+{% endfor %}
+  </div>
+</div>
+
+{% else %}
+<div class="empty-state">
+  <div class="empty-icon">⬡</div>
+  <h3>{% if q or status_filter %}Nerasta paveikslėlių{% else %}Dar nėra paveikslėlių{% endif %}</h3>
+  <p>{% if q or status_filter %}Pabandykite pakeisti filtrus{% else %}Įkelkite paveikslėlius, kad pradėtumėte anotavimą{% endif %}</p>
+  {% if not q and not status_filter %}
+  <a href="{% url 'image_upload' %}{% if project %}?project={{ project.id }}{% endif %}" class="btn btn-primary mt-4">↑ Įkelti paveikslėlius</a>
+  {% endif %}
+</div>
+{% endif %}
+{% endblock %}
