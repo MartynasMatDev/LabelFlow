@@ -7,6 +7,7 @@ from apps.projects.models import Project
 from .models import Image
 from datetime import datetime
 
+
 def _user_projects(user):
     return Project.objects.filter(
         Q(members__user=user) | Q(created_by=user)
