@@ -37,18 +37,20 @@
     <div class="card" style="margin-bottom:16px;">
       <h3 style="font-size:15px;margin-bottom:18px;">Failai</h3>
 
-      <div class="drop-zone" id="drop-zone">
+    <div class="drop-zone" id="drop-zone" style="position:relative;padding:18px 12px 90px 12px;border-radius:8px;">
         <div class="drop-zone-icon">⬡</div>
         <p style="font-size:15px;font-weight:600;margin-bottom:6px;">Vilkite failus čia</p>
-        <p style="font-size:13px;color:var(--text-muted);margin-bottom:16px;">PNG, JPG, JPEG, WebP, BMP — iki 20MB vienas failas</p>
+        <p style="font-size:13px;color:var(--text-muted);margin-bottom:16px;">
+        PNG, JPG, JPEG, WebP, BMP — iki 20MB vienas failas
+        </p>
         <label for="file-input" class="btn btn-secondary btn-sm" style="cursor:pointer;">Pasirinkti failus</label>
         <input type="file" id="file-input" name="image_files" multiple accept="image/*" style="display:none;">
-      </div>
 
-      <div id="file-preview-wrap" style="display:none;margin-top:14px;">
-        <div id="upload-file-count" style="font-size:13px;color:var(--text-muted);margin-bottom:8px;"></div>
-        <div id="file-preview-grid" style="display:flex;flex-wrap:wrap;gap:8px;"></div>
-      </div>
+        <!-- Preview placed INSIDE the drop-zone -->
+        <div id="file-preview-wrap" style="display:none;position:absolute;left:12px;right:12px;bottom:12px;">
+            <div id="upload-file-count" style="font-size:13px;color:var(--text-muted);margin-bottom:8px;"></div>
+            <div id="file-preview-grid" style="display:flex;flex-wrap:wrap;gap:8px;"></div>
+        </div>
     </div>
 
     <div class="flex gap-2" style="justify-content:flex-end;">
@@ -73,10 +75,16 @@ document.addEventListener('DOMContentLoaded', () => {
   const submitBtn = document.getElementById('upload-submit');
 
   input.addEventListener('change', () => {
-    const hasFiles = input.files.length > 0;
+    const files = input.files;
 
+    const hasFiles = files.length > 0;
     previewWrap.style.display = hasFiles ? '' : 'none';
-    submitBtn.disabled = !hasFiles;   // 🔥 THIS enables the upload button
+     submitBtn.disabled = !hasFiles;
+
+
+    if (typeof handleFilePreview === "function") {
+     handleFilePreview(files, "file-preview-grid");
+    }
   });
 
 });
