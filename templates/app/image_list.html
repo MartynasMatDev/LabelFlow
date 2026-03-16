@@ -1,10 +1,8 @@
 {% extends "app/app_base.html" %}
 {% block app_title %}Images{% endblock %}
-{% block toolbar_title %}{% if project %}{{ project.name }} — Paveikslėliai{% else %}Visi paveikslėliai{% endif %}{% endblock %}
-
+{% block toolbar_title %}{% if project %}{{ project.name }} — Images{% else %}All images{% endif %}{% endblock %}
 {% block toolbar_actions %}
-<a href="{% url 'image_upload' %}{% if project %}?project={{ project.id }}{% endif %}" class="btn btn-primary btn-sm">↑ Įkelti</a>
-{% endblock %}
+<a href="{% url 'image_upload' %}{% if project %}?project={{ project.id }}{% endif %}" class="btn btn-primary btn-sm">↑ Upload</a>{% endblock %}
 
 {% block app_content %}
 <div class="page-header">
@@ -24,20 +22,20 @@
     <input type="search" name="q" value="{{ q }}" placeholder="Looking in name...">
   </div>
   <select name="status" onchange="this.form.submit()">
-    <option value="">Visi statusai</option>
-    <option value="pending"  {% if status_filter == 'pending' %}selected{% endif %}>Laukia</option>
-    <option value="partial"  {% if status_filter == 'partial' %}selected{% endif %}>Dalinai</option>
-    <option value="done"     {% if status_filter == 'done' %}selected{% endif %}>Anotavota</option>
+    <option value="">All statuses</option>
+    <option value="pending"  {% if status_filter == 'pending' %}selected{% endif %}>Pending</option>
+    <option value="partial"  {% if status_filter == 'partial' %}selected{% endif %}>Partial</option>
+    <option value="done"     {% if status_filter == 'done' %}selected{% endif %}>Annotated</option>
   </select>
   <select name="sort" onchange="this.form.submit()">
-    <option value="-uploaded_at" {% if sort == '-uploaded_at' %}selected{% endif %}>Naujausi</option>
-    <option value="name"         {% if sort == 'name' %}selected{% endif %}>Pavadinimas ↑</option>
-    <option value="-name"        {% if sort == '-name' %}selected{% endif %}>Pavadinimas ↓</option>
-    <option value="status"       {% if sort == 'status' %}selected{% endif %}>Statusas</option>
+    <option value="-uploaded_at" {% if sort == '-uploaded_at' %}selected{% endif %}>Newest</option>
+    <option value="name"         {% if sort == 'name' %}selected{% endif %}>Name ↑</option>
+    <option value="-name"        {% if sort == '-name' %}selected{% endif %}>Name ↓</option>
+    <option value="status"       {% if sort == 'status' %}selected{% endif %}>Status</option>
   </select>
       <!-- Tag filter -->
   <select name="tag" onchange="this.form.submit()">
-    <option value="">Visos žymos</option>
+    <option value="">All tags</option>
     {% for tag in all_tags %}
     <option value="{{ tag.id }}" {% if tag_filter == tag.id|stringformat:"s" %}selected{% endif %}>{{ tag.name }}</option>
     {% endfor %}
@@ -101,10 +99,10 @@
   <div class="card card-flat">
     <div style="display:flex;padding:9px 18px;border-bottom:1px solid var(--border);background:var(--surface2);">
       <div style="width:64px;flex-shrink:0;"></div>
-      <div style="flex:1;font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;">Pavadinimas</div>
+      <div style="flex:1;font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;">Name</div>
         <div style="width:160px;font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;">Tags</div>
-      <div style="width:110px;font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;">Statusas</div>
-      <div style="width:120px;text-align:right;font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;">Įkelta</div>
+      <div style="width:110px;font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;">Status</div>
+      <div style="width:120px;text-align:right;font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;">Uploaded</div>
       <div style="width:60px;"></div>
     </div>
     {% for image in images %}
@@ -136,11 +134,11 @@
     <form method="post"
           action="{% url 'image_delete' image.id %}"
           style="display:inline;"
-          onsubmit="return confirm('Ištrinti „{{ image.name }}“?')">
+          onsubmit="return confirm('Delete „{{ image.name }}“?')">
       {% csrf_token %}
       <button type="submit"
               class="btn btn-icon btn-danger btn-sm"
-              title="Ištrinti">✕</button>
+              title="Delete">✕</button>
     </form>
     {% endif %}
   </div>
@@ -152,28 +150,27 @@
 {% else %}
 <div class="empty-state">
   <div class="empty-icon">⬡</div>
-  <h3>{% if q or status_filter %}Nerasta paveikslėlių{% else %}Dar nėra paveikslėlių{% endif %}</h3>
-  <p>{% if q or status_filter %}Pabandykite pakeisti filtrus{% else %}Įkelkite paveikslėlius, kad pradėtumėte anotavimą{% endif %}</p>
-  {% if not q and not status_filter %}
-  <a href="{% url 'image_upload' %}{% if project %}?project={{ project.id }}{% endif %}" class="btn btn-primary mt-4">↑ Įkelti paveikslėlius</a>
+    <h3>{% if q or status_filter %}No images found{% else %}No images yet{% endif %}</h3>
+    <p>{% if q or status_filter %}Try adjusting your filters{% else %}Upload images to start annotating{% endif %}</p>  {% if not q and not status_filter %}
+  <a href="{% url 'image_upload' %}{% if project %}?project={{ project.id }}{% endif %}" class="btn btn-primary mt-4">↑ Upload images</a>
   {% endif %}
 </div>
 {% endif %}
     <!-- ─── BATCH ACTION BAR ──────────────────────────────── -->
 <div class="batch-bar" id="batch-bar">
-  <span class="batch-count"><span id="batch-count-num">0</span> pasirinkta</span>
-  <button type="button" class="btn btn-secondary btn-sm" onclick="selectAll(true)">Visi</button>
-  <button type="button" class="btn btn-ghost btn-sm"     onclick="selectAll(false)">Nieko</button>
+  <span class="batch-count"><span id="batch-count-num">0</span> selected</span>
+  <button type="button" class="btn btn-secondary btn-sm" onclick="selectAll(true)">All</button>
+  <button type="button" class="btn btn-ghost btn-sm"     onclick="selectAll(false)">None</button>
   <div style="width:1px;height:22px;background:var(--border);"></div>
-  <button type="button" class="btn btn-primary btn-sm"   onclick="openTagModal('add')">＋ Pridėti žymą</button>
-  <button type="button" class="btn btn-danger btn-sm"    onclick="openTagModal('remove')">− Pašalinti žymą</button>
+  <button type="button" class="btn btn-primary btn-sm"   onclick="openTagModal('add')">＋ Add Tag</button>
+  <button type="button" class="btn btn-danger btn-sm"    onclick="openTagModal('remove')">− Remove Tag</button>
 </div>
 
 <!-- ─── TAG MODAL ────────────────────────────────────── -->
 <div class="modal-overlay" id="tag-modal">
   <div class="modal" style="max-width:420px;">
     <div class="modal-header">
-      <h2 id="tag-modal-title">Pridėti žymą</h2>
+      <h2 id="tag-modal-title">Add tag</h2>
       <button class="modal-close" onclick="closeTagModal()">✕</button>
     </div>
 
@@ -186,7 +183,7 @@
       <!-- Existing tags -->
       {% if all_tags %}
       <div class="form-group">
-        <label>Esamos žymos</label>
+        <label>Existing tags</label>
         <div class="tag-pick-list">
           {% for tag in all_tags %}
           <label class="tag-pick-item">
@@ -200,17 +197,17 @@
 
       <!-- Create new tag -->
       <div class="form-group" id="new-tag-group">
-        <label>Nauja žyma</label>
+        <label>New tag</label>
         <div style="display:flex;gap:8px;">
           <input type="text" name="new_tag" id="new-tag-input" placeholder="Žymos pavadinimas..." style="flex:1;">
           <input type="color" name="new_tag_color" value="#6366f1" style="width:42px;height:42px;padding:2px;border-radius:8px;cursor:pointer;border:1px solid var(--border-hover);background:var(--surface2);">
         </div>
-        <p class="form-hint">Palikite tuščią, jei naudojate esamą žymą.</p>
+        <p class="form-hint">Leave empty if using an existing tag.</p>
       </div>
 
       <div class="modal-footer">
-        <button type="button" class="btn btn-ghost" onclick="closeTagModal()">Atšaukti</button>
-        <button type="submit" class="btn btn-primary" id="tag-submit-btn">Pridėti</button>
+        <button type="button" class="btn btn-ghost" onclick="closeTagModal()">Cancel</button>
+        <button type="submit" class="btn btn-primary" id="tag-submit-btn">Add</button>
       </div>
     </form>
   </div>
@@ -254,10 +251,9 @@ function openTagModal(action) {
 
   document.getElementById('tag-action').value = action;
   document.getElementById('tag-modal-title').textContent =
-    action === 'remove' ? 'Pašalinti žymą' : 'Pridėti žymą';
+    action === 'remove' ? 'Remove tag' : 'Add tag';
   document.getElementById('tag-submit-btn').textContent =
-    action === 'remove' ? 'Pašalinti' : 'Pridėti';
-
+        action === 'remove' ? 'Remove' : 'Add';
   const form = document.getElementById('tag-form');
   form.classList.toggle('hide-new-tag', action === 'remove');
 
