@@ -14,9 +14,9 @@ class Tag(models.Model):
 
 class Image(models.Model):
     STATUS_CHOICES = [
-        ('pending',  'Laukia anotavimo'),
-        ('partial',  'Dalinai anotavota'),
-        ('done',     'Anotavota'),
+        ('pending',  'Pending annotation'),
+        ('partial',  'Partially annotated'),
+        ('done',     'Annotated'),
     ]
 
     project     = models.ForeignKey(Project, on_delete=models.CASCADE, related_name='images')
