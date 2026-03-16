@@ -1,5 +1,5 @@
 {% extends "app/app_base.html" %}
-{% block app_title %}Paveikslėliai{% endblock %}
+{% block app_title %}Images{% endblock %}
 {% block toolbar_title %}{% if project %}{{ project.name }} — Paveikslėliai{% else %}Visi paveikslėliai{% endif %}{% endblock %}
 
 {% block toolbar_actions %}
@@ -9,11 +9,11 @@
 {% block app_content %}
 <div class="page-header">
   <div class="page-title">
-    <h1>{% if project %}{{ project.name }}{% else %}Paveikslėliai{% endif %}</h1>
-    <p>{{ image_count }} paveikslėlis(-iai) rasta</p>
+    <h1>{% if project %}{{ project.name }}{% else %}Images{% endif %}</h1>
+    <p>{{ image_count }} image(s) found</p>
   </div>
   <div class="page-actions">
-    <a href="{% url 'image_upload' %}{% if project %}?project={{ project.id }}{% endif %}" class="btn btn-primary btn-sm">↑ Įkelti paveikslėlius</a>
+    <a href="{% url 'image_upload' %}{% if project %}?project={{ project.id }}{% endif %}" class="btn btn-primary btn-sm">↑ Upload images</a>
   </div>
 </div>
 
@@ -21,7 +21,7 @@
 <form method="get" class="filters-bar">
   <div class="search-wrap">
     <span class="search-icon">⌕</span>
-    <input type="search" name="q" value="{{ q }}" placeholder="Ieškoti pavedinime...">
+    <input type="search" name="q" value="{{ q }}" placeholder="Looking in name...">
   </div>
   <select name="status" onchange="this.form.submit()">
     <option value="">Visi statusai</option>
@@ -35,6 +35,13 @@
     <option value="-name"        {% if sort == '-name' %}selected{% endif %}>Pavadinimas ↓</option>
     <option value="status"       {% if sort == 'status' %}selected{% endif %}>Statusas</option>
   </select>
+      <!-- Tag filter -->
+  <select name="tag" onchange="this.form.submit()">
+    <option value="">Visos žymos</option>
+    {% for tag in all_tags %}
+    <option value="{{ tag.id }}" {% if tag_filter == tag.id|stringformat:"s" %}selected{% endif %}>{{ tag.name }}</option>
+    {% endfor %}
+  </select>
   <span style="flex:1;"></span>
   <div class="view-toggle">
     <button type="button" class="view-btn active" id="btn-grid" onclick="setView('grid')" title="Tinklelis">⊞</button>
@@ -47,9 +54,17 @@
 <!-- GRID VIEW -->
 <div class="image-grid stagger" id="image-grid-view">
   {% for image in images %}
-  <a href="{% url 'image_detail' image.id %}"
-     class="image-grid-card image-card-link"
-     aria-label="{{ image.name }}">
+    <div class="image-grid-card" data-id="{{ image.id }}">
+
+    <!-- Checkbox overlay -->
+    <label class="img-check-wrap" onclick="event.stopPropagation()">
+      <input type="checkbox" class="img-checkbox" value="{{ image.id }}" onchange="onCheckChange()">
+      <span class="img-check-box"></span>
+    </label>
+
+    <a href="{% url 'image_detail' image.id %}"
+       class="image-card-link"
+       aria-label="{{ image.name }}">
 
     <div class="image-thumb">
       {% if image.image_file %}
@@ -63,34 +78,45 @@
     </div>
 
     <div class="image-info">
-      <div class="image-name truncate">{{ image.name }}</div>
-      <div class="image-meta">
-        {% if image.resolution != '—' %}{{ image.resolution }} · {% endif %}
-        <span class="status-dot {{ image.status }}"></span>
-        {{ image.get_status_display }}
+        <div class="image-name truncate">{{ image.name }}</div>
+        {% if image.tags.all %}
+        <div class="tag-chips">
+          {% for tag in image.tags.all %}
+          <span class="tag-chip" style="--tc: {{ tag.color }}">{{ tag.name }}</span>
+          {% endfor %}
+        </div>
+        {% endif %}
+        <div class="image-meta">
+          {% if image.resolution != '—' %}{{ image.resolution }} · {% endif %}
+          <span class="status-dot {{ image.status }}"></span>
+          {{ image.get_status_display }}
+        </div>
       </div>
-    </div>
-
-  </a>
+    </a>
+  </div>
   {% endfor %}
-</div>
+  </div>
 <!-- LIST VIEW -->
 <div class="image-list-view" id="image-list-view">
   <div class="card card-flat">
     <div style="display:flex;padding:9px 18px;border-bottom:1px solid var(--border);background:var(--surface2);">
       <div style="width:64px;flex-shrink:0;"></div>
       <div style="flex:1;font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;">Pavadinimas</div>
+        <div style="width:160px;font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;">Tags</div>
       <div style="width:110px;font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;">Statusas</div>
       <div style="width:120px;text-align:right;font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;">Įkelta</div>
       <div style="width:60px;"></div>
     </div>
     {% for image in images %}
-<div class="image-list-row">
-  <div class="image-list-thumb">
-    {% if image.image_file %}
-      <img src="{{ image.image_file.url }}" alt="">
-    {% endif %}
-  </div>
+    <div class="image-list-row">
+      <div style="width:36px;flex-shrink:0;display:flex;align-items:center;">
+        <input type="checkbox" class="img-checkbox" value="{{ image.id }}" onchange="onCheckChange()" style="width:16px;height:16px;accent-color:var(--accent);cursor:pointer;">
+      </div>
+      <div class="image-list-thumb">
+        {% if image.image_file %}
+        <img src="{{ image.image_file.url }}" alt="">
+     {% endif %}
+     </div>
 
   <div class="image-list-name truncate">
     {{ image.name }}
@@ -133,4 +159,114 @@
   {% endif %}
 </div>
 {% endif %}
+    <!-- ─── BATCH ACTION BAR ──────────────────────────────── -->
+<div class="batch-bar" id="batch-bar">
+  <span class="batch-count"><span id="batch-count-num">0</span> pasirinkta</span>
+  <button type="button" class="btn btn-secondary btn-sm" onclick="selectAll(true)">Visi</button>
+  <button type="button" class="btn btn-ghost btn-sm"     onclick="selectAll(false)">Nieko</button>
+  <div style="width:1px;height:22px;background:var(--border);"></div>
+  <button type="button" class="btn btn-primary btn-sm"   onclick="openTagModal('add')">＋ Pridėti žymą</button>
+  <button type="button" class="btn btn-danger btn-sm"    onclick="openTagModal('remove')">− Pašalinti žymą</button>
+</div>
+
+<!-- ─── TAG MODAL ────────────────────────────────────── -->
+<div class="modal-overlay" id="tag-modal">
+  <div class="modal" style="max-width:420px;">
+    <div class="modal-header">
+      <h2 id="tag-modal-title">Pridėti žymą</h2>
+      <button class="modal-close" onclick="closeTagModal()">✕</button>
+    </div>
+
+    <form method="post" action="{% url 'batch_tag' %}" id="tag-form">
+      {% csrf_token %}
+      <input type="hidden" name="action" id="tag-action" value="add">
+      <input type="hidden" name="next"   value="{{ request.get_full_path }}">
+      <div id="tag-image-inputs"></div><!-- image_ids injected by JS -->
+
+      <!-- Existing tags -->
+      {% if all_tags %}
+      <div class="form-group">
+        <label>Esamos žymos</label>
+        <div class="tag-pick-list">
+          {% for tag in all_tags %}
+          <label class="tag-pick-item">
+            <input type="checkbox" name="tag_ids" value="{{ tag.id }}">
+            <span class="tag-chip" style="--tc: {{ tag.color }}">{{ tag.name }}</span>
+          </label>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+
+      <!-- Create new tag -->
+      <div class="form-group" id="new-tag-group">
+        <label>Nauja žyma</label>
+        <div style="display:flex;gap:8px;">
+          <input type="text" name="new_tag" id="new-tag-input" placeholder="Žymos pavadinimas..." style="flex:1;">
+          <input type="color" name="new_tag_color" value="#6366f1" style="width:42px;height:42px;padding:2px;border-radius:8px;cursor:pointer;border:1px solid var(--border-hover);background:var(--surface2);">
+        </div>
+        <p class="form-hint">Palikite tuščią, jei naudojate esamą žymą.</p>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn btn-ghost" onclick="closeTagModal()">Atšaukti</button>
+        <button type="submit" class="btn btn-primary" id="tag-submit-btn">Pridėti</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+function getChecked() {
+  return [...document.querySelectorAll('.img-checkbox:checked')].map(c => c.value);
+}
+
+function onCheckChange() {
+  const checked = getChecked();
+  const bar  = document.getElementById('batch-bar');
+  const num  = document.getElementById('batch-count-num');
+  num.textContent = checked.length;
+  bar.classList.toggle('visible', checked.length > 0);
+
+  // Keep grid cards visually selected
+  document.querySelectorAll('.image-grid-card').forEach(card => {
+    const cb = card.querySelector('.img-checkbox');
+    if (cb) card.classList.toggle('selected', cb.checked);
+  });
+}
+
+function selectAll(on) {
+  document.querySelectorAll('.img-checkbox').forEach(cb => { cb.checked = on; });
+  const allList = document.getElementById('check-all-list');
+  if (allList) allList.checked = on;
+  onCheckChange();
+}
+
+function openTagModal(action) {
+  const ids = getChecked();
+  if (!ids.length) return;
+
+  // Inject hidden image_id inputs
+  const container = document.getElementById('tag-image-inputs');
+  container.innerHTML = ids.map(id =>
+    `<input type="hidden" name="image_ids" value="${id}">`
+  ).join('');
+
+  document.getElementById('tag-action').value = action;
+  document.getElementById('tag-modal-title').textContent =
+    action === 'remove' ? 'Pašalinti žymą' : 'Pridėti žymą';
+  document.getElementById('tag-submit-btn').textContent =
+    action === 'remove' ? 'Pašalinti' : 'Pridėti';
+
+  const form = document.getElementById('tag-form');
+  form.classList.toggle('hide-new-tag', action === 'remove');
+
+  document.getElementById('tag-modal').classList.add('open');
+}
+
+function closeTagModal() {
+  document.getElementById('tag-modal').classList.remove('open');
+}
+</script>
+
 {% endblock %}
