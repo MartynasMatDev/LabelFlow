@@ -7,5 +7,5 @@ urlpatterns = [
     path('project/<int:project_id>/',     views.image_list,   name='project_images'),
     path('<int:image_id>/delete/',        views.image_delete, name='image_delete'),
     path('<int:pk>/', views.image_detail, name='image_detail'),
-
+    path('batch-tag/', views.batch_tag, name='batch_tag'), 
 ]

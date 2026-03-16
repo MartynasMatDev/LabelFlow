@@ -1,10 +1,12 @@
 import os
+
+from django.http import JsonResponse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.db.models import Q
 from apps.projects.models import Project
-from .models import Image
+from .models import Image, Tag
 
 
 def _user_projects(user):
@@ -30,6 +32,11 @@ def image_list(request, project_id=None):
     if status_filter in ('pending', 'partial', 'done'):
         images = images.filter(status=status_filter)
 
+    # Tag filter
+    tag_filter = request.GET.get('tag', '')
+    if tag_filter:
+        images = images.filter(tags__id=tag_filter)
+
     # Search
     q = request.GET.get('q', '').strip()
     if q:
@@ -40,6 +47,8 @@ def image_list(request, project_id=None):
     if sort in ('name', '-name', 'uploaded_at', '-uploaded_at', 'status'):
         images = images.order_by(sort)
 
+    all_tags = Tag.objects.all()
+
     ctx = {
         'active_nav': 'images',
         'project': project,
@@ -47,6 +56,8 @@ def image_list(request, project_id=None):
         'images': images,
         'image_count': images.count(),
         'status_filter': status_filter,
+        'tag_filter': tag_filter,
+        'all_tags': all_tags,
         'q': q,
         'sort': sort,
     }
@@ -121,3 +132,47 @@ def image_detail(request, pk):
     from .models import Image
     image = Image.objects.get(pk=pk)
     return render(request, "app/image_detail.html", {"image": image})
+
+
+@login_required
+def batch_tag(request):
+    """Add or remove tags on multiple images at once."""
+    if request.method != 'POST':
+        return JsonResponse({'error': 'POST only'}, status=405)
+
+    image_ids = request.POST.getlist('image_ids')
+    tag_ids = request.POST.getlist('tag_ids')
+    new_tag = request.POST.get('new_tag', '').strip()
+    action = request.POST.get('action', 'add')  # 'add' | 'remove'
+
+    # Resolve images the user may access
+    accessible = Image.objects.filter(
+        id__in=image_ids,
+        project__in=_user_projects(request.user)
+    )
+
+    # Create a brand-new tag if name supplied
+    if new_tag:
+        tag_obj, _ = Tag.objects.get_or_create(
+            name=new_tag,
+            defaults={'created_by': request.user}
+        )
+        tag_ids.append(str(tag_obj.id))
+
+    tags = Tag.objects.filter(id__in=tag_ids)
+
+    for image in accessible:
+        if action == 'remove':
+            image.tags.remove(*tags)
+        else:
+            image.tags.add(*tags)
+
+    messages.success(
+        request,
+        f'{"Removed" if action == "remove" else "Added"} tags '
+        f'{len(tags)} for {accessible.count()} images.'
+    )
+
+    # Redirect back to wherever we came from
+    next_url = request.POST.get('next') or request.META.get('HTTP_REFERER', '/')
+    return redirect(next_url)

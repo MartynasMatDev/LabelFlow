@@ -4,6 +4,14 @@ from django.contrib.auth.models import User
 from apps.projects.models import Project
 
 
+class Tag(models.Model):
+    name = models.CharField(max_length=64, unique=True)
+    color = models.CharField(max_length=7, default='#6366f1')  # hex colour
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
+
+    def __str__(self):
+        return self.name
+
 class Image(models.Model):
     STATUS_CHOICES = [
         ('pending',  'Laukia anotavimo'),
@@ -20,6 +28,7 @@ class Image(models.Model):
     height      = models.PositiveIntegerField(null=True, blank=True)
     file_size   = models.PositiveIntegerField(null=True, blank=True, help_text='Bytes')
     uploaded_at = models.DateTimeField(auto_now_add=True)
+    tags        = models.ManyToManyField(Tag, blank=True, related_name='images')
 
     class Meta:
         ordering = ['-uploaded_at']
