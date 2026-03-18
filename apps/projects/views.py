@@ -6,10 +6,15 @@ from django.db.models import Q
 from .models import Project, ProjectMember
 
 
-def _user_projects(user):
-    return Project.objects.filter(
+def _user_projects(user, include_archived=False):
+    qs = Project.objects.filter(
         Q(members__user=user) | Q(created_by=user)
     ).distinct()
+
+    if not include_archived:
+        qs = qs.filter(is_archived=False)
+
+    return qs
 
 
 @login_required
@@ -143,3 +148,28 @@ def team_management(request, project_id):
         'role_choices': ProjectMember.ROLE_CHOICES,
     }
     return render(request, 'app/team_management.html', ctx)
+
+@login_required
+def archived_projects(request):
+    projects = _user_projects(request.user, include_archived=True).filter(is_archived=True)
+
+    # Only admins should see archived
+    projects = [p for p in projects if p.user_is_admin(request.user)]
+
+    return render(request, 'app/archived_projects.html', {
+        'active_nav': 'projects',
+        'projects': projects,
+    })
+
+@login_required
+def archive_project(request, project_id):
+    project = get_object_or_404(Project, id=project_id)
+
+    if not project.user_is_admin(request.user):
+        messages.error(request, 'Only admins can archive projects.')
+        return redirect('project_detail', project_id=project.id)
+
+    project.archive()
+    messages.success(request, f'Project "{project.name}" archived.')
+
+    return redirect('project_list')
