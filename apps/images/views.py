@@ -5,6 +5,7 @@ from django.contrib import messages
 from django.db.models import Q
 from apps.projects.models import Project
 from .models import Image
+from datetime import datetime
 
 
 def _user_projects(user):
@@ -35,6 +36,25 @@ def image_list(request, project_id=None):
     if q:
         images = images.filter(name__icontains=q)
 
+    # Date filtering
+    start_date = request.GET.get('start_date', '').strip()
+    end_date = request.GET.get('end_date', '').strip()
+
+    if start_date:
+        try:
+            sd = datetime.strptime(start_date, "%Y-%m-%d").date()
+            images = images.filter(uploaded_at__date__gte=sd)
+        except ValueError:
+            # ignore invalid date
+            start_date = ''
+
+    if end_date:
+        try:
+            ed = datetime.strptime(end_date, "%Y-%m-%d").date()
+            images = images.filter(uploaded_at__date__lte=ed)
+        except ValueError:
+            end_date = ''
+
     # Sort
     sort = request.GET.get('sort', '-uploaded_at')
     if sort in ('name', '-name', 'uploaded_at', '-uploaded_at', 'status'):
@@ -49,6 +69,8 @@ def image_list(request, project_id=None):
         'status_filter': status_filter,
         'q': q,
         'sort': sort,
+        'start_date': start_date,
+        'end_date': end_date,
     }
     return render(request, 'app/image_list.html', ctx)
 
