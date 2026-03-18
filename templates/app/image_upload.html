@@ -1,84 +1,849 @@
 {% extends "app/app_base.html" %}
-{% block app_title %}Upload images{% endblock %}
-{% block toolbar_title %}Upload images{% endblock %}
+{% block app_title %}Upload Images{% endblock %}
+{% block toolbar_title %}Upload{% endblock %}
+
+{% block toolbar_actions %}
+<a href="{% url 'image_list' %}" class="btn btn-ghost btn-sm">← All images</a>
+{% endblock %}
+
+{% block extra_head %}
+<style>
+/* ── Upload page layout ───────────────────────────────── */
+.upload-layout {
+  display: grid;
+  grid-template-columns: 1fr 340px;
+  gap: 20px;
+  align-items: start;
+}
+
+/* ── Tab switcher ─────────────────────────────────────── */
+.upload-tabs {
+  display: flex;
+  gap: 4px;
+  background: var(--surface2);
+  border-radius: 10px;
+  padding: 4px;
+  margin-bottom: 20px;
+  width: fit-content;
+}
+.upload-tab {
+  padding: 7px 18px;
+  border-radius: 7px;
+  font-size: 13px;
+  font-weight: 600;
+  font-family: 'DM Mono', monospace;
+  color: var(--text-muted);
+  cursor: pointer;
+  border: none;
+  background: transparent;
+  transition: all .18s ease;
+  letter-spacing: .02em;
+}
+.upload-tab.active {
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: 0 1px 4px rgba(0,0,0,.18);
+}
+.upload-tab-panel { display: none; }
+.upload-tab-panel.active { display: block; }
+
+/* ── Drop zone ────────────────────────────────────────── */
+.drop-zone {
+  border: 2px dashed var(--border);
+  border-radius: 14px;
+  background: var(--surface2);
+  padding: 52px 32px;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color .2s, background .2s;
+  position: relative;
+}
+.drop-zone:hover,
+.drop-zone.drag-over {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 6%, var(--surface2));
+}
+.drop-zone-icon {
+  font-size: 38px;
+  margin-bottom: 12px;
+  display: block;
+  opacity: .55;
+}
+.drop-zone-title {
+  font-size: 16px;
+  font-weight: 700;
+  margin-bottom: 6px;
+  color: var(--text);
+}
+.drop-zone-sub {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-bottom: 18px;
+  line-height: 1.5;
+}
+.drop-zone input[type="file"] {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+  width: 100%;
+  height: 100%;
+}
+
+/* ── File queue ───────────────────────────────────────── */
+.file-queue {
+  margin-top: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 340px;
+  overflow-y: auto;
+}
+.file-queue-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 8px 12px;
+  font-size: 13px;
+  transition: border-color .15s;
+}
+.file-queue-item.uploading { border-color: var(--accent); }
+.file-queue-item.done      { border-color: var(--success); }
+.file-queue-item.error     { border-color: var(--danger, #ef4444); }
+.file-queue-item.skipped   { border-color: var(--warning, #f59e0b); opacity: .75; }
+
+.file-queue-thumb {
+  width: 36px;
+  height: 36px;
+  border-radius: 6px;
+  object-fit: cover;
+  background: var(--surface);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  color: var(--text-dim);
+  overflow: hidden;
+}
+.file-queue-thumb img { width: 100%; height: 100%; object-fit: cover; }
+
+.file-queue-name {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-weight: 500;
+}
+.file-queue-size {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-family: 'DM Mono', monospace;
+  flex-shrink: 0;
+}
+.file-queue-status {
+  flex-shrink: 0;
+  font-size: 14px;
+  width: 18px;
+  text-align: center;
+}
+
+/* ── Progress bar ─────────────────────────────────────── */
+.upload-progress-wrap {
+  margin-top: 20px;
+  display: none;
+}
+.upload-progress-wrap.visible { display: block; }
+
+.upload-progress-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 8px;
+}
+.upload-progress-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+.upload-progress-counts {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-family: 'DM Mono', monospace;
+}
+.upload-progress-bar {
+  height: 6px;
+  background: var(--border);
+  border-radius: 99px;
+  overflow: hidden;
+}
+.upload-progress-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 99px;
+  transition: width .25s ease;
+  width: 0%;
+}
+
+/* ── Summary card ─────────────────────────────────────── */
+.upload-summary {
+  margin-top: 20px;
+  display: none;
+  border-radius: 12px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+}
+.upload-summary.visible { display: block; }
+.upload-summary-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 11px 16px;
+  font-size: 13px;
+  border-bottom: 1px solid var(--border);
+}
+.upload-summary-row:last-child { border-bottom: none; }
+.upload-summary-row .label { color: var(--text-muted); }
+.upload-summary-row .val   { font-weight: 700; font-family: 'DM Mono', monospace; }
+.val-ok      { color: var(--success); }
+.val-warn    { color: var(--warning, #f59e0b); }
+.val-danger  { color: var(--danger, #ef4444); }
+
+/* ── Error log ────────────────────────────────────────── */
+.error-log {
+  margin-top: 14px;
+  display: none;
+  background: color-mix(in srgb, var(--danger, #ef4444) 8%, var(--surface2));
+  border: 1px solid color-mix(in srgb, var(--danger, #ef4444) 30%, var(--border));
+  border-radius: 10px;
+  padding: 12px 16px;
+  max-height: 180px;
+  overflow-y: auto;
+}
+.error-log.visible { display: block; }
+.error-log-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--danger, #ef4444);
+  margin-bottom: 8px;
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  font-family: 'DM Mono', monospace;
+}
+.error-log-item {
+  font-size: 12px;
+  color: var(--text-muted);
+  padding: 3px 0;
+  display: flex;
+  gap: 8px;
+}
+.error-log-item .err-name { font-weight: 600; color: var(--text); min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.error-log-item .err-reason { flex-shrink: 0; }
+
+/* ── Info sidebar ─────────────────────────────────────── */
+.upload-info-card {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 20px;
+  font-size: 13px;
+}
+.upload-info-card h3 {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: .07em;
+  font-family: 'DM Mono', monospace;
+  margin-bottom: 14px;
+}
+.upload-info-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+}
+.upload-info-row:last-child { border-bottom: none; }
+.upload-info-row .k { color: var(--text-muted); }
+.upload-info-row .v { font-family: 'DM Mono', monospace; font-weight: 600; }
+
+/* ── Action buttons ───────────────────────────────────── */
+.upload-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+/* ── Project selector ─────────────────────────────────── */
+.project-selector {
+  margin-bottom: 20px;
+}
+.project-selector label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  font-family: 'DM Mono', monospace;
+  margin-bottom: 8px;
+}
+.project-selector select {
+  width: 100%;
+}
+
+@media (max-width: 860px) {
+  .upload-layout { grid-template-columns: 1fr; }
+}
+</style>
+{% endblock %}
 
 {% block app_content %}
 <div class="page-header">
   <div class="page-title">
     <h1>Upload images</h1>
-    <p>Select a project and upload your images</p>
+    <p>Add images to a project for annotation</p>
   </div>
 </div>
 
-<div style="max-width:640px;">
-  <form method="post" enctype="multipart/form-data" id="upload-form">
-    {% csrf_token %}
+<div class="upload-layout">
 
-    <div class="card" style="margin-bottom:16px;">
-      <h3 style="font-size:15px;margin-bottom:18px;">Project</h3>
-      <div class="form-group" style="margin-bottom:0;">
-      <label for="project">Select a project *</label>
-        <select id="project" name="project" required>
-          <option value="">— select —</option>
-          {% for proj in projects %}
-          <option value="{{ proj.id }}" {% if selected_project_id == proj.id %}selected{% endif %}>
-            {{ proj.emoji }} {{ proj.name }}
-          </option>
-          {% endfor %}
-        </select>
-        {% if not projects %}
-        <div class="form-hint" style="color:var(--warning);">
-          You have no projects. <a href="{% url 'project_create' %}">Create a project</a> first.        </div>
-        {% endif %}
-      </div>
+  <!-- ── LEFT COLUMN ─────────────────────────────────── -->
+  <div>
+
+    <!-- Project selector (shared across both tabs) -->
+    <div class="project-selector card" style="padding:18px 20px;">
+      <label for="project-select">Target project</label>
+      <select id="project-select" name="project">
+        <option value="">— select a project —</option>
+        {% for p in projects %}
+        <option value="{{ p.id }}"
+          {% if selected_project_id == p.id %}selected{% endif %}>
+          {{ p.emoji }} {{ p.name }}
+        </option>
+        {% endfor %}
+      </select>
     </div>
 
-    <div class="card" style="margin-bottom:16px;">
-      <h3 style="font-size:15px;margin-bottom:18px;">Files</h3>
+    <!-- Tab switcher -->
+    <div class="upload-tabs">
+      <button class="upload-tab active" onclick="switchTab('files', this)">⬕ Files</button>
+      <button class="upload-tab"        onclick="switchTab('folder', this)">⬡ Folder</button>
+    </div>
 
-    <div class="drop-zone" id="drop-zone" style="position:relative;padding:18px 12px 90px 12px;border-radius:8px;">
-        <div class="drop-zone-icon">⬡</div>
-        <<p style="font-size:15px;font-weight:600;margin-bottom:6px;">Drag files here</p>
-        <p style="font-size:13px;color:var(--text-muted);margin-bottom:16px;">PNG, JPG, JPEG, WebP, BMP — up to 20MB per file</p>
-        <label for="file-input" class="btn btn-secondary btn-sm" style="cursor:pointer;">Select files</label>
-        <input type="file" id="file-input" name="image_files" multiple accept="image/*" style="display:none;">
+    <!-- ── TAB: individual files ──────────────────────── -->
+    <div class="upload-tab-panel active" id="tab-files">
+      <form method="post" action="{% url 'image_upload' %}" enctype="multipart/form-data" id="classic-form">
+        {% csrf_token %}
+        <input type="hidden" name="project" id="classic-project-input">
 
-        <!-- Preview placed INSIDE the drop-zone -->
-        <div id="file-preview-wrap" style="display:none;position:absolute;left:12px;right:12px;bottom:12px;">
-            <div id="upload-file-count" style="font-size:13px;color:var(--text-muted);margin-bottom:8px;"></div>
-            <div id="file-preview-grid" style="display:flex;flex-wrap:wrap;gap:8px;"></div>
+        <div class="drop-zone" id="files-drop-zone">
+          <span class="drop-zone-icon">⬕</span>
+          <div class="drop-zone-title">Drop images here</div>
+          <div class="drop-zone-sub">
+            or click to browse files<br>
+            <span style="font-size:11px;font-family:'DM Mono',monospace;">
+              JPG · PNG · WEBP · BMP · GIF · max 20 MB each
+            </span>
+          </div>
+          <a href="#" class="btn btn-secondary btn-sm" style="position:relative;z-index:2;" onclick="event.preventDefault(); document.getElementById('classic-file-input').click()">Browse files</a>
+          <input type="file" name="image_files" id="classic-file-input"
+                 accept=".jpg,.jpeg,.png,.webp,.bmp,.gif"
+                 multiple style="display:none;">
         </div>
+
+        <!-- Classic file queue preview -->
+        <div class="file-queue" id="classic-queue"></div>
+
+        <div class="upload-actions">
+          <button type="submit" class="btn btn-primary" id="classic-submit" disabled
+                  onclick="return injectClassicProject()">
+            ↑ Upload
+          </button>
+          <button type="button" class="btn btn-ghost" onclick="clearClassicQueue()" id="classic-clear" style="display:none;">
+            ✕ Clear
+          </button>
+        </div>
+      </form>
     </div>
 
-    <div class="flex gap-2" style="justify-content:flex-end;">
-        <a href="{% url 'image_list' %}" class="btn btn-ghost">Cancel</a>
-        <button type="submit" class="btn btn-primary" id="upload-submit" disabled>↑ Upload →</button>
+    <!-- ── TAB: folder upload ─────────────────────────── -->
+    <div class="upload-tab-panel" id="tab-folder">
+
+      <div class="drop-zone" id="folder-drop-zone">
+        <span class="drop-zone-icon">⬡</span>
+        <div class="drop-zone-title">Select a folder</div>
+        <div class="drop-zone-sub">
+          All images in the folder will be queued<br>
+          <span style="font-size:11px;font-family:'DM Mono',monospace;">
+            Subfolders are ignored · max 20 MB per file
+          </span>
+        </div>
+        <a href="#" class="btn btn-secondary btn-sm" style="position:relative;z-index:2;"
+           onclick="event.preventDefault(); document.getElementById('folder-input').click()">
+          Choose folder
+        </a>
+        <input type="file" id="folder-input"
+               webkitdirectory mozdirectory
+               accept=".jpg,.jpeg,.png,.webp,.bmp,.gif"
+               style="display:none;">
+      </div>
+
+      <!-- Folder file queue -->
+      <div class="file-queue" id="folder-queue"></div>
+
+      <!-- Progress bar -->
+      <div class="upload-progress-wrap" id="folder-progress-wrap">
+        <div class="upload-progress-header">
+          <span class="upload-progress-label" id="folder-progress-label">Uploading…</span>
+          <span class="upload-progress-counts" id="folder-progress-counts">0 / 0</span>
+        </div>
+        <div class="upload-progress-bar">
+          <div class="upload-progress-fill" id="folder-progress-fill"></div>
+        </div>
+      </div>
+
+      <!-- Inline error log (visible during upload) -->
+      <div class="error-log" id="folder-error-log">
+        <div class="error-log-title">⚠ Skipped / failed files</div>
+        <div id="folder-error-list"></div>
+      </div>
+
+      <!-- Final summary -->
+      <div class="upload-summary" id="folder-summary">
+        <div class="upload-summary-row">
+          <span class="label">Total queued</span>
+          <span class="val" id="sum-total">0</span>
+        </div>
+        <div class="upload-summary-row">
+          <span class="label">Uploaded successfully</span>
+          <span class="val val-ok" id="sum-ok">0</span>
+        </div>
+        <div class="upload-summary-row">
+          <span class="label">Skipped (invalid type/size)</span>
+          <span class="val val-warn" id="sum-skipped">0</span>
+        </div>
+        <div class="upload-summary-row">
+          <span class="label">Failed (server error)</span>
+          <span class="val val-danger" id="sum-failed">0</span>
+        </div>
+      </div>
+
+      <div class="upload-actions">
+        <button class="btn btn-primary" id="folder-upload-btn" disabled onclick="startFolderUpload()">
+          ↑ Upload folder
+        </button>
+        <button class="btn btn-ghost" id="folder-clear-btn" style="display:none;"
+                onclick="clearFolderQueue()">
+          ✕ Clear
+        </button>
+        <a href="#" class="btn btn-secondary" id="folder-done-btn" style="display:none;">
+          → View project images
+        </a>
+      </div>
+    </div><!-- /tab-folder -->
+  </div><!-- /left col -->
+
+  <!-- ── RIGHT COLUMN: info ─────────────────────────── -->
+  <div>
+    <div class="upload-info-card">
+      <h3>Upload rules</h3>
+      <div class="upload-info-row"><span class="k">Formats</span><span class="v">JPG PNG WEBP BMP GIF</span></div>
+      <div class="upload-info-row"><span class="k">Max file size</span><span class="v">20 MB</span></div>
+      <div class="upload-info-row"><span class="k">Subfolders</span><span class="v">Ignored</span></div>
+      <div class="upload-info-row"><span class="k">Concurrent</span><span class="v">3 at a time</span></div>
     </div>
-  </form>
-</div>
+
+    <div class="upload-info-card" style="margin-top:16px;" id="folder-stats-card" style="display:none;">
+      <h3>Queue stats</h3>
+      <div class="upload-info-row"><span class="k">Files found</span><span class="v" id="stat-found">—</span></div>
+      <div class="upload-info-row"><span class="k">Valid</span><span class="v" id="stat-valid">—</span></div>
+      <div class="upload-info-row"><span class="k">Pre-skipped</span><span class="v" id="stat-preskip">—</span></div>
+      <div class="upload-info-row"><span class="k">Total size</span><span class="v" id="stat-size">—</span></div>
+    </div>
+  </div>
+
+</div><!-- /upload-layout -->
 {% endblock %}
 
 {% block extra_scripts %}
 <script>
-document.addEventListener('DOMContentLoaded', () => {
+// ─── CSRF helper ───────────────────────────────────────────
+function getCsrf() {
+  return document.cookie.split(';')
+    .map(c => c.trim())
+    .find(c => c.startsWith('csrftoken='))
+    ?.split('=')[1] ?? '';
+}
 
-  // Only call initDropZone if it exists
-  if (typeof initDropZone === "function") {
-    initDropZone('drop-zone', 'file-input', 'file-preview-grid');
+// ─── Tab switching ──────────────────────────────────────────
+function switchTab(name, btn) {
+  document.querySelectorAll('.upload-tab').forEach(b => b.classList.remove('active'));
+  document.querySelectorAll('.upload-tab-panel').forEach(p => p.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('tab-' + name).classList.add('active');
+}
+
+// ─── Utility ────────────────────────────────────────────────
+const ALLOWED_EXT = new Set(['.jpg','.jpeg','.png','.webp','.bmp','.gif']);
+const MAX_BYTES   = 20 * 1024 * 1024;
+
+function fmtSize(bytes) {
+  if (bytes < 1024)       return bytes + ' B';
+  if (bytes < 1048576)    return (bytes/1024).toFixed(1) + ' KB';
+  return (bytes/1048576).toFixed(1) + ' MB';
+}
+
+function getExt(name) {
+  return name.slice(name.lastIndexOf('.')).toLowerCase();
+}
+
+function makeThumb(file) {
+  const wrap = document.createElement('div');
+  wrap.className = 'file-queue-thumb';
+  if (file.type.startsWith('image/')) {
+    const img = document.createElement('img');
+    img.src = URL.createObjectURL(file);
+    wrap.appendChild(img);
+  } else {
+    wrap.textContent = '⬡';
   }
+  return wrap;
+}
 
-  const input = document.getElementById('file-input');
-  const previewWrap = document.getElementById('file-preview-wrap');
-  const submitBtn = document.getElementById('upload-submit');
+// ─── CLASSIC file tab ────────────────────────────────────────
+const classicInput  = document.getElementById('classic-file-input');
+const classicQueue  = document.getElementById('classic-queue');
+const classicSubmit = document.getElementById('classic-submit');
+const classicClear  = document.getElementById('classic-clear');
 
-  input.addEventListener('change', () => {
-    const files = input.files;
+classicInput.addEventListener('change', () => {
+  renderClassicQueue([...classicInput.files]);
+});
 
-    const hasFiles = files.length > 0;
-    previewWrap.style.display = hasFiles ? '' : 'none';
-    submitBtn.disabled = !hasFiles;
+// Drag-and-drop for file tab
+const filesDz = document.getElementById('files-drop-zone');
+filesDz.addEventListener('dragover', e => { e.preventDefault(); filesDz.classList.add('drag-over'); });
+filesDz.addEventListener('dragleave', () => filesDz.classList.remove('drag-over'));
+filesDz.addEventListener('drop', e => {
+  e.preventDefault();
+  filesDz.classList.remove('drag-over');
+  const files = [...e.dataTransfer.files].filter(f => {
+    const ext = getExt(f.name);
+    return ALLOWED_EXT.has(ext) && !f.webkitRelativePath.split('/').slice(0,-1).length;
+  });
+  // Assign to input via DataTransfer
+  const dt = new DataTransfer();
+  files.forEach(f => dt.items.add(f));
+  classicInput.files = dt.files;
+  renderClassicQueue(files);
+});
+
+function renderClassicQueue(files) {
+  classicQueue.innerHTML = '';
+  if (!files.length) {
+    classicSubmit.disabled = true;
+    classicClear.style.display = 'none';
+    return;
+  }
+  files.forEach(f => {
+    const ext   = getExt(f.name);
+    const valid = ALLOWED_EXT.has(ext) && f.size <= MAX_BYTES;
+    const item  = document.createElement('div');
+    item.className = 'file-queue-item ' + (valid ? '' : 'skipped');
+    item.appendChild(makeThumb(f));
+    const nameEl = document.createElement('span');
+    nameEl.className = 'file-queue-name';
+    nameEl.textContent = f.name;
+    const sizeEl = document.createElement('span');
+    sizeEl.className = 'file-queue-size';
+    sizeEl.textContent = fmtSize(f.size);
+    const stEl = document.createElement('span');
+    stEl.className = 'file-queue-status';
+    stEl.textContent = valid ? '○' : '⚠';
+    stEl.title = valid ? 'Will upload' :
+      (!ALLOWED_EXT.has(ext) ? 'Invalid type' : 'Too large (>20MB)');
+    item.append(nameEl, sizeEl, stEl);
+    classicQueue.appendChild(item);
+  });
+  classicSubmit.disabled = false;
+  classicClear.style.display = '';
+}
+
+function clearClassicQueue() {
+  classicInput.value = '';
+  classicQueue.innerHTML = '';
+  classicSubmit.disabled = true;
+  classicClear.style.display = 'none';
+}
+
+function injectClassicProject() {
+  const pid = document.getElementById('project-select').value;
+  if (!pid) { alert('Please select a project first.'); return false; }
+  document.getElementById('classic-project-input').value = pid;
+  return true;
+}
+
+// ─── FOLDER tab state ────────────────────────────────────────
+let folderFiles   = [];   // all File objects after filtering (flat, no subdirs)
+let uploadRunning = false;
+
+const folderInput     = document.getElementById('folder-input');
+const folderQueue     = document.getElementById('folder-queue');
+const folderUploadBtn = document.getElementById('folder-upload-btn');
+const folderClearBtn  = document.getElementById('folder-clear-btn');
+const folderDoneBtn   = document.getElementById('folder-done-btn');
+const progressWrap    = document.getElementById('folder-progress-wrap');
+const progressFill    = document.getElementById('folder-progress-fill');
+const progressLabel   = document.getElementById('folder-progress-label');
+const progressCounts  = document.getElementById('folder-progress-counts');
+const errorLog        = document.getElementById('folder-error-log');
+const errorList       = document.getElementById('folder-error-list');
+const summary         = document.getElementById('folder-summary');
+const statsCard       = document.getElementById('folder-stats-card');
+
+folderInput.addEventListener('change', () => {
+  const all = [...folderInput.files];
+
+  // Keep only top-level files (webkitRelativePath has exactly one slash: "folder/file.ext")
+  const flat = all.filter(f => {
+    const parts = f.webkitRelativePath.split('/');
+    return parts.length === 2;  // root folder + filename only
   });
 
+  buildFolderQueue(flat);
 });
+
+// Drag-and-drop on folder zone (browsers may support folder drop)
+const folderDz = document.getElementById('folder-drop-zone');
+folderDz.addEventListener('dragover', e => { e.preventDefault(); folderDz.classList.add('drag-over'); });
+folderDz.addEventListener('dragleave', () => folderDz.classList.remove('drag-over'));
+folderDz.addEventListener('drop', async e => {
+  e.preventDefault();
+  folderDz.classList.remove('drag-over');
+  const items = [...e.dataTransfer.items];
+  const files = [];
+  for (const item of items) {
+    const entry = item.webkitGetAsEntry?.();
+    if (entry?.isDirectory) {
+      // Read top-level entries only
+      await new Promise(res => {
+        entry.createReader().readEntries(entries => {
+          const fileEntries = entries.filter(en => en.isFile);
+          let pending = fileEntries.length;
+          if (!pending) { res(); return; }
+          fileEntries.forEach(fe => fe.file(f => {
+            files.push(f);
+            if (--pending === 0) res();
+          }));
+        });
+      });
+    } else if (entry?.isFile) {
+      await new Promise(res => entry.file(f => { files.push(f); res(); }));
+    }
+  }
+  buildFolderQueue(files);
+});
+
+function buildFolderQueue(allFiles) {
+  // Reset
+  folderFiles = [];
+  folderQueue.innerHTML = '';
+  errorLog.classList.remove('visible');
+  errorList.innerHTML = '';
+  summary.classList.remove('visible');
+  progressWrap.classList.remove('visible');
+  folderDoneBtn.style.display = 'none';
+  folderClearBtn.style.display = '';
+
+  let validCount   = 0;
+  let preSkipCount = 0;
+  let totalBytes   = 0;
+
+  allFiles.forEach(f => {
+    const ext   = getExt(f.name);
+    const valid = ALLOWED_EXT.has(ext) && f.size <= MAX_BYTES;
+
+    if (valid) {
+      folderFiles.push(f);
+      validCount++;
+      totalBytes += f.size;
+    } else {
+      preSkipCount++;
+    }
+
+    const item = document.createElement('div');
+    item.className = 'file-queue-item' + (valid ? '' : ' skipped');
+    item.id = 'fqi-' + sanitizeId(f.name + f.lastModified);
+    item.appendChild(makeThumb(f));
+
+    const nameEl = document.createElement('span');
+    nameEl.className = 'file-queue-name';
+    nameEl.textContent = f.name;
+
+    const sizeEl = document.createElement('span');
+    sizeEl.className = 'file-queue-size';
+    sizeEl.textContent = fmtSize(f.size);
+
+    const stEl = document.createElement('span');
+    stEl.className = 'file-queue-status';
+    stEl.dataset.fileId = sanitizeId(f.name + f.lastModified);
+    stEl.textContent = valid ? '○' : '⚠';
+    stEl.title = valid ? 'Queued' :
+      (!ALLOWED_EXT.has(ext) ? 'Invalid type' : 'Too large (>20MB)');
+
+    item.append(nameEl, sizeEl, stEl);
+    folderQueue.appendChild(item);
+  });
+
+  // Update sidebar stats
+  statsCard.style.display = '';
+  document.getElementById('stat-found').textContent   = allFiles.length;
+  document.getElementById('stat-valid').textContent   = validCount;
+  document.getElementById('stat-preskip').textContent = preSkipCount;
+  document.getElementById('stat-size').textContent    = fmtSize(totalBytes);
+
+  folderUploadBtn.disabled = (folderFiles.length === 0);
+}
+
+function sanitizeId(str) {
+  return str.replace(/[^a-zA-Z0-9]/g, '_');
+}
+
+function clearFolderQueue() {
+  folderFiles = [];
+  folderQueue.innerHTML = '';
+  folderInput.value = '';
+  folderUploadBtn.disabled = true;
+  folderClearBtn.style.display = 'none';
+  folderDoneBtn.style.display = 'none';
+  progressWrap.classList.remove('visible');
+  errorLog.classList.remove('visible');
+  summary.classList.remove('visible');
+  statsCard.style.display = 'none';
+}
+
+// ─── Folder upload engine ────────────────────────────────────
+async function startFolderUpload() {
+  if (uploadRunning) return;
+
+  const pid = document.getElementById('project-select').value;
+  if (!pid) { alert('Please select a project first.'); return; }
+
+  uploadRunning = true;
+  folderUploadBtn.disabled = true;
+  folderClearBtn.style.display = 'none';
+  errorList.innerHTML = '';
+  errorLog.classList.remove('visible');
+  summary.classList.remove('visible');
+
+  const total   = folderFiles.length;
+  let okCount   = 0;
+  let failCount = 0;
+  const errors  = [];
+
+  progressWrap.classList.add('visible');
+  progressFill.style.width = '0%';
+  progressLabel.textContent = 'Uploading…';
+  progressCounts.textContent = `0 / ${total}`;
+
+  // Upload 3 at a time
+  const CONCURRENCY = 3;
+  let index = 0;
+
+  async function uploadOne(file) {
+    const itemId = sanitizeId(file.name + file.lastModified);
+    const stEl   = document.querySelector(`[data-file-id="${itemId}"]`);
+    const rowEl  = stEl?.closest('.file-queue-item');
+
+    if (rowEl) rowEl.classList.add('uploading');
+    if (stEl)  stEl.textContent = '↑';
+
+    const fd = new FormData();
+    fd.append('project',    pid);
+    fd.append('image_file', file, file.name);
+
+    try {
+      const resp = await fetch('{% url "image_upload_ajax" %}', {
+        method: 'POST',
+        headers: { 'X-CSRFToken': getCsrf() },
+        body: fd,
+      });
+      const data = await resp.json();
+
+      if (data.success) {
+        okCount++;
+        if (rowEl) { rowEl.classList.remove('uploading'); rowEl.classList.add('done'); }
+        if (stEl)  stEl.textContent = '✓';
+      } else {
+        failCount++;
+        const reason = data.error || 'Server error';
+        errors.push({ name: file.name, reason });
+        if (rowEl) { rowEl.classList.remove('uploading'); rowEl.classList.add('error'); }
+        if (stEl)  stEl.textContent = '✕';
+        appendError(file.name, reason);
+      }
+    } catch (err) {
+      failCount++;
+      const reason = 'Network error';
+      errors.push({ name: file.name, reason });
+      if (rowEl) { rowEl.classList.remove('uploading'); rowEl.classList.add('error'); }
+      if (stEl)  stEl.textContent = '✕';
+      appendError(file.name, reason);
+    }
+
+    // Update progress
+    const done = okCount + failCount;
+    const pct  = Math.round((done / total) * 100);
+    progressFill.style.width = pct + '%';
+    progressCounts.textContent = `${done} / ${total}`;
+    progressLabel.textContent  = done < total ? 'Uploading…' : 'Finishing…';
+  }
+
+  async function worker() {
+    while (index < folderFiles.length) {
+      const file = folderFiles[index++];
+      await uploadOne(file);
+    }
+  }
+
+  // Launch N concurrent workers
+  const workers = Array.from({ length: Math.min(CONCURRENCY, total) }, worker);
+  await Promise.all(workers);
+
+  // Done
+  uploadRunning = false;
+  progressLabel.textContent = 'Done';
+
+  // Show summary
+  document.getElementById('sum-total').textContent   = total;
+  document.getElementById('sum-ok').textContent      = okCount;
+  document.getElementById('sum-skipped').textContent = '0';
+  document.getElementById('sum-failed').textContent  = failCount;
+  summary.classList.add('visible');
+
+  // Show view-project button
+  folderDoneBtn.href = `/images/project/${pid}/`;
+  folderDoneBtn.style.display = '';
+
+  folderClearBtn.style.display = '';
+}
+
+function appendError(name, reason) {
+  errorLog.classList.add('visible');
+  const row = document.createElement('div');
+  row.className = 'error-log-item';
+  row.innerHTML = `<span class="err-name">${escHtml(name)}</span><span class="err-reason">${escHtml(reason)}</span>`;
+  errorList.appendChild(row);
+}
+
+function escHtml(str) {
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
 </script>
 {% endblock %}
