@@ -1,0 +1,45 @@
+{% extends "app/app_base.html" %}
+{% block app_title %}Archived Projects{% endblock %}
+{% block toolbar_title %}Archived Projects{% endblock %}
+
+{% block toolbar_actions %}
+<a href="{% url 'project_list' %}" class="btn btn-ghost btn-sm">← Active</a>
+{% endblock %}
+
+{% block app_content %}
+<div class="page-header">
+  <div class="page-title">
+    <h1>Archived Projects</h1>
+    <p>{{ projects|length }} archived project{% if projects|length != 1 %}s{% endif %}</p>
+  </div>
+</div>
+
+{% if projects %}
+<div class="project-grid stagger">
+  {% for project in projects %}
+  <div class="project-card" style="opacity:.6;">
+    <div class="project-card-banner">
+      <span style="font-size:32px;">{{ project.emoji }}</span>
+    </div>
+
+    <div class="project-card-body">
+      <div class="project-card-name">
+        {{ project.name }}
+        <span class="badge badge-warning" style="margin-left:6px;font-size:10px;">Archived</span>
+      </div>
+
+      <div style="margin-top:12px;display:flex;gap:6px;">
+        <a href="{% url 'project_detail' project.id %}" class="btn btn-secondary btn-sm">
+          View
+        </a>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<div class="empty-state">
+  <h3>No archived projects</h3>
+</div>
+{% endif %}
+{% endblock %}
