@@ -15,6 +15,7 @@ class Project(models.Model):
     annotation_type = models.CharField(max_length=20, choices=ANNOTATION_TYPE_CHOICES, default='bbox')
     emoji           = models.CharField(max_length=4, default='◈')
     created_by      = models.ForeignKey(User, on_delete=models.CASCADE, related_name='owned_projects')
+    is_archived     = models.BooleanField(default=False, db_index=True)
     created_at      = models.DateTimeField(auto_now_add=True)
     updated_at      = models.DateTimeField(auto_now=True)
 
@@ -45,6 +46,10 @@ class Project(models.Model):
     @property
     def member_count(self):
         return self.members.count()
+
+    def archive(self):
+        self.is_archived = True
+        self.save(update_fields=['is_archived', 'updated_at'])
 
 
 class ProjectMember(models.Model):

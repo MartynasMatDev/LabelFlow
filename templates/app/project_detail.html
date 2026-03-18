@@ -7,6 +7,13 @@
 {% if is_admin %}
 <a href="{% url 'team_management' project.id %}" class="btn btn-ghost btn-sm">⬔ Team</a>
 {% endif %}
+{% if is_admin and not project.is_archived %}
+<a href="{% url 'archive_project' project.id %}"
+   class="btn btn-danger btn-sm"
+   onclick="return confirm('Archive this project?');">
+   Archive
+</a>
+{% endif %}
 {% endblock %}
 
 {% block app_content %}
@@ -16,6 +23,11 @@
       <span style="font-size:28px;">{{ project.emoji }}</span>
       <h1>{{ project.name }}</h1>
     </div>
+    {% if project.is_archived %}
+    <div class="badge badge-warning" style="margin-bottom:6px;">
+      Archived (read-only)
+    </div>
+    {% endif %}
     <p>
       {{ project.get_annotation_type_display }}
       · created {{ project.created_at|date:"Y-m-d" }}
