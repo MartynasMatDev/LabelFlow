@@ -74,7 +74,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }, 4000);
   });
 
-  // ── Drop-zone upload ──────────────────────────
+    // ── Drop-zone upload ──────────────────────────
   window.initDropZone = function(zoneId, inputId, previewId) {
     const zone  = document.getElementById(zoneId);
     const input = document.getElementById(inputId);
@@ -84,38 +84,70 @@ document.addEventListener('DOMContentLoaded', () => {
     zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('dragover'); });
     zone.addEventListener('dragleave', () => zone.classList.remove('dragover'));
     zone.addEventListener('drop', e => {
-      e.preventDefault(); zone.classList.remove('dragover');
-      input.files = e.dataTransfer.files;
-      handleFilePreview(input.files, previewId);
+      e.preventDefault();
+      zone.classList.remove('dragover');
+
+      const dt = e.dataTransfer;
+      if (dt && dt.files && dt.files.length) {
+        // Copy files into a DataTransfer to set input.files reliably
+        const dataTransfer = new DataTransfer();
+        Array.from(dt.files).forEach(f => dataTransfer.items.add(f));
+        input.files = dataTransfer.files;
+        handleFilePreview(input.files, previewId);
+      }
     });
+
     input.addEventListener('change', () => handleFilePreview(input.files, previewId));
   };
 
   window.handleFilePreview = function(files, previewId) {
     const container = document.getElementById(previewId);
-    if (!container || !files.length) return;
-    container.innerHTML = '';
-    container.style.display = 'flex';
+    const previewWrap = document.getElementById('file-preview-wrap');
     const countEl = document.getElementById('upload-file-count');
-    if (countEl) countEl.textContent = `${files.length} file(s) selected`;
     const submitBtn = document.getElementById('upload-submit');
+
+    if (!container) return;
+
+    // Clear old previews (and revoke object URLs)
+    const imgs = container.querySelectorAll('img[data-object-url]');
+    imgs.forEach(img => {
+      const url = img.getAttribute('data-object-url');
+      if (url) URL.revokeObjectURL(url);
+    });
+
+    // No files -> clear preview and disable submit
+    if (!files || files.length === 0) {
+      container.innerHTML = '';
+      if (previewWrap) previewWrap.style.display = 'none';
+      if (countEl) countEl.textContent = '';
+      if (submitBtn) submitBtn.disabled = true;
+      return;
+    }
+
+    // Show preview wrapper and update count + enable submit
+    container.innerHTML = '';
+    if (previewWrap) previewWrap.style.display = '';
+    if (countEl) countEl.textContent = `${files.length} file(s) selected`;
     if (submitBtn) submitBtn.disabled = false;
 
+    // Render up to 10 thumbnails
     Array.from(files).slice(0, 10).forEach(f => {
       const wrap = document.createElement('div');
-      wrap.style.cssText = 'width:56px;height:56px;border-radius:7px;background:var(--surface2);border:1px solid var(--border);overflow:hidden;flex-shrink:0;';
-      if (f.type.startsWith('image/')) {
-        const reader = new FileReader();
-        reader.onload = ev => {
-          const img = document.createElement('img');
-          img.src = ev.target.result;
-          img.style.cssText = 'width:100%;height:100%;object-fit:cover;';
-          wrap.appendChild(img);
-        };
-        reader.readAsDataURL(f);
+      wrap.style.cssText =
+        'width:56px;height:56px;border-radius:7px;background:var(--surface2);border:1px solid var(--border);overflow:hidden;flex-shrink:0;display:inline-block;';
+
+      if (f.type && f.type.startsWith('image/')) {
+        const img = document.createElement('img');
+        const objUrl = URL.createObjectURL(f);
+        img.src = objUrl;
+        img.setAttribute('data-object-url', objUrl);
+        img.style.cssText = 'width:100%;height:100%;object-fit:cover;';
+        wrap.appendChild(img);
       } else {
-        wrap.innerHTML = '<span style="font-size:22px;display:flex;align-items:center;justify-content:center;height:100%">⬡</span>';
+        wrap.innerHTML =
+          '<span style="font-size:22px;display:flex;align-items:center;justify-content:center;height:100%">⬡</span>';
       }
+
       container.appendChild(wrap);
     });
   };
