@@ -39,14 +39,17 @@ def image_list(request, project_id=None):
     if status_filter in ('pending', 'partial', 'done'):
         images = images.filter(status=status_filter)
 
+    # Tag filter
     tag_filter = request.GET.get('tag', '')
     if tag_filter:
         images = images.filter(tags__id=tag_filter)
 
+    # Search
     q = request.GET.get('q', '').strip()
     if q:
         images = images.filter(name__icontains=q)
 
+    # Date filtering
     start_date = request.GET.get('start_date', '').strip()
     end_date = request.GET.get('end_date', '').strip()
 
@@ -64,6 +67,7 @@ def image_list(request, project_id=None):
         except ValueError:
             end_date = ''
 
+    # Sort
     sort = request.GET.get('sort', '-uploaded_at')
     if sort in ('name', '-name', 'uploaded_at', '-uploaded_at', 'status'):
         images = images.order_by(sort)
@@ -89,7 +93,7 @@ def image_list(request, project_id=None):
 
 @login_required
 def image_upload(request):
-    """Classic multi‑file upload (form POST)."""
+    """Classic multi-file upload (form POST) — unchanged behaviour."""
     projects = _user_projects(request.user)
 
     if request.method == 'POST':
@@ -147,7 +151,15 @@ def image_upload(request):
 @require_POST
 def image_upload_ajax(request):
     """
-    Upload a single image via fetch() (used by the folder‑upload UI).
+    Upload a single image via fetch() (used by the folder-upload UI).
+
+    Request body (multipart):
+        project     – project pk
+        image_file  – the file
+
+    Response (JSON):
+        { success: true,  name: "...", id: 123 }
+        { success: false, error: "reason" }
     """
     project_id = request.POST.get('project', '').strip()
     if not project_id:
@@ -165,6 +177,7 @@ def image_upload_ajax(request):
     if not f:
         return JsonResponse({'success': False, 'error': 'No file received.'}, status=400)
 
+    # Validate extension
     ext = os.path.splitext(f.name)[1].lower()
     if ext not in ALLOWED_EXTENSIONS:
         return JsonResponse(
@@ -172,6 +185,7 @@ def image_upload_ajax(request):
             status=400,
         )
 
+    # Validate size
     if f.size > MAX_FILE_BYTES:
         return JsonResponse(
             {'success': False, 'error': f'File exceeds 20 MB limit ({f.size // (1024*1024)} MB).'},
