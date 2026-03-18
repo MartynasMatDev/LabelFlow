@@ -1,84 +1,602 @@
 {% extends "app/app_base.html" %}
-{% block app_title %}Įkelti paveikslėlius{% endblock %}
-{% block toolbar_title %}Įkelti paveikslėlius{% endblock %}
+{% block app_title %}Upload Images{% endblock %}
+{% block toolbar_title %}Upload{% endblock %}
+
+{% block toolbar_actions %}
+<a href="{% url 'image_list' %}" class="btn btn-ghost btn-sm">← All images</a>
+{% endblock %}
+
+{% block extra_head %}
+<style>
+.upload-layout {
+  display: grid;
+  grid-template-columns: 1fr 300px;
+  gap: 20px;
+  align-items: start;
+}
+@media (max-width: 860px) { .upload-layout { grid-template-columns: 1fr; } }
+
+/* ── Project selector ─────────────────────────────────── */
+.project-selector {
+  margin-bottom: 16px;
+}
+.project-selector label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  font-family: 'DM Mono', monospace;
+  margin-bottom: 8px;
+}
+.project-selector select { width: 100%; }
+
+/* ── Drop zone ────────────────────────────────────────── */
+.drop-zone {
+  border: 2px dashed var(--border-hover);
+  border-radius: var(--radius-lg);
+  background: var(--surface2);
+  padding: 44px 32px;
+  text-align: center;
+  transition: border-color .18s, background .18s;
+}
+.drop-zone.drag-over {
+  border-color: var(--accent);
+  background: var(--accent-glow);
+}
+.drop-zone-icon { font-size: 36px; margin-bottom: 12px; display: block; opacity: .5; }
+.drop-zone-title { font-size: 15px; font-weight: 700; margin-bottom: 6px; color: var(--text); }
+.drop-zone-sub {
+  font-size: 13px; color: var(--text-muted);
+  margin-bottom: 20px; line-height: 1.6;
+}
+.drop-zone-sub code {
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+}
+.drop-zone-btns { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+
+/* hidden real inputs */
+#input-files, #input-folder { display: none; }
+
+/* ── File queue ───────────────────────────────────────── */
+.queue-wrap {
+  margin-top: 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  display: none;
+}
+.queue-wrap.visible { display: block; }
+
+.queue-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 11px 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface2);
+}
+.queue-header-label {
+  font-size: 12px; font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  font-family: 'DM Mono', monospace;
+}
+.queue-list {
+  max-height: 300px;
+  overflow-y: auto;
+  padding: 8px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.queue-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 10px;
+  border-radius: 8px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  font-size: 13px;
+  transition: border-color .15s;
+}
+.queue-item.uploading { border-color: var(--accent); }
+.queue-item.done      { border-color: var(--success); }
+.queue-item.error     { border-color: var(--danger); }
+.queue-item.skipped   { opacity: .6; border-color: var(--warning); }
+
+.queue-thumb {
+  width: 34px; height: 34px;
+  border-radius: 6px;
+  background: var(--surface3);
+  overflow: hidden; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px; color: var(--text-dim);
+}
+.queue-thumb img { width: 100%; height: 100%; object-fit: cover; }
+.queue-name {
+  flex: 1; min-width: 0;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  font-weight: 500;
+}
+.queue-size {
+  font-size: 11px; color: var(--text-muted);
+  font-family: 'DM Mono', monospace; flex-shrink: 0;
+}
+.queue-status { flex-shrink: 0; width: 18px; text-align: center; font-size: 13px; }
+
+/* ── Progress ─────────────────────────────────────────── */
+.progress-section {
+  padding: 14px 16px;
+  border-top: 1px solid var(--border);
+  display: none;
+}
+.progress-section.visible { display: block; }
+.progress-row {
+  display: flex; justify-content: space-between; align-items: baseline;
+  margin-bottom: 8px;
+}
+.progress-lbl   { font-size: 13px; font-weight: 600; color: var(--text); }
+.progress-count { font-size: 12px; color: var(--text-muted); font-family: 'DM Mono', monospace; }
+.progress-track { height: 5px; background: var(--surface3); border-radius: 99px; overflow: hidden; }
+.progress-fill  {
+  height: 100%; background: var(--accent);
+  border-radius: 99px; width: 0%;
+  transition: width .22s ease;
+}
+
+/* ── Error log ────────────────────────────────────────── */
+.error-log {
+  margin: 0 12px 10px;
+  display: none;
+  background: color-mix(in srgb, var(--danger) 7%, var(--surface2));
+  border: 1px solid color-mix(in srgb, var(--danger) 28%, var(--border));
+  border-radius: 8px;
+  padding: 10px 14px;
+  max-height: 150px;
+  overflow-y: auto;
+}
+.error-log.visible { display: block; }
+.error-log-title {
+  font-size: 11px; font-weight: 700;
+  color: var(--danger); margin-bottom: 6px;
+  text-transform: uppercase; letter-spacing: .05em;
+  font-family: 'DM Mono', monospace;
+}
+.error-log-row { display: flex; gap: 8px; font-size: 12px; padding: 2px 0; color: var(--text-muted); }
+.error-log-row .en { font-weight: 600; color: var(--text); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.error-log-row .er { flex-shrink: 0; color: var(--danger); }
+
+/* ── Summary ──────────────────────────────────────────── */
+.upload-summary {
+  margin: 0 12px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  overflow: hidden;
+  display: none;
+}
+.upload-summary.visible { display: block; }
+.sum-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 9px 14px; font-size: 13px;
+  border-bottom: 1px solid var(--border);
+}
+.sum-row:last-child { border-bottom: none; }
+.sum-label { color: var(--text-muted); }
+.sum-val   { font-weight: 700; font-family: 'DM Mono', monospace; }
+.sum-ok     { color: var(--success); }
+.sum-warn   { color: var(--warning); }
+.sum-danger { color: var(--danger); }
+
+/* ── Action bar ───────────────────────────────────────── */
+.upload-actions {
+  display: flex; gap: 10px;
+  padding: 12px 16px;
+  border-top: 1px solid var(--border);
+}
+
+/* ── Info sidebar ─────────────────────────────────────── */
+.upload-info-card {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 20px;
+  font-size: 13px;
+  margin-bottom: 14px;
+}
+.upload-info-card h3 {
+  font-size: 11px; font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: .07em;
+  font-family: 'DM Mono', monospace;
+  margin-bottom: 14px;
+}
+.upload-info-row {
+  display: flex; justify-content: space-between;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+}
+.upload-info-row:last-child { border-bottom: none; }
+.upload-info-row .k { color: var(--text-muted); }
+.upload-info-row .v { font-family: 'DM Mono', monospace; font-weight: 600; }
+</style>
+{% endblock %}
 
 {% block app_content %}
 <div class="page-header">
   <div class="page-title">
-    <h1>Įkelti paveikslėlius</h1>
-    <p>Pasirinkite projektą ir įkelkite vaizdus</p>
+    <h1>Upload images</h1>
+    <p>Add images to a project for annotation</p>
   </div>
 </div>
 
-<div style="max-width:640px;">
-  <form method="post" enctype="multipart/form-data" id="upload-form">
-    {% csrf_token %}
+<div class="upload-layout">
 
-    <div class="card" style="margin-bottom:16px;">
-      <h3 style="font-size:15px;margin-bottom:18px;">Projektas</h3>
-      <div class="form-group" style="margin-bottom:0;">
-        <label for="project">Pasirinkite projektą *</label>
-        <select id="project" name="project" required>
-          <option value="">— pasirinkite —</option>
-          {% for proj in projects %}
-          <option value="{{ proj.id }}" {% if selected_project_id == proj.id %}selected{% endif %}>
-            {{ proj.emoji }} {{ proj.name }}
-          </option>
-          {% endfor %}
-        </select>
-        {% if not projects %}
-        <div class="form-hint" style="color:var(--warning);">
-          Neturite projektų. <a href="{% url 'project_create' %}">Sukurkite projektą</a> pirmiausia.
+  <!-- ── LEFT ───────────────────────────────────────────── -->
+  <div>
+
+    <!-- Project selector -->
+    <div class="project-selector card" style="padding:18px 20px;">
+      <label for="project-select">Target project</label>
+      <select id="project-select">
+        <option value="">— select a project —</option>
+        {% for p in projects %}
+        <option value="{{ p.id }}"
+          {% if selected_project_id == p.id %}selected{% endif %}>
+          {{ p.emoji }} {{ p.name }}
+        </option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <!-- Drop zone -->
+    <div class="drop-zone" id="drop-zone">
+      <span class="drop-zone-icon">⬕</span>
+      <div class="drop-zone-title">Drop images or a folder here</div>
+      <div class="drop-zone-sub">
+        or choose with the buttons below<br>
+        <code>JPG · PNG · WEBP · BMP · GIF · max 20 MB each</code>
+      </div>
+      <div class="drop-zone-btns">
+        <button type="button" class="btn btn-secondary btn-sm"
+                onclick="document.getElementById('input-files').click()">
+          ⬕ Select files
+        </button>
+        <button type="button" class="btn btn-secondary btn-sm"
+                onclick="document.getElementById('input-folder').click()">
+          ⬡ Select folder
+        </button>
+      </div>
+    </div>
+
+    <!-- Hidden inputs -->
+    <input type="file" id="input-files" multiple
+           accept=".jpg,.jpeg,.png,.webp,.bmp,.gif">
+    <input type="file" id="input-folder"
+           webkitdirectory mozdirectory
+           accept=".jpg,.jpeg,.png,.webp,.bmp,.gif">
+
+    <!-- Queue card (shown after files are selected) -->
+    <div class="queue-wrap" id="queue-wrap">
+      <div class="queue-header">
+        <span class="queue-header-label">
+          Queued — <span id="queue-count">0</span> file(s)
+        </span>
+        <button type="button" class="btn btn-ghost btn-sm"
+                onclick="clearQueue()">✕ Clear</button>
+      </div>
+
+      <div class="queue-list" id="queue-list"></div>
+
+      <!-- Progress bar -->
+      <div class="progress-section" id="progress-section">
+        <div class="progress-row">
+          <span class="progress-lbl"   id="progress-lbl">Uploading…</span>
+          <span class="progress-count" id="progress-count">0 / 0</span>
         </div>
-        {% endif %}
+        <div class="progress-track">
+          <div class="progress-fill" id="progress-fill"></div>
+        </div>
+      </div>
+
+      <!-- Inline error log -->
+      <div class="error-log" id="error-log">
+        <div class="error-log-title">⚠ Skipped / failed</div>
+        <div id="error-list"></div>
+      </div>
+
+      <!-- Final summary -->
+      <div class="upload-summary" id="upload-summary">
+        <div class="sum-row"><span class="sum-label">Total queued</span>              <span class="sum-val"         id="sum-total">0</span></div>
+        <div class="sum-row"><span class="sum-label">Uploaded</span>                  <span class="sum-val sum-ok"   id="sum-ok">0</span></div>
+        <div class="sum-row"><span class="sum-label">Pre-skipped (type / size)</span> <span class="sum-val sum-warn" id="sum-skipped">0</span></div>
+        <div class="sum-row"><span class="sum-label">Failed (server error)</span>     <span class="sum-val sum-danger" id="sum-failed">0</span></div>
+      </div>
+
+      <!-- Actions -->
+      <div class="upload-actions">
+        <button type="button" class="btn btn-primary" id="btn-upload"
+                disabled onclick="startUpload()">↑ Upload</button>
+        <a href="#" class="btn btn-secondary" id="btn-view" style="display:none;">
+          → View project
+        </a>
       </div>
     </div>
 
-    <div class="card" style="margin-bottom:16px;">
-      <h3 style="font-size:15px;margin-bottom:18px;">Failai</h3>
+  </div>
 
-      <div class="drop-zone" id="drop-zone">
-        <div class="drop-zone-icon">⬡</div>
-        <p style="font-size:15px;font-weight:600;margin-bottom:6px;">Vilkite failus čia</p>
-        <p style="font-size:13px;color:var(--text-muted);margin-bottom:16px;">PNG, JPG, JPEG, WebP, BMP — iki 20MB vienas failas</p>
-        <label for="file-input" class="btn btn-secondary btn-sm" style="cursor:pointer;">Pasirinkti failus</label>
-        <input type="file" id="file-input" name="image_files" multiple accept="image/*" style="display:none;">
-      </div>
-
-      <div id="file-preview-wrap" style="display:none;margin-top:14px;">
-        <div id="upload-file-count" style="font-size:13px;color:var(--text-muted);margin-bottom:8px;"></div>
-        <div id="file-preview-grid" style="display:flex;flex-wrap:wrap;gap:8px;"></div>
-      </div>
+  <!-- ── RIGHT ──────────────────────────────────────────── -->
+  <div>
+    <div class="upload-info-card">
+      <h3>Upload rules</h3>
+      <div class="upload-info-row"><span class="k">Formats</span>    <span class="v">JPG PNG WEBP BMP GIF</span></div>
+      <div class="upload-info-row"><span class="k">Max file size</span><span class="v">20 MB</span></div>
+      <div class="upload-info-row"><span class="k">Subfolders</span>  <span class="v">Ignored</span></div>
+      <div class="upload-info-row"><span class="k">Concurrent</span>  <span class="v">3 at a time</span></div>
     </div>
 
-    <div class="flex gap-2" style="justify-content:flex-end;">
-      <a href="{% url 'image_list' %}" class="btn btn-ghost">Atšaukti</a>
-      <button type="submit" class="btn btn-primary" id="upload-submit" disabled>↑ Įkelti →</button>
+    <div class="upload-info-card" id="stats-card" style="display:none;">
+      <h3>Queue stats</h3>
+      <div class="upload-info-row"><span class="k">Files found</span>  <span class="v" id="stat-found">—</span></div>
+      <div class="upload-info-row"><span class="k">Valid</span>         <span class="v" id="stat-valid">—</span></div>
+      <div class="upload-info-row"><span class="k">Pre-skipped</span>  <span class="v" id="stat-preskip">—</span></div>
+      <div class="upload-info-row"><span class="k">Total size</span>   <span class="v" id="stat-size">—</span></div>
     </div>
-  </form>
+  </div>
+
 </div>
 {% endblock %}
 
 {% block extra_scripts %}
 <script>
-document.addEventListener('DOMContentLoaded', () => {
+(function () {
+  const ALLOWED = new Set(['.jpg','.jpeg','.png','.webp','.bmp','.gif']);
+  const MAX_B   = 20 * 1024 * 1024;
 
-  // Only call initDropZone if it exists
-  if (typeof initDropZone === "function") {
-    initDropZone('drop-zone', 'file-input', 'file-preview-grid');
+  let pending      = [];
+  let preSkipped   = 0;
+  let running      = false;
+
+  // DOM
+  const dropZone    = document.getElementById('drop-zone');
+  const inputFiles  = document.getElementById('input-files');
+  const inputFolder = document.getElementById('input-folder');
+  const queueWrap   = document.getElementById('queue-wrap');
+  const queueList   = document.getElementById('queue-list');
+  const queueCount  = document.getElementById('queue-count');
+  const btnUpload   = document.getElementById('btn-upload');
+  const btnView     = document.getElementById('btn-view');
+  const progSec     = document.getElementById('progress-section');
+  const progFill    = document.getElementById('progress-fill');
+  const progLbl     = document.getElementById('progress-lbl');
+  const progCount   = document.getElementById('progress-count');
+  const errorLog    = document.getElementById('error-log');
+  const errorList   = document.getElementById('error-list');
+  const summary     = document.getElementById('upload-summary');
+  const statsCard   = document.getElementById('stats-card');
+
+  // ── Helpers ──────────────────────────────────────────────
+  function ext(n)  { return n.slice(n.lastIndexOf('.')).toLowerCase(); }
+  function fmt(b)  {
+    if (b < 1024)    return b + ' B';
+    if (b < 1048576) return (b/1024).toFixed(1) + ' KB';
+    return (b/1048576).toFixed(1) + ' MB';
+  }
+  function esc(s)  { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+  function csrf()  { const m = document.cookie.match('(^|;)\\s*csrftoken=([^;]*)'); return m ? decodeURIComponent(m[2]) : ''; }
+  function key(f)  { return CSS.escape((f.name + f.size + f.lastModified).replace(/\W/g,'_')); }
+
+  function thumb(file) {
+    const d = document.createElement('div');
+    d.className = 'queue-thumb';
+    if (file.type.startsWith('image/')) {
+      const img = document.createElement('img');
+      img.src = URL.createObjectURL(file);
+      d.appendChild(img);
+    } else { d.textContent = '⬡'; }
+    return d;
   }
 
-  const input = document.getElementById('file-input');
-  const previewWrap = document.getElementById('file-preview-wrap');
-  const submitBtn = document.getElementById('upload-submit');
+  // ── Build queue ───────────────────────────────────────────
+  function buildQueue(files) {
+    pending    = [];
+    preSkipped = 0;
+    queueList.innerHTML = '';
+    errorLog.classList.remove('visible');
+    errorList.innerHTML = '';
+    summary.classList.remove('visible');
+    progSec.classList.remove('visible');
+    btnView.style.display = 'none';
 
-  input.addEventListener('change', () => {
-    const hasFiles = input.files.length > 0;
+    let bytes = 0;
+    files.forEach(f => {
+      const e     = ext(f.name);
+      const valid = ALLOWED.has(e) && f.size <= MAX_B;
+      if (valid) { pending.push(f); bytes += f.size; }
+      else       { preSkipped++; }
 
-    previewWrap.style.display = hasFiles ? '' : 'none';
-    submitBtn.disabled = !hasFiles;   // 🔥 THIS enables the upload button
+      const k   = key(f);
+      const row = document.createElement('div');
+      row.className    = 'queue-item' + (valid ? '' : ' skipped');
+      row.dataset.fkey = k;
+
+      const st = document.createElement('span');
+      st.className    = 'queue-status';
+      st.dataset.fkey = k;
+      st.textContent  = valid ? '○' : '⚠';
+      st.title        = valid ? 'Queued' : (!ALLOWED.has(e) ? 'Invalid type' : '>20 MB');
+
+      const nm = document.createElement('span');
+      nm.className   = 'queue-name';
+      nm.textContent = f.name;
+
+      const sz = document.createElement('span');
+      sz.className   = 'queue-size';
+      sz.textContent = fmt(f.size);
+
+      row.appendChild(thumb(f)); row.appendChild(nm);
+      row.appendChild(sz);       row.appendChild(st);
+      queueList.appendChild(row);
+    });
+
+    queueWrap.classList.add('visible');
+    queueCount.textContent = pending.length;
+
+    statsCard.style.display = '';
+    document.getElementById('stat-found').textContent   = files.length;
+    document.getElementById('stat-valid').textContent   = pending.length;
+    document.getElementById('stat-preskip').textContent = preSkipped;
+    document.getElementById('stat-size').textContent    = fmt(bytes);
+
+    btnUpload.disabled = pending.length === 0;
+  }
+
+  // ── Clear ─────────────────────────────────────────────────
+  window.clearQueue = function () {
+    pending = []; preSkipped = 0;
+    queueList.innerHTML = '';
+    queueWrap.classList.remove('visible');
+    progSec.classList.remove('visible');
+    errorLog.classList.remove('visible');
+    errorList.innerHTML = '';
+    summary.classList.remove('visible');
+    btnUpload.disabled = true;
+    btnView.style.display = 'none';
+    statsCard.style.display = 'none';
+    inputFiles.value = '';
+    inputFolder.value = '';
+  };
+
+  // ── Inputs ────────────────────────────────────────────────
+  inputFiles.addEventListener('change', () => {
+    if (inputFiles.files.length) buildQueue([...inputFiles.files]);
   });
 
-});
+  inputFolder.addEventListener('change', () => {
+    const flat = [...inputFolder.files].filter(
+      f => f.webkitRelativePath.split('/').length === 2
+    );
+    if (flat.length) buildQueue(flat);
+  });
+
+  // ── Drag & drop ───────────────────────────────────────────
+  dropZone.addEventListener('dragover',  e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+  dropZone.addEventListener('dragleave', ()=> dropZone.classList.remove('drag-over'));
+  dropZone.addEventListener('drop', async e => {
+    e.preventDefault();
+    dropZone.classList.remove('drag-over');
+    const collected = [];
+    for (const item of [...e.dataTransfer.items]) {
+      const entry = item.webkitGetAsEntry?.();
+      if (!entry) continue;
+      if (entry.isDirectory) {
+        await new Promise(res => {
+          entry.createReader().readEntries(entries => {
+            const fe = entries.filter(en => en.isFile);
+            let n = fe.length;
+            if (!n) { res(); return; }
+            fe.forEach(en => en.file(f => { collected.push(f); if (!--n) res(); }));
+          });
+        });
+      } else if (entry.isFile) {
+        await new Promise(res => entry.file(f => { collected.push(f); res(); }));
+      }
+    }
+    if (collected.length) buildQueue(collected);
+  });
+
+  // ── Upload ────────────────────────────────────────────────
+  window.startUpload = async function () {
+    if (running || !pending.length) return;
+    const pid = document.getElementById('project-select').value;
+    if (!pid) { alert('Please select a project first.'); return; }
+
+    running = true;
+    btnUpload.disabled = true;
+    errorList.innerHTML = '';
+    errorLog.classList.remove('visible');
+    summary.classList.remove('visible');
+
+    const total = pending.length;
+    let ok = 0, fail = 0, idx = 0;
+
+    progSec.classList.add('visible');
+    progFill.style.width  = '0%';
+    progLbl.textContent   = 'Uploading…';
+    progCount.textContent = `0 / ${total}`;
+
+    async function uploadOne(file) {
+      const k   = key(file);
+      const row = queueList.querySelector(`[data-fkey="${k}"]`);
+      const st  = row?.querySelector('.queue-status');
+      if (row) row.classList.add('uploading');
+      if (st)  st.textContent = '↑';
+
+      const fd = new FormData();
+      fd.append('project',    pid);
+      fd.append('image_file', file, file.name);
+
+      try {
+        const r = await fetch('{% url "image_upload_ajax" %}', {
+          method: 'POST', headers: { 'X-CSRFToken': csrf() }, body: fd,
+        });
+        const d = await r.json();
+        if (d.success) {
+          ok++;
+          if (row) { row.classList.remove('uploading'); row.classList.add('done'); }
+          if (st)  st.textContent = '✓';
+        } else {
+          fail++;
+          if (row) { row.classList.remove('uploading'); row.classList.add('error'); }
+          if (st)  st.textContent = '✕';
+          addError(file.name, d.error || 'Server error');
+        }
+      } catch (_) {
+        fail++;
+        if (row) { row.classList.remove('uploading'); row.classList.add('error'); }
+        if (st)  st.textContent = '✕';
+        addError(file.name, 'Network error');
+      }
+
+      const done = ok + fail;
+      progFill.style.width  = Math.round(done / total * 100) + '%';
+      progCount.textContent = `${done} / ${total}`;
+      progLbl.textContent   = done < total ? 'Uploading…' : 'Finishing…';
+    }
+
+    async function worker() {
+      while (idx < pending.length) await uploadOne(pending[idx++]);
+    }
+
+    await Promise.all(Array.from({ length: Math.min(3, total) }, worker));
+
+    running = false;
+    progLbl.textContent = 'Done';
+
+    document.getElementById('sum-total').textContent   = total;
+    document.getElementById('sum-ok').textContent      = ok;
+    document.getElementById('sum-skipped').textContent = preSkipped;
+    document.getElementById('sum-failed').textContent  = fail;
+    summary.classList.add('visible');
+
+    btnView.href         = `/images/project/${pid}/`;
+    btnView.style.display = '';
+  };
+
+  function addError(name, reason) {
+    errorLog.classList.add('visible');
+    const r = document.createElement('div');
+    r.className = 'error-log-row';
+    r.innerHTML = `<span class="en">${esc(name)}</span><span class="er">${esc(reason)}</span>`;
+    errorList.appendChild(r);
+  }
+})();
 </script>
 {% endblock %}
