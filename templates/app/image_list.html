@@ -1,273 +1,361 @@
 {% extends "app/app_base.html" %}
-{% block app_title %}Images{% endblock %}
-{% block toolbar_title %}{% if project %}{{ project.name }} — Images{% else %}All images{% endif %}{% endblock %}
+{% block app_title %}Upload Images{% endblock %}
+{% block toolbar_title %}Upload{% endblock %}
+
 {% block toolbar_actions %}
-<a href="{% url 'image_upload' %}{% if project %}?project={{ project.id }}{% endif %}" class="btn btn-primary btn-sm">↑ Upload</a>{% endblock %}
+<a href="{% url 'image_list' %}" class="btn btn-ghost btn-sm">← All images</a>
+{% endblock %}
+
+{% block extra_head %}
+<style>
+.upload-layout {
+  display: grid;
+  grid-template-columns: 1fr 300px;
+  gap: 20px;
+  align-items: start;
+}
+@media (max-width: 860px) { .upload-layout { grid-template-columns: 1fr; } }
+
+/* ── Project selector ─────────────────────────────────── */
+.project-selector {
+  margin-bottom: 16px;
+}
+.project-selector label {
+  display: block;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  font-family: 'DM Mono', monospace;
+  margin-bottom: 8px;
+}
+.project-selector select { width: 100%; }
+
+/* ── Drop zone ────────────────────────────────────────── */
+.drop-zone {
+  border: 2px dashed var(--border-hover);
+  border-radius: var(--radius-lg);
+  background: var(--surface2);
+  padding: 44px 32px;
+  text-align: center;
+  transition: border-color .18s, background .18s;
+}
+.drop-zone.drag-over {
+  border-color: var(--accent);
+  background: var(--accent-glow);
+}
+.drop-zone-icon { font-size: 36px; margin-bottom: 12px; display: block; opacity: .5; }
+.drop-zone-title { font-size: 15px; font-weight: 700; margin-bottom: 6px; color: var(--text); }
+.drop-zone-sub {
+  font-size: 13px; color: var(--text-muted);
+  margin-bottom: 20px; line-height: 1.6;
+}
+.drop-zone-sub code {
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+}
+.drop-zone-btns { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+
+/* hidden real inputs */
+#input-files, #input-folder { display: none; }
+
+/* ── File queue ───────────────────────────────────────── */
+.queue-wrap {
+  margin-top: 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  display: none;
+}
+.queue-wrap.visible { display: block; }
+
+.queue-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 11px 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface2);
+}
+.queue-header-label {
+  font-size: 12px; font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: .06em;
+  font-family: 'DM Mono', monospace;
+}
+.queue-list {
+  max-height: 300px;
+  overflow-y: auto;
+  padding: 8px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.queue-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 10px;
+  border-radius: 8px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  font-size: 13px;
+  transition: border-color .15s;
+}
+.queue-item.uploading { border-color: var(--accent); }
+.queue-item.done      { border-color: var(--success); }
+.queue-item.error     { border-color: var(--danger); }
+.queue-item.skipped   { opacity: .6; border-color: var(--warning); }
+
+.queue-thumb {
+  width: 34px; height: 34px;
+  border-radius: 6px;
+  background: var(--surface3);
+  overflow: hidden; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 14px; color: var(--text-dim);
+}
+.queue-thumb img { width: 100%; height: 100%; object-fit: cover; }
+.queue-name {
+  flex: 1; min-width: 0;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  font-weight: 500;
+}
+.queue-size {
+  font-size: 11px; color: var(--text-muted);
+  font-family: 'DM Mono', monospace; flex-shrink: 0;
+}
+.queue-status { flex-shrink: 0; width: 18px; text-align: center; font-size: 13px; }
+
+/* ── Progress ─────────────────────────────────────────── */
+.progress-section {
+  padding: 14px 16px;
+  border-top: 1px solid var(--border);
+  display: none;
+}
+.progress-section.visible { display: block; }
+.progress-row {
+  display: flex; justify-content: space-between; align-items: baseline;
+  margin-bottom: 8px;
+}
+.progress-lbl   { font-size: 13px; font-weight: 600; color: var(--text); }
+.progress-count { font-size: 12px; color: var(--text-muted); font-family: 'DM Mono', monospace; }
+.progress-track { height: 5px; background: var(--surface3); border-radius: 99px; overflow: hidden; }
+.progress-fill  {
+  height: 100%; background: var(--accent);
+  border-radius: 99px; width: 0%;
+  transition: width .22s ease;
+}
+
+/* ── Error log ────────────────────────────────────────── */
+.error-log {
+  margin: 0 12px 10px;
+  display: none;
+  background: color-mix(in srgb, var(--danger) 7%, var(--surface2));
+  border: 1px solid color-mix(in srgb, var(--danger) 28%, var(--border));
+  border-radius: 8px;
+  padding: 10px 14px;
+  max-height: 150px;
+  overflow-y: auto;
+}
+.error-log.visible { display: block; }
+.error-log-title {
+  font-size: 11px; font-weight: 700;
+  color: var(--danger); margin-bottom: 6px;
+  text-transform: uppercase; letter-spacing: .05em;
+  font-family: 'DM Mono', monospace;
+}
+.error-log-row { display: flex; gap: 8px; font-size: 12px; padding: 2px 0; color: var(--text-muted); }
+.error-log-row .en { font-weight: 600; color: var(--text); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.error-log-row .er { flex-shrink: 0; color: var(--danger); }
+
+/* ── Summary ──────────────────────────────────────────── */
+.upload-summary {
+  margin: 0 12px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  overflow: hidden;
+  display: none;
+}
+.upload-summary.visible { display: block; }
+.sum-row {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 9px 14px; font-size: 13px;
+  border-bottom: 1px solid var(--border);
+}
+.sum-row:last-child { border-bottom: none; }
+.sum-label { color: var(--text-muted); }
+.sum-val   { font-weight: 700; font-family: 'DM Mono', monospace; }
+.sum-ok     { color: var(--success); }
+.sum-warn   { color: var(--warning); }
+.sum-danger { color: var(--danger); }
+
+/* ── Action bar ───────────────────────────────────────── */
+.upload-actions {
+  display: flex; gap: 10px;
+  padding: 12px 16px;
+  border-top: 1px solid var(--border);
+}
+
+/* ── Info sidebar ─────────────────────────────────────── */
+.upload-info-card {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 20px;
+  font-size: 13px;
+  margin-bottom: 14px;
+}
+.upload-info-card h3 {
+  font-size: 11px; font-weight: 700;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: .07em;
+  font-family: 'DM Mono', monospace;
+  margin-bottom: 14px;
+}
+.upload-info-row {
+  display: flex; justify-content: space-between;
+  padding: 7px 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 12px;
+}
+.upload-info-row:last-child { border-bottom: none; }
+.upload-info-row .k { color: var(--text-muted); }
+.upload-info-row .v { font-family: 'DM Mono', monospace; font-weight: 600; }
+</style>
+{% endblock %}
 
 {% block app_content %}
 <div class="page-header">
   <div class="page-title">
-    <h1>{% if project %}{{ project.name }}{% else %}Images{% endif %}</h1>
-    <p>{{ image_count }} image(s) found</p>
-  </div>
-  <div class="page-actions">
-    <a href="{% url 'image_upload' %}{% if project %}?project={{ project.id }}{% endif %}" class="btn btn-primary btn-sm">↑ Upload images</a>
+    <h1>Upload images</h1>
+    <p>Add images to a project for annotation</p>
   </div>
 </div>
 
-<form method="get" class="filters-bar">
-  <div class="search-wrap">
-    <span class="search-icon">⌕</span>
-    <input type="search" name="q" value="{{ q }}" placeholder="Looking in name...">
-  </div>
+<div class="upload-layout">
 
-  <select name="status" onchange="this.form.submit()">
-    <option value="">All statuses</option>
-    <option value="pending"  {% if status_filter == 'pending' %}selected{% endif %}>Pending</option>
-    <option value="partial"  {% if status_filter == 'partial' %}selected{% endif %}>Partial</option>
-    <option value="done"     {% if status_filter == 'done' %}selected{% endif %}>Annotated</option>
-  </select>
+  <div>
 
-  <select name="sort" onchange="this.form.submit()">
-    <option value="-uploaded_at" {% if sort == '-uploaded_at' %}selected{% endif %}>Newest</option>
-    <option value="name"         {% if sort == 'name' %}selected{% endif %}>Name ↑</option>
-    <option value="-name"        {% if sort == '-name' %}selected{% endif %}>Name ↓</option>
-    <option value="status"       {% if sort == 'status' %}selected{% endif %}>Status</option>
-  </select>
-      <!-- Tag filter -->
-  <select name="tag" onchange="this.form.submit()">
-    <option value="">All tags</option>
-    {% for tag in all_tags %}
-    <option value="{{ tag.id }}" {% if tag_filter == tag.id|stringformat:"s" %}selected{% endif %}>{{ tag.name }}</option>
-    {% endfor %}
-  </select>
-
-  <!-- DATE FILTERS -->
-  <label style="display:inline-block;margin-left:8px;">
-    <input type="date"
-           name="start_date"
-           value="{{ start_date }}"
-           onchange="this.form.submit()"
-           style="height:36px;padding:6px 10px;">
-  </label>
-
-  <label style="display:inline-block;margin-left:8px;">
-    <input type="date"
-           name="end_date"
-           value="{{ end_date }}"
-           onchange="this.form.submit()"
-           style="height:36px;padding:6px 10px;">
-  </label>
-
-  <span style="flex:1;"></span>
-  <div class="view-toggle">
-    <button type="button" class="view-btn active" id="btn-grid" onclick="setView('grid')" title="Tinklelis">⊞</button>
-    <button type="button" class="view-btn" id="btn-list" onclick="setView('list')" title="Sąrašas">≡</button>
-  </div>
-</form>
-
-{% if images %}
-
-<!-- GRID VIEW -->
-<div class="image-grid stagger" id="image-grid-view">
-  {% for image in images %}
-    <div class="image-grid-card" data-id="{{ image.id }}">
-
-    <!-- Checkbox overlay -->
-    <label class="img-check-wrap" onclick="event.stopPropagation()">
-      <input type="checkbox" class="img-checkbox" value="{{ image.id }}" onchange="onCheckChange()">
-      <span class="img-check-box"></span>
-    </label>
-
-    <a href="{% url 'image_detail' image.id %}"
-       class="img-open-btn"
-       onclick="event.stopPropagation()"
-       title="Open">⤢</a>
-    <form method="post"
-          action="{% url 'image_delete' image.id %}"
-          class="img-delete-btn-wrap"
-          onclick="event.stopPropagation()"
-          onsubmit="return confirm('Delete „{{ image.name }}"?')">
-      {% csrf_token %}
-      <input type="hidden" name="next" value="{{ request.get_full_path }}">
-      <button type="submit" class="img-delete-btn" title="Delete">✕</button>
-    </form>
-
-    <div class="image-card-link"
-         onclick="document.querySelector('.img-checkbox[value=\'{{ image.id }}\']').click()">
-
-    <div class="image-thumb">
-      {% if image.image_file %}
-        <img src="{{ image.image_file.url }}"
-             alt="{{ image.name }}"
-             loading="lazy">
-      {% else %}
-        <span class="image-thumb-ph">⬡</span>
-      {% endif %}
-      <span class="image-status-dot {{ image.status }}"></span>
+    <!-- Project selector -->
+    <div class="project-selector card" style="padding:18px 20px;">
+      <label for="project-select">Target project</label>
+      <select id="project-select">
+        <option value="">— select a project —</option>
+        {% for p in projects %}
+        <option value="{{ p.id }}"
+          {% if selected_project_id == p.id %}selected{% endif %}>
+          {{ p.emoji }} {{ p.name }}
+        </option>
+        {% endfor %}
+      </select>
     </div>
 
-    <div class="image-info">
-        <div class="image-name truncate">{{ image.name }}</div>
-        {% if image.tags.all %}
-        <div class="tag-chips">
-          {% for tag in image.tags.all %}
-          <span class="tag-chip" style="--tc: {{ tag.color }}">{{ tag.name }}</span>
-          {% endfor %}
+    <!-- Drop zone -->
+    <div class="drop-zone" id="drop-zone">
+      <span class="drop-zone-icon">⬕</span>
+      <div class="drop-zone-title">Drop images or a folder here</div>
+      <div class="drop-zone-sub">
+        or choose with the buttons below<br>
+        <code>JPG · PNG · WEBP · BMP · GIF · max 20 MB each</code>
+      </div>
+      <div class="drop-zone-btns">
+        <button type="button" class="btn btn-secondary btn-sm"
+                onclick="document.getElementById('input-files').click()">
+          ⬕ Select files
+        </button>
+        <button type="button" class="btn btn-secondary btn-sm"
+                onclick="document.getElementById('input-folder').click()">
+          ⬡ Select folder
+        </button>
+      </div>
+    </div>
+
+    <!-- Hidden inputs -->
+    <input type="file" id="input-files" multiple
+           accept=".jpg,.jpeg,.png,.webp,.bmp,.gif">
+    <input type="file" id="input-folder"
+           webkitdirectory mozdirectory
+           accept=".jpg,.jpeg,.png,.webp,.bmp,.gif">
+
+    <!-- Queue card (shown after files are selected) -->
+    <div class="queue-wrap" id="queue-wrap">
+      <div class="queue-header">
+        <span class="queue-header-label">
+          Queued — <span id="queue-count">0</span> file(s)
+        </span>
+        <button type="button" class="btn btn-ghost btn-sm"
+                onclick="clearQueue()"
+                onmouseenter="this.style.color='var(--danger)'"
+                onmouseleave="this.style.color=''">✕ Clear all</button>
+      </div>
+
+      <div class="queue-list" id="queue-list"></div>
+
+      <!-- Progress bar -->
+      <div class="progress-section" id="progress-section">
+        <div class="progress-row">
+          <span class="progress-lbl"   id="progress-lbl">Uploading…</span>
+          <span class="progress-count" id="progress-count">0 / 0</span>
         </div>
-        {% endif %}
-        <div class="image-meta">
-          {% if image.resolution != '—' %}{{ image.resolution }} · {% endif %}
-          <span class="status-dot {{ image.status }}"></span>
-          {{ image.get_status_display }}
+        <div class="progress-track">
+          <div class="progress-fill" id="progress-fill"></div>
         </div>
       </div>
-    </div>
-  </div>
-  {% endfor %}
-  </div>
-<!-- LIST VIEW -->
-<div class="image-list-view" id="image-list-view">
-  <div class="card card-flat">
-    <div style="display:flex;padding:9px 18px;border-bottom:1px solid var(--border);background:var(--surface2);">
-      <div style="width:64px;flex-shrink:0;"></div>
-      <div style="flex:1;font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;">Name</div>
-        <div style="width:160px;font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;">Tags</div>
-      <div style="width:110px;font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;">Status</div>
-      <div style="width:120px;text-align:right;font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;">Uploaded</div>
-      <div style="width:60px;"></div>
-    </div>
-    {% for image in images %}
-    <div class="image-list-row">
-      <div style="width:36px;flex-shrink:0;display:flex;align-items:center;">
-        <input type="checkbox" class="img-checkbox" value="{{ image.id }}" onchange="onCheckChange()" style="width:16px;height:16px;accent-color:var(--accent);cursor:pointer;">
-      </div>
-      <div class="image-list-thumb">
-        {% if image.image_file %}
-        <img src="{{ image.image_file.url }}" alt="">
-     {% endif %}
-     </div>
 
-      <div class="image-list-name truncate">
-        {{ image.name }}
+      <!-- Inline error log -->
+      <div class="error-log" id="error-log">
+        <div class="error-log-title">⚠ Skipped / failed</div>
+        <div id="error-list"></div>
       </div>
 
-      <div class="image-list-status">
-        <span class="status-dot {{ image.status }}"></span>
-        {{ image.get_status_display }}
+      <!-- Final summary -->
+      <div class="upload-summary" id="upload-summary">
+        <div class="sum-row"><span class="sum-label">Total queued</span>              <span class="sum-val"         id="sum-total">0</span></div>
+        <div class="sum-row"><span class="sum-label">Uploaded</span>                  <span class="sum-val sum-ok"   id="sum-ok">0</span></div>
+        <div class="sum-row"><span class="sum-label">Pre-skipped (type / size)</span> <span class="sum-val sum-warn" id="sum-skipped">0</span></div>
+        <div class="sum-row"><span class="sum-label">Failed (server error)</span>     <span class="sum-val sum-danger" id="sum-failed">0</span></div>
       </div>
 
-      <div class="image-list-date">
-        {{ image.uploaded_at|date:"Y-m-d" }}
+      <!-- Actions -->
+      <div class="upload-actions">
+        <button type="button" class="btn btn-primary" id="btn-upload"
+                disabled onclick="startUpload()"
+                data-upload-url="{% url 'image_upload_ajax' %}">↑ Upload</button>
+        <a href="#" class="btn btn-secondary" id="btn-view" style="display:none;">
+          → View project
+        </a>
       </div>
-
-  <div style="width:60px;text-align:right;">
-    <form method="post"
-          action="{% url 'image_delete' image.id %}"
-          style="display:inline;"
-          onsubmit="return confirm('Delete „{{ image.name }}“?')">
-      {% csrf_token %}
-      <button type="submit"
-              class="btn btn-icon btn-danger btn-sm"
-              title="Delete">✕</button>
-    </form>
-  </div>
-</div>
-{% endfor %}
-  </div>
-</div>
-
-{% else %}
-<div class="empty-state">
-  <div class="empty-icon">⬡</div>
-    <h3>{% if q or status_filter %}No images found{% else %}No images yet{% endif %}</h3>
-    <p>{% if q or status_filter %}Try adjusting your filters{% else %}Upload images to start annotating{% endif %}</p>  {% if not q and not status_filter %}
-  <a href="{% url 'image_upload' %}{% if project %}?project={{ project.id }}{% endif %}" class="btn btn-primary mt-4">↑ Upload images</a>
-  {% endif %}
-</div>
-{% endif %}
-    <!-- ─── BATCH ACTION BAR ──────────────────────────────── -->
-<div class="batch-bar" id="batch-bar">
-  <span class="batch-count"><span id="batch-count-num">0</span> selected</span>
-  <button type="button" class="btn btn-secondary btn-sm" onclick="selectAll(true)">All</button>
-  <button type="button" class="btn btn-ghost btn-sm"     onclick="selectAll(false)">None</button>
-  <div style="width:1px;height:22px;background:var(--border);"></div>
-  <button type="button" class="btn btn-primary btn-sm"   onclick="openTagModal('add')">＋ Add Tag</button>
-  <button type="button" class="btn btn-danger btn-sm"    onclick="openTagModal('remove')">− Remove Tag</button>
-  <div style="width:1px;height:22px;background:var(--border);"></div>
-  <button type="button" class="btn btn-danger btn-sm" onclick="openDeleteModal()">✕ Delete</button>
-</div>
-
-<!-- ─── TAG MODAL ────────────────────────────────────── -->
-<div class="modal-overlay" id="tag-modal">
-  <div class="modal" style="max-width:420px;">
-    <div class="modal-header">
-      <h2 id="tag-modal-title">Add tag</h2>
-      <button class="modal-close" onclick="closeTagModal()">✕</button>
     </div>
 
-    <form method="post" action="{% url 'batch_tag' %}" id="tag-form">
-      {% csrf_token %}
-      <input type="hidden" name="action" id="tag-action" value="add">
-      <input type="hidden" name="next"   value="{{ request.get_full_path }}">
-      <div id="tag-image-inputs"></div><!-- image_ids injected by JS -->
-
-      <!-- Existing tags -->
-      {% if all_tags %}
-      <div class="form-group">
-        <label>Existing tags</label>
-        <div class="tag-pick-list">
-          {% for tag in all_tags %}
-          <label class="tag-pick-item">
-            <input type="checkbox" name="tag_ids" value="{{ tag.id }}">
-            <span class="tag-chip" style="--tc: {{ tag.color }}">{{ tag.name }}</span>
-          </label>
-          {% endfor %}
-        </div>
-      </div>
-      {% endif %}
-
-      <!-- Create new tag -->
-       <div class="form-group" id="new-tag-group">
-        <label>New tag</label>
-        <div style="display:flex;gap:8px;">
-          <input type="text" name="new_tag" id="new-tag-input" placeholder="Tag name..." style="flex:1;">
-          <input type="color" name="new_tag_color" value="#6366f1"
-                 style="width:42px;height:42px;padding:2px;border-radius:8px;cursor:pointer;border:1px solid var(--border-hover);background:var(--surface2);">
-        </div>
-        <p class="form-hint">Leave empty if using an existing tag.</p>
-      </div>
-
-      <div class="modal-footer">
-        <button type="button" class="btn btn-ghost" onclick="closeTagModal()">Cancel</button>
-        <button type="submit" class="btn btn-primary" id="tag-submit-btn">Add</button>
-      </div>
-    </form>
   </div>
-</div>
 
-<!-- ─── BATCH DELETE MODAL ───────────────────────────── -->
-<div class="modal-overlay" id="delete-modal">
-  <div class="modal" style="max-width:400px;border-color:rgba(248,113,113,0.25);">
-    <div class="modal-header">
-      <h2>Delete images</h2>
-      <button class="modal-close" onclick="closeDeleteModal()">✕</button>
+  <!-- ── RIGHT ──────────────────────────────────────────── -->
+  <div>
+    <div class="upload-info-card">
+      <h3>Upload rules</h3>
+      <div class="upload-info-row"><span class="k">Formats</span>    <span class="v">JPG PNG WEBP BMP GIF</span></div>
+      <div class="upload-info-row"><span class="k">Max file size</span><span class="v">20 MB</span></div>
+      <div class="upload-info-row"><span class="k">Subfolders</span>  <span class="v">Ignored</span></div>
+      <div class="upload-info-row"><span class="k">Concurrent</span>  <span class="v">3 at a time</span></div>
     </div>
-    <p style="font-size:14px;color:var(--text-muted);margin-bottom:8px;">
-      You are about to permanently delete
-      <strong id="delete-count-label" style="color:var(--danger);">0 image(s)</strong>.
-      This cannot be undone.
-    </p>
-    <form method="post" action="{% url 'batch_delete' %}" id="delete-form">
-      {% csrf_token %}
-      <input type="hidden" name="next" value="{{ request.get_full_path }}">
-      <div id="delete-image-inputs"></div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-ghost" onclick="closeDeleteModal()">Cancel</button>
-        <button type="submit" class="btn btn-danger">✕ Delete permanently</button>
-      </div>
-    </form>
+
+    <div class="upload-info-card" id="stats-card" style="display:none;">
+      <h3>Queue stats</h3>
+      <div class="upload-info-row"><span class="k">Files found</span>  <span class="v" id="stat-found">—</span></div>
+      <div class="upload-info-row"><span class="k">Valid</span>         <span class="v" id="stat-valid">—</span></div>
+      <div class="upload-info-row"><span class="k">Pre-skipped</span>  <span class="v" id="stat-preskip">—</span></div>
+      <div class="upload-info-row"><span class="k">Total size</span>   <span class="v" id="stat-size">—</span></div>
+    </div>
   </div>
+
 </div>
+{% endblock %}
+
+{% block extra_scripts %}
 
 {% endblock %}

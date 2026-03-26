@@ -9,5 +9,4 @@ urlpatterns = [
     path('projects/<int:project_id>/team/', views.team_management,  name='team_management'),
     path("projects/archived/",              views.archived_projects, name="archived_projects"),
     path("projects/<int:project_id>/archive/", views.archive_project, name="archive_project"),
-    path("projects/<int:project_id>/restore/", views.restore_project, name="restore_project"),
 ]
