@@ -1,0 +1,1082 @@
+{% extends "app/app_base.html" %}
+
+{% block toolbar_title %}Annotate — {{ image.name }}{% endblock %}
+
+{% block toolbar_actions %}
+<span style="font-size:12px;font-family:'DM Mono',monospace;color:var(--text-muted);padding:0 8px;" id="save-status">All changes saved</span>
+<a href="{% url 'image_detail' image.pk %}" class="btn btn-ghost btn-sm">← Detail</a>
+<a href="{% url 'project_images' image.project.id %}" class="btn btn-ghost btn-sm">All images</a>
+<button class="btn btn-secondary btn-sm" onclick="Annotator.save(false)" id="btn-save">Save</button>
+<button class="btn btn-primary btn-sm"   onclick="Annotator.save(true)"  id="btn-done">Mark done</button>
+{% endblock %}
+
+{% block extra_head %}
+<style>
+/* ── Layout ─────────────────────────────────────────────── */
+.annotate-shell {
+  display: grid;
+  grid-template-columns: 1fr 280px;
+  grid-template-rows: auto 1fr;
+  height: calc(100vh - 56px);   /* full height minus toolbar */
+  overflow: hidden;
+}
+
+.annotate-topbar {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 16px;
+  background: var(--surface2);
+  border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+
+/* ── Canvas area ────────────────────────────────────────── */
+.canvas-wrap {
+  position: relative;
+  overflow: auto;
+  background: #050508;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: crosshair;
+}
+.canvas-wrap.tool-select { cursor: default; }
+.canvas-wrap.tool-move   { cursor: grab; }
+
+#canvas-container {
+  position: relative;
+  display: inline-block;
+  user-select: none;
+}
+
+#img-base {
+  display: block;
+  max-width: 100%;
+  max-height: calc(100vh - 56px - 48px);
+  pointer-events: none;
+  border-radius: 4px;
+}
+
+/* SVG overlay sits exactly on top of image */
+#svg-overlay {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+/* ── Box styles (SVG) ───────────────────────────────────── */
+.bbox-rect {
+  fill: none;
+  stroke-width: 2;
+  cursor: pointer;
+  transition: stroke-width .1s;
+}
+.bbox-rect:hover   { stroke-width: 2.5; }
+.bbox-rect.selected { stroke-width: 2.5; }
+
+.bbox-label-bg {
+  rx: 4px;
+  ry: 4px;
+}
+.bbox-label-text {
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  font-weight: 600;
+  fill: #fff;
+  dominant-baseline: middle;
+  pointer-events: none;
+}
+
+/* Handle circles */
+.resize-handle {
+  fill: #fff;
+  stroke: #000;
+  stroke-width: 1.5;
+  cursor: nwse-resize;
+  r: 5;
+}
+.resize-handle.n, .resize-handle.s  { cursor: ns-resize; }
+.resize-handle.e, .resize-handle.w  { cursor: ew-resize; }
+.resize-handle.nw, .resize-handle.se { cursor: nwse-resize; }
+.resize-handle.ne, .resize-handle.sw { cursor: nesw-resize; }
+
+/* Drawing ghost */
+#draw-ghost {
+  fill: rgba(99,102,241,0.12);
+  stroke: #6366f1;
+  stroke-width: 2;
+  stroke-dasharray: 6 3;
+  pointer-events: none;
+}
+
+/* ── Sidebar ────────────────────────────────────────────── */
+.annotate-sidebar {
+  display: flex;
+  flex-direction: column;
+  background: var(--surface);
+  border-left: 1px solid var(--border);
+  overflow: hidden;
+}
+
+.sidebar-section {
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+}
+.sidebar-section-title {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  font-family: 'DM Mono', monospace;
+  margin-bottom: 10px;
+}
+
+/* ── Tool buttons ───────────────────────────────────────── */
+.tool-group {
+  display: flex;
+  gap: 6px;
+}
+.tool-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 13px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface2);
+  color: var(--text-muted);
+  font-size: 12px;
+  font-family: 'DM Mono', monospace;
+  cursor: pointer;
+  transition: all .15s;
+  white-space: nowrap;
+}
+.tool-btn:hover { border-color: var(--border-hover); color: var(--text); }
+.tool-btn.active {
+  border-color: var(--accent);
+  background: var(--accent-glow);
+  color: var(--accent-bright);
+}
+.tool-icon { font-size: 14px; }
+
+/* ── Box list ───────────────────────────────────────────── */
+.box-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 10px;
+}
+.box-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  transition: all .12s;
+  margin-bottom: 4px;
+}
+.box-item:hover  { background: var(--surface2); border-color: var(--border); }
+.box-item.active { background: var(--surface3); border-color: var(--border-accent); }
+
+.box-color-dot {
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.box-label-text {
+  flex: 1;
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.box-coords {
+  font-size: 10px;
+  color: var(--text-muted);
+  font-family: 'DM Mono', monospace;
+  flex-shrink: 0;
+}
+.box-del-btn {
+  display: none;
+  background: none;
+  border: none;
+  color: var(--danger);
+  cursor: pointer;
+  font-size: 13px;
+  padding: 2px 4px;
+  border-radius: 4px;
+  flex-shrink: 0;
+}
+.box-item:hover .box-del-btn { display: block; }
+.box-item.active .box-del-btn { display: block; }
+
+/* ── Label picker (inline in sidebar) ───────────────────── */
+.label-picker {
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+  display: none;
+}
+.label-picker.visible { display: block; }
+.label-picker-title {
+  font-size: 10px; font-weight: 700;
+  letter-spacing: .08em; text-transform: uppercase;
+  color: var(--text-muted); font-family: 'DM Mono', monospace;
+  margin-bottom: 10px;
+}
+.label-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+.label-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 10px;
+  border-radius: 99px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  border: 1.5px solid transparent;
+  transition: all .12s;
+  background: color-mix(in srgb, var(--tc, #6366f1) 15%, var(--surface3));
+  color: var(--tc, #6366f1);
+}
+.label-chip:hover { border-color: var(--tc, #6366f1); }
+.label-chip.selected { border-color: var(--tc, #6366f1); background: color-mix(in srgb, var(--tc, #6366f1) 25%, var(--surface3)); }
+
+.new-label-row {
+  display: flex;
+  gap: 6px;
+  margin-top: 8px;
+}
+.new-label-row input[type=text] {
+  flex: 1;
+  height: 32px;
+  padding: 0 10px;
+  font-size: 12px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font-family: 'DM Sans', sans-serif;
+}
+.new-label-row input[type=text]:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+.new-label-row input[type=color] {
+  width: 32px; height: 32px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
+  background: var(--surface2);
+  padding: 2px;
+  cursor: pointer;
+  flex-shrink: 0;
+}
+.new-label-row .btn { flex-shrink: 0; height: 32px; padding: 0 12px; font-size: 12px; }
+
+/* ── Image meta in sidebar ──────────────────────────────── */
+.meta-row {
+  display: flex;
+  justify-content: space-between;
+  padding: 5px 0;
+  font-size: 12px;
+  border-bottom: 1px solid var(--border);
+}
+.meta-row:last-child { border-bottom: none; }
+.meta-key { color: var(--text-muted); }
+.meta-val { font-family: 'DM Mono', monospace; font-weight: 600; }
+
+/* ── Topbar items ────────────────────────────────────────── */
+.zoom-display {
+  font-size: 12px;
+  font-family: 'DM Mono', monospace;
+  color: var(--text-muted);
+  min-width: 44px;
+  text-align: center;
+}
+
+/* ── Keyboard hint bar ──────────────────────────────────── */
+.key-hints {
+  display: flex;
+  gap: 16px;
+  padding: 6px 16px;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.key-hint {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+kbd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1px 6px;
+  border-radius: 4px;
+  border: 1px solid var(--border-hover);
+  background: var(--surface3);
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  color: var(--text);
+}
+
+/* ── Status badge ───────────────────────────────────────── */
+.status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 10px;
+  border-radius: 99px;
+  font-size: 11px;
+  font-weight: 600;
+  font-family: 'DM Mono', monospace;
+}
+.status-badge.pending { background: color-mix(in srgb, var(--warning) 12%, transparent); color: var(--warning); }
+.status-badge.partial { background: color-mix(in srgb, var(--accent) 12%, transparent);  color: var(--accent-bright); }
+.status-badge.done    { background: color-mix(in srgb, var(--success) 12%, transparent); color: var(--success); }
+
+/* ── Empty box list ─────────────────────────────────────── */
+.box-empty {
+  padding: 24px 16px;
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 12px;
+}
+.box-empty-icon { font-size: 28px; margin-bottom: 8px; opacity: .4; }
+</style>
+{% endblock %}
+
+{% block app_content %}
+<div class="annotate-shell">
+
+  <!-- ── TOP ACTION BAR ──────────────────────────────────── -->
+  <div class="annotate-topbar">
+    <!-- Tools -->
+    <div class="tool-group">
+      <button class="tool-btn active" id="tool-draw"   onclick="Annotator.setTool('draw')"   title="Draw (B)">
+        <span class="tool-icon">⬕</span> Draw
+      </button>
+      <button class="tool-btn"        id="tool-select" onclick="Annotator.setTool('select')" title="Select (V)">
+        <span class="tool-icon">◻</span> Select
+      </button>
+    </div>
+
+    <div style="width:1px;height:22px;background:var(--border);flex-shrink:0;"></div>
+
+    <!-- Undo / delete -->
+    <button class="tool-btn" onclick="Annotator.undo()" title="Undo (Ctrl+Z)">↩ Undo</button>
+    <button class="tool-btn" id="btn-delete-sel" onclick="Annotator.deleteSelected()" style="display:none;" title="Delete (Del)">
+      ✕ Delete
+    </button>
+
+    <div style="width:1px;height:22px;background:var(--border);flex-shrink:0;"></div>
+
+    <!-- Zoom -->
+    <button class="tool-btn" onclick="Annotator.zoom(-0.1)" title="Zoom out">−</button>
+    <span class="zoom-display" id="zoom-display">100%</span>
+    <button class="tool-btn" onclick="Annotator.zoom(+0.1)" title="Zoom in">+</button>
+    <button class="tool-btn" onclick="Annotator.resetZoom()" title="Fit">Fit</button>
+
+    <div style="flex:1;"></div>
+
+    <!-- Image status -->
+    <span class="status-badge {{ image.status }}" id="status-badge">
+      {% if image.status == 'pending' %}⏳ Pending
+      {% elif image.status == 'partial' %}◑ Partial
+      {% else %}✓ Done{% endif %}
+    </span>
+
+    <span style="font-size:12px;color:var(--text-muted);font-family:'DM Mono',monospace;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
+      {{ image.name }}
+    </span>
+  </div>
+
+  <!-- ── CANVAS ────────────────────────────────────────────── -->
+  <div class="canvas-wrap" id="canvas-wrap">
+    <div id="canvas-container">
+      <img id="img-base" src="{{ image.image_file.url }}" alt="{{ image.name }}" draggable="false">
+      <svg id="svg-overlay" xmlns="http://www.w3.org/2000/svg">
+        <rect id="draw-ghost" x="0" y="0" width="0" height="0" style="display:none;"/>
+        <g id="boxes-group"></g>
+      </svg>
+    </div>
+  </div>
+
+  <!-- ── SIDEBAR ───────────────────────────────────────────── -->
+  <aside class="annotate-sidebar">
+
+    <!-- Label picker (shown when a box is selected or being drawn) -->
+    <div class="label-picker" id="label-picker">
+      <div class="label-picker-title">Label for selected box</div>
+
+      <div class="label-grid" id="label-grid">
+        {% for tag in all_tags %}
+        <span class="label-chip"
+              style="--tc: {{ tag.color }}"
+              data-id="{{ tag.id }}"
+              data-name="{{ tag.name }}"
+              data-color="{{ tag.color }}"
+              onclick="Annotator.applyLabel({{ tag.id }}, '{{ tag.name|escapejs }}', '{{ tag.color|escapejs }}')">
+          {{ tag.name }}
+        </span>
+        {% endfor %}
+      </div>
+
+      <!-- Create new tag inline -->
+      <div class="new-label-row">
+        <input type="text"   id="new-label-name"  placeholder="New label…">
+        <input type="color"  id="new-label-color" value="#6366f1">
+        <button class="btn btn-primary btn-sm" onclick="Annotator.createLabel()">＋</button>
+      </div>
+    </div>
+
+    <!-- Box list -->
+    <div class="sidebar-section" style="padding-bottom:6px;">
+      <div class="sidebar-section-title">
+        Annotations
+        <span style="float:right;font-weight:400;color:var(--text-muted);" id="box-count">0</span>
+      </div>
+    </div>
+
+    <div class="box-list" id="box-list">
+      <div class="box-empty" id="box-empty">
+        <div class="box-empty-icon">⬕</div>
+        <div>No boxes yet</div>
+        <div style="margin-top:4px;font-size:11px;">Select the Draw tool and drag on the image</div>
+      </div>
+    </div>
+
+    <!-- Image meta -->
+    <div class="sidebar-section" style="margin-top:auto;">
+      <div class="sidebar-section-title">Image info</div>
+      <div class="meta-row"><span class="meta-key">Resolution</span><span class="meta-val">{{ image.resolution }}</span></div>
+      <div class="meta-row"><span class="meta-key">Size</span><span class="meta-val">{% if image.file_size_kb %}{{ image.file_size_kb }} KB{% else %}—{% endif %}</span></div>
+      <div class="meta-row"><span class="meta-key">Uploaded</span><span class="meta-val">{{ image.uploaded_at|date:"Y-m-d" }}</span></div>
+      <div class="meta-row"><span class="meta-key">Project</span><span class="meta-val" style="max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ image.project.name }}</span></div>
+    </div>
+
+    <!-- Keyboard hints -->
+    <div class="key-hints">
+      <span class="key-hint"><kbd>B</kbd> Draw</span>
+      <span class="key-hint"><kbd>V</kbd> Select</span>
+      <span class="key-hint"><kbd>Del</kbd> Delete</span>
+      <span class="key-hint"><kbd>Ctrl Z</kbd> Undo</span>
+    </div>
+  </aside>
+
+</div>
+
+<script>
+'use strict';
+
+/* ═══════════════════════════════════════════════════════════
+   DATA — injected from Django
+═══════════════════════════════════════════════════════════ */
+const IMAGE_PK        = {{ image.pk }};
+const SAVE_URL        = "{% url 'annotation_save' image.pk %}";
+const DELETE_BOX_URL  = "{% url 'annotation_delete_box' image.pk 0 %}".replace('/0/', '/');
+const CSRF_TOKEN      = '{{ csrf_token }}';
+const INITIAL_BOXES   = {{ boxes_json|safe }};
+
+/* ═══════════════════════════════════════════════════════════
+   ANNOTATOR
+═══════════════════════════════════════════════════════════ */
+const Annotator = (() => {
+
+  /* ── State ─────────────────────────────────────────────── */
+  let boxes       = [];        // { id, label, x, y, width, height } — % coords
+  let selectedIdx = -1;
+  let tool        = 'draw';    // 'draw' | 'select'
+  let scale       = 1;
+  let undoStack   = [];        // snapshots of boxes array
+  let dirty       = false;
+
+  let drawing     = false;
+  let drawStart   = null;
+
+  let dragging    = false;
+  let dragOffset  = null;
+
+  let resizing    = false;
+  let resizeHandle = null;
+  let resizeStart  = null;
+
+  /* ── DOM refs ──────────────────────────────────────────── */
+  const wrap       = document.getElementById('canvas-wrap');
+  const container  = document.getElementById('canvas-container');
+  const imgEl      = document.getElementById('img-base');
+  const svg        = document.getElementById('svg-overlay');
+  const ghost      = document.getElementById('draw-ghost');
+  const boxesGroup = document.getElementById('boxes-group');
+  const boxList    = document.getElementById('box-list');
+  const boxEmpty   = document.getElementById('box-empty');
+  const boxCount   = document.getElementById('box-count');
+  const labelPicker= document.getElementById('label-picker');
+  const labelGrid  = document.getElementById('label-grid');
+  const saveStatus = document.getElementById('save-status');
+  const delBtn     = document.getElementById('btn-delete-sel');
+  const statusBadge= document.getElementById('status-badge');
+  const zoomDisplay= document.getElementById('zoom-display');
+
+  /* ── Palette (colours for unlabelled boxes) ─────────────── */
+  const PALETTE = ['#6366f1','#f59e0b','#10b981','#ef4444','#3b82f6','#ec4899','#8b5cf6','#14b8a6'];
+  let   paletteIdx = 0;
+
+  function nextColor() { return PALETTE[paletteIdx++ % PALETTE.length]; }
+
+  /* ── Helpers ───────────────────────────────────────────── */
+  function imgW() { return imgEl.getBoundingClientRect().width; }
+  function imgH() { return imgEl.getBoundingClientRect().height; }
+
+  /** Convert client XY to percentage coords relative to the image */
+  function clientToPercent(clientX, clientY) {
+    const r = imgEl.getBoundingClientRect();
+    return {
+      x: Math.max(0, Math.min(100, (clientX - r.left) / r.width  * 100)),
+      y: Math.max(0, Math.min(100, (clientY - r.top)  / r.height * 100)),
+    };
+  }
+
+  /** Convert % to SVG pixel coords */
+  function pctToSVG(px, py) {
+    return { x: px / 100 * imgW(), y: py / 100 * imgH() };
+  }
+
+  function csrf() { return CSRF_TOKEN; }
+
+  /* ── Push snapshot for undo ─────────────────────────────── */
+  function pushUndo() {
+    undoStack.push(JSON.parse(JSON.stringify(boxes)));
+    if (undoStack.length > 50) undoStack.shift();
+  }
+
+  /* ── Set tool ───────────────────────────────────────────── */
+  function setTool(t) {
+    tool = t;
+    document.getElementById('tool-draw').classList.toggle('active',   t === 'draw');
+    document.getElementById('tool-select').classList.toggle('active', t === 'select');
+    wrap.className = 'canvas-wrap tool-' + t;
+    if (t === 'draw') { deselectAll(); }
+  }
+
+  /* ── Zoom ───────────────────────────────────────────────── */
+  function zoom(delta) {
+    scale = Math.max(0.2, Math.min(4, scale + delta));
+    applyZoom();
+  }
+
+  function resetZoom() {
+    scale = 1;
+    applyZoom();
+  }
+
+  function applyZoom() {
+    imgEl.style.transform = `scale(${scale})`;
+    imgEl.style.transformOrigin = 'top left';
+    // SVG overlay follows the image via CSS inset:0 so it scales too
+    zoomDisplay.textContent = Math.round(scale * 100) + '%';
+  }
+
+  /* ══════════════════════════════════════════════════════════
+     RENDER
+  ══════════════════════════════════════════════════════════ */
+  function render() {
+    boxesGroup.innerHTML = '';
+    boxes.forEach((b, i) => renderBox(b, i));
+    renderSidebarList();
+  }
+
+  function boxColor(b) {
+    return b.label ? b.label.color : (b._color || '#6366f1');
+  }
+
+  function renderBox(b, i) {
+    const iW = imgW(), iH = imgH();
+    const px = b.x / 100 * iW;
+    const py = b.y / 100 * iH;
+    const pw = b.width  / 100 * iW;
+    const ph = b.height / 100 * iH;
+
+    const color = boxColor(b);
+    const sel   = (i === selectedIdx);
+
+    const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+    g.dataset.idx = i;
+
+    /* Main rect */
+    const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+    rect.setAttribute('x', px);
+    rect.setAttribute('y', py);
+    rect.setAttribute('width',  pw);
+    rect.setAttribute('height', ph);
+    rect.setAttribute('class', 'bbox-rect' + (sel ? ' selected' : ''));
+    rect.setAttribute('stroke', color);
+    rect.setAttribute('fill', sel ? color + '22' : 'none');
+    rect.style.cursor = tool === 'select' ? 'move' : 'pointer';
+    rect.addEventListener('mousedown', e => onBoxMousedown(e, i));
+    g.appendChild(rect);
+
+    /* Label badge */
+    const labelText = b.label ? b.label.name : 'unlabelled';
+    const badgeX = px;
+    const badgeY = Math.max(0, py - 20);
+    const charW  = 7;
+    const badgeW = labelText.length * charW + 14;
+
+    const bgRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+    bgRect.setAttribute('x', badgeX);
+    bgRect.setAttribute('y', badgeY);
+    bgRect.setAttribute('width',  badgeW);
+    bgRect.setAttribute('height', 18);
+    bgRect.setAttribute('rx', 4);
+    bgRect.setAttribute('fill', color);
+    bgRect.setAttribute('class', 'bbox-label-bg');
+    bgRect.style.cursor = 'pointer';
+    bgRect.addEventListener('mousedown', e => onBoxMousedown(e, i));
+    g.appendChild(bgRect);
+
+    const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+    text.setAttribute('x', badgeX + 7);
+    text.setAttribute('y', badgeY + 9);
+    text.setAttribute('class', 'bbox-label-text');
+    text.textContent = labelText;
+    g.appendChild(text);
+
+    /* Resize handles (only when selected) */
+    if (sel) {
+      const handles = [
+        { id:'nw', cx: px,       cy: py       },
+        { id:'n',  cx: px+pw/2,  cy: py       },
+        { id:'ne', cx: px+pw,    cy: py       },
+        { id:'e',  cx: px+pw,    cy: py+ph/2  },
+        { id:'se', cx: px+pw,    cy: py+ph    },
+        { id:'s',  cx: px+pw/2,  cy: py+ph    },
+        { id:'sw', cx: px,       cy: py+ph    },
+        { id:'w',  cx: px,       cy: py+ph/2  },
+      ];
+      handles.forEach(h => {
+        const c = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+        c.setAttribute('cx', h.cx);
+        c.setAttribute('cy', h.cy);
+        c.setAttribute('r', 5);
+        c.setAttribute('class', `resize-handle ${h.id}`);
+        c.addEventListener('mousedown', e => onHandleMousedown(e, i, h.id));
+        g.appendChild(c);
+      });
+    }
+
+    boxesGroup.appendChild(g);
+  }
+
+  /* ── Sidebar list ───────────────────────────────────────── */
+  function renderSidebarList() {
+    boxCount.textContent = boxes.length;
+    boxEmpty.style.display = boxes.length ? 'none' : 'block';
+
+    // Keep only box items (not the empty state)
+    [...boxList.querySelectorAll('.box-item')].forEach(el => el.remove());
+
+    boxes.forEach((b, i) => {
+      const div = document.createElement('div');
+      div.className = 'box-item' + (i === selectedIdx ? ' active' : '');
+      div.addEventListener('click', () => { selectBox(i); render(); });
+
+      const dot = document.createElement('span');
+      dot.className = 'box-color-dot';
+      dot.style.background = boxColor(b);
+
+      const lbl = document.createElement('span');
+      lbl.className = 'box-label-text';
+      lbl.textContent = b.label ? b.label.name : 'unlabelled';
+
+      const coords = document.createElement('span');
+      coords.className = 'box-coords';
+      coords.textContent = `${b.width.toFixed(0)}×${b.height.toFixed(0)}%`;
+
+      const del = document.createElement('button');
+      del.className = 'box-del-btn';
+      del.textContent = '✕';
+      del.title = 'Delete';
+      del.addEventListener('click', e => { e.stopPropagation(); deleteBox(i); });
+
+      div.append(dot, lbl, coords, del);
+      boxList.appendChild(div);
+    });
+  }
+
+  /* ══════════════════════════════════════════════════════════
+     SELECTION
+  ══════════════════════════════════════════════════════════ */
+  function selectBox(i) {
+    selectedIdx = i;
+    delBtn.style.display = i >= 0 ? '' : 'none';
+    labelPicker.classList.toggle('visible', i >= 0);
+
+    // Highlight active chip
+    labelGrid.querySelectorAll('.label-chip').forEach(chip => {
+      chip.classList.toggle('selected',
+        i >= 0 && boxes[i].label && chip.dataset.id == boxes[i].label.id
+      );
+    });
+  }
+
+  function deselectAll() {
+    selectBox(-1);
+    render();
+  }
+
+  /* ══════════════════════════════════════════════════════════
+     DRAWING
+  ══════════════════════════════════════════════════════════ */
+  function onCanvasMousedown(e) {
+    if (e.target !== svg && e.target !== imgEl && e.target !== ghost && !e.target.closest('#canvas-container')) return;
+    if (tool !== 'draw') return;
+    if (e.button !== 0) return;
+
+    drawing  = true;
+    drawStart = clientToPercent(e.clientX, e.clientY);
+
+    ghost.style.display = '';
+    ghost.setAttribute('x', drawStart.x / 100 * imgW());
+    ghost.setAttribute('y', drawStart.y / 100 * imgH());
+    ghost.setAttribute('width', 0);
+    ghost.setAttribute('height', 0);
+
+    e.preventDefault();
+  }
+
+  function onMousemove(e) {
+    if (drawing) {
+      const cur  = clientToPercent(e.clientX, e.clientY);
+      const minX = Math.min(drawStart.x, cur.x);
+      const minY = Math.min(drawStart.y, cur.y);
+      const maxX = Math.max(drawStart.x, cur.x);
+      const maxY = Math.max(drawStart.y, cur.y);
+      const iW   = imgW(), iH = imgH();
+
+      ghost.setAttribute('x',      minX / 100 * iW);
+      ghost.setAttribute('y',      minY / 100 * iH);
+      ghost.setAttribute('width',  (maxX - minX) / 100 * iW);
+      ghost.setAttribute('height', (maxY - minY) / 100 * iH);
+    }
+
+    if (dragging && selectedIdx >= 0) {
+      const cur = clientToPercent(e.clientX, e.clientY);
+      const b   = boxes[selectedIdx];
+      b.x = Math.max(0, Math.min(100 - b.width,  cur.x - dragOffset.x));
+      b.y = Math.max(0, Math.min(100 - b.height, cur.y - dragOffset.y));
+      markDirty();
+      render();
+    }
+
+    if (resizing && selectedIdx >= 0) {
+      onResize(e);
+    }
+  }
+
+  function onMouseup(e) {
+    if (drawing) {
+      drawing = false;
+      ghost.style.display = 'none';
+
+      const cur  = clientToPercent(e.clientX, e.clientY);
+      const minX = Math.min(drawStart.x, cur.x);
+      const minY = Math.min(drawStart.y, cur.y);
+      const maxX = Math.max(drawStart.x, cur.x);
+      const maxY = Math.max(drawStart.y, cur.y);
+      const w    = maxX - minX;
+      const h    = maxY - minY;
+
+      if (w > 0.5 && h > 0.5) {   // ignore tiny accidental clicks
+        pushUndo();
+        const newBox = { id: null, label: null, x: minX, y: minY, width: w, height: h, _color: nextColor() };
+        boxes.push(newBox);
+        selectBox(boxes.length - 1);
+        markDirty();
+        render();
+      }
+    }
+
+    if (dragging) {
+      dragging = false;
+      pushUndo();
+    }
+
+    if (resizing) {
+      resizing = false;
+      pushUndo();
+    }
+  }
+
+  /* ── Clicking on an existing box ────────────────────────── */
+  function onBoxMousedown(e, i) {
+    e.stopPropagation();
+    if (tool === 'select' || tool === 'draw') {
+      selectBox(i);
+      render();
+
+      if (tool === 'select') {
+        dragging = true;
+        const cur = clientToPercent(e.clientX, e.clientY);
+        dragOffset = { x: cur.x - boxes[i].x, y: cur.y - boxes[i].y };
+        e.preventDefault();
+      }
+    }
+  }
+
+  /* ── Resize handles ─────────────────────────────────────── */
+  function onHandleMousedown(e, i, handle) {
+    e.stopPropagation();
+    e.preventDefault();
+    resizing     = true;
+    resizeHandle = handle;
+    resizeStart  = { ...clientToPercent(e.clientX, e.clientY), box: { ...boxes[i] } };
+    selectBox(i);
+  }
+
+  function onResize(e) {
+    const cur = clientToPercent(e.clientX, e.clientY);
+    const b   = boxes[selectedIdx];
+    const orig = resizeStart.box;
+    const dx  = cur.x - resizeStart.x;
+    const dy  = cur.y - resizeStart.y;
+
+    const h = resizeHandle;
+
+    if (h.includes('e')) { b.width  = Math.max(1, orig.width  + dx); }
+    if (h.includes('s')) { b.height = Math.max(1, orig.height + dy); }
+    if (h.includes('w')) {
+      const newX = Math.min(orig.x + orig.width - 1, orig.x + dx);
+      b.width    = orig.width - (newX - orig.x);
+      b.x        = newX;
+    }
+    if (h.includes('n')) {
+      const newY = Math.min(orig.y + orig.height - 1, orig.y + dy);
+      b.height   = orig.height - (newY - orig.y);
+      b.y        = newY;
+    }
+
+    // Clamp
+    b.x      = Math.max(0, b.x);
+    b.y      = Math.max(0, b.y);
+    b.width  = Math.min(100 - b.x, b.width);
+    b.height = Math.min(100 - b.y, b.height);
+
+    markDirty();
+    render();
+  }
+
+  /* ══════════════════════════════════════════════════════════
+     LABELS
+  ══════════════════════════════════════════════════════════ */
+  function applyLabel(id, name, color) {
+    if (selectedIdx < 0) return;
+    pushUndo();
+    boxes[selectedIdx].label = { id, name, color };
+    markDirty();
+
+    // Update chip highlights
+    labelGrid.querySelectorAll('.label-chip').forEach(chip => {
+      chip.classList.toggle('selected', chip.dataset.id == id);
+    });
+
+    render();
+  }
+
+  async function createLabel() {
+    const nameInput  = document.getElementById('new-label-name');
+    const colorInput = document.getElementById('new-label-color');
+    const name  = nameInput.value.trim();
+    const color = colorInput.value;
+
+    if (!name) { nameInput.focus(); return; }
+
+    // POST to batch_tag endpoint with no images just to create the tag,
+    // OR use a simpler approach: create via the annotation_save with a sentinel.
+    // Here we call the batch_tag endpoint with an empty image list,
+    // which will call Tag.objects.get_or_create via new_tag.
+    const fd = new FormData();
+    fd.append('action',        'add');
+    fd.append('new_tag',       name);
+    fd.append('new_tag_color', color);
+    fd.append('next',          window.location.href);
+
+    const r    = await fetch("{% url 'batch_tag' %}", { method: 'POST', headers: { 'X-CSRFToken': csrf() }, body: fd });
+    // batch_tag redirects — we just want the tag created.
+    // Now fetch the tag id by looking it up in the DOM we'll add a chip:
+
+    // Optimistically add chip to label grid & apply to selected box
+    // We'll use id=null and rely on server to resolve on save
+    const chip = document.createElement('span');
+    chip.className   = 'label-chip selected';
+    chip.style       = `--tc: ${color}`;
+    chip.dataset.name  = name;
+    chip.dataset.color = color;
+    chip.textContent = name;
+    // id is unknown yet — mark as 0 to trigger server-side get_or_create in save
+    chip.dataset.id  = '0';
+    chip.addEventListener('click', () => applyLabel(0, name, color));
+    labelGrid.appendChild(chip);
+
+    nameInput.value = '';
+
+    if (selectedIdx >= 0) {
+      applyLabel(0, name, color);   // id=0 → server will get_or_create
+    }
+  }
+
+  /* ══════════════════════════════════════════════════════════
+     DELETE / UNDO
+  ══════════════════════════════════════════════════════════ */
+  function deleteBox(i) {
+    pushUndo();
+    boxes.splice(i, 1);
+    if (selectedIdx === i)        { selectBox(-1); }
+    else if (selectedIdx > i)     { selectedIdx--; }
+    markDirty();
+    render();
+  }
+
+  function deleteSelected() {
+    if (selectedIdx >= 0) deleteBox(selectedIdx);
+  }
+
+  function undo() {
+    if (!undoStack.length) return;
+    boxes = undoStack.pop();
+    selectBox(-1);
+    markDirty();
+    render();
+  }
+
+  /* ══════════════════════════════════════════════════════════
+     SAVE
+  ══════════════════════════════════════════════════════════ */
+  function markDirty() {
+    dirty = true;
+    saveStatus.textContent = 'Unsaved changes';
+    saveStatus.style.color = 'var(--warning)';
+  }
+
+  async function save(markDone) {
+    saveStatus.textContent = 'Saving…';
+    saveStatus.style.color = 'var(--text-muted)';
+
+    const payload = {
+      mark_done: markDone,
+      boxes: boxes.map(b => ({
+        id:       b.id || null,
+        label_id: b.label ? (b.label.id || null) : null,
+        label_name:  b.label ? b.label.name  : null,   // for get_or_create on server
+        label_color: b.label ? b.label.color : null,
+        x:       b.x,
+        y:       b.y,
+        width:   b.width,
+        height:  b.height,
+      })),
+    };
+
+    try {
+      const r    = await fetch(SAVE_URL, {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf() },
+        body:    JSON.stringify(payload),
+      });
+      const data = await r.json();
+
+      if (data.success) {
+        // Sync server-assigned IDs back to local state
+        data.boxes.forEach((sb, i) => {
+          if (boxes[i]) {
+            boxes[i].id    = sb.id;
+            boxes[i].label = sb.label;
+          }
+        });
+        dirty = false;
+        saveStatus.textContent = 'All changes saved';
+        saveStatus.style.color = 'var(--success)';
+
+        // Update status badge
+        const s = data.status;
+        statusBadge.className = `status-badge ${s}`;
+        statusBadge.textContent = s === 'done' ? '✓ Done' : s === 'partial' ? '◑ Partial' : '⏳ Pending';
+      } else {
+        saveStatus.textContent = 'Save failed';
+        saveStatus.style.color = 'var(--danger)';
+      }
+    } catch {
+      saveStatus.textContent = 'Network error';
+      saveStatus.style.color = 'var(--danger)';
+    }
+  }
+
+  /* ══════════════════════════════════════════════════════════
+     KEYBOARD
+  ══════════════════════════════════════════════════════════ */
+  document.addEventListener('keydown', e => {
+    if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+
+    if (e.key === 'b' || e.key === 'B') setTool('draw');
+    if (e.key === 'v' || e.key === 'V') setTool('select');
+    if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); deleteSelected(); }
+    if ((e.ctrlKey || e.metaKey) && (e.key === 'z' || e.key === 'Z')) { e.preventDefault(); undo(); }
+    if ((e.ctrlKey || e.metaKey) && (e.key === 's' || e.key === 'S')) { e.preventDefault(); save(false); }
+    if (e.key === 'Escape') deselectAll();
+  });
+
+  /* ══════════════════════════════════════════════════════════
+     EVENT WIRING
+  ══════════════════════════════════════════════════════════ */
+  svg.addEventListener('mousedown',       onCanvasMousedown);
+  imgEl.addEventListener('mousedown',     onCanvasMousedown);
+  document.addEventListener('mousemove',  onMousemove);
+  document.addEventListener('mouseup',    onMouseup);
+
+  // Click on blank SVG area = deselect
+  svg.addEventListener('click', e => {
+    if (e.target === svg) deselectAll();
+  });
+
+  // Prevent context menu on canvas
+  container.addEventListener('contextmenu', e => e.preventDefault());
+
+  /* ══════════════════════════════════════════════════════════
+     INIT — load existing boxes
+  ══════════════════════════════════════════════════════════ */
+  function init() {
+    // Wait for image to load so imgW/imgH are accurate
+    function start() {
+      boxes = INITIAL_BOXES.map(b => ({ ...b }));
+      render();
+      setTool('draw');
+    }
+
+    if (imgEl.complete) { start(); }
+    else                { imgEl.addEventListener('load', start); }
+  }
+
+  init();
+
+  /* ── Public API ─────────────────────────────────────────── */
+  return { setTool, zoom, resetZoom, save, undo, deleteSelected, applyLabel, createLabel };
+
+})();
+
+// Expose globally so toolbar onclick= attributes work
+window.Annotator = Annotator;
+</script>
+{% endblock %}
