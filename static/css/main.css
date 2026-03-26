@@ -942,11 +942,12 @@ hr, .divider { border: none; border-top: 1px solid var(--border); margin: 22px 0
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  overflow: hidden;
+  overflow: visible;
   cursor: pointer;
   transition: all .15s;
   text-decoration: none; color: inherit; display: block;
 }
+
 .image-grid-card:hover { border-color: var(--accent); }
 .image-grid-card.selected { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-glow); }
 
