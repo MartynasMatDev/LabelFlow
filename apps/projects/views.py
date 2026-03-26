@@ -173,3 +173,16 @@ def archive_project(request, project_id):
     messages.success(request, f'Project "{project.name}" archived.')
 
     return redirect('project_list')
+
+@login_required
+def restore_project(request, project_id):
+    project = get_object_or_404(Project, id=project_id)
+
+    if not project.user_is_admin(request.user):
+        messages.error(request, 'Only admins can restore projects.')
+        return redirect('project_detail', project_id=project.id)
+
+    project.restore()
+    messages.success(request, f'Project "{project.name}" restored.')
+
+    return redirect('archived_projects')
