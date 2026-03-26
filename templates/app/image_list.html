@@ -80,8 +80,21 @@
     </label>
 
     <a href="{% url 'image_detail' image.id %}"
-       class="image-card-link"
-       aria-label="{{ image.name }}">
+       class="img-open-btn"
+       onclick="event.stopPropagation()"
+       title="Open">⤢</a>
+    <form method="post"
+          action="{% url 'image_delete' image.id %}"
+          class="img-delete-btn-wrap"
+          onclick="event.stopPropagation()"
+          onsubmit="return confirm('Delete „{{ image.name }}"?')">
+      {% csrf_token %}
+      <input type="hidden" name="next" value="{{ request.get_full_path }}">
+      <button type="submit" class="img-delete-btn" title="Delete">✕</button>
+    </form>
+
+    <div class="image-card-link"
+         onclick="document.querySelector('.img-checkbox[value=\'{{ image.id }}\']').click()">
 
     <div class="image-thumb">
       {% if image.image_file %}
@@ -109,7 +122,7 @@
           {{ image.get_status_display }}
         </div>
       </div>
-    </a>
+    </div>
   </div>
   {% endfor %}
   </div>
@@ -149,7 +162,6 @@
       </div>
 
   <div style="width:60px;text-align:right;">
-    {% if project %}
     <form method="post"
           action="{% url 'image_delete' image.id %}"
           style="display:inline;"
@@ -159,7 +171,6 @@
               class="btn btn-icon btn-danger btn-sm"
               title="Delete">✕</button>
     </form>
-    {% endif %}
   </div>
 </div>
 {% endfor %}
@@ -183,6 +194,8 @@
   <div style="width:1px;height:22px;background:var(--border);"></div>
   <button type="button" class="btn btn-primary btn-sm"   onclick="openTagModal('add')">＋ Add Tag</button>
   <button type="button" class="btn btn-danger btn-sm"    onclick="openTagModal('remove')">− Remove Tag</button>
+  <div style="width:1px;height:22px;background:var(--border);"></div>
+  <button type="button" class="btn btn-danger btn-sm" onclick="openDeleteModal()">✕ Delete</button>
 </div>
 
 <!-- ─── TAG MODAL ────────────────────────────────────── -->
@@ -215,11 +228,12 @@
       {% endif %}
 
       <!-- Create new tag -->
-      <div class="form-group" id="new-tag-group">
+       <div class="form-group" id="new-tag-group">
         <label>New tag</label>
         <div style="display:flex;gap:8px;">
-          <input type="text" name="new_tag" id="new-tag-input" placeholder="Žymos pavadinimas..." style="flex:1;">
-          <input type="color" name="new_tag_color" value="#6366f1" style="width:42px;height:42px;padding:2px;border-radius:8px;cursor:pointer;border:1px solid var(--border-hover);background:var(--surface2);">
+          <input type="text" name="new_tag" id="new-tag-input" placeholder="Tag name..." style="flex:1;">
+          <input type="color" name="new_tag_color" value="#6366f1"
+                 style="width:42px;height:42px;padding:2px;border-radius:8px;cursor:pointer;border:1px solid var(--border-hover);background:var(--surface2);">
         </div>
         <p class="form-hint">Leave empty if using an existing tag.</p>
       </div>
@@ -232,56 +246,28 @@
   </div>
 </div>
 
-<script>
-function getChecked() {
-  return [...document.querySelectorAll('.img-checkbox:checked')].map(c => c.value);
-}
-
-function onCheckChange() {
-  const checked = getChecked();
-  const bar  = document.getElementById('batch-bar');
-  const num  = document.getElementById('batch-count-num');
-  num.textContent = checked.length;
-  bar.classList.toggle('visible', checked.length > 0);
-
-  // Keep grid cards visually selected
-  document.querySelectorAll('.image-grid-card').forEach(card => {
-    const cb = card.querySelector('.img-checkbox');
-    if (cb) card.classList.toggle('selected', cb.checked);
-  });
-}
-
-function selectAll(on) {
-  document.querySelectorAll('.img-checkbox').forEach(cb => { cb.checked = on; });
-  const allList = document.getElementById('check-all-list');
-  if (allList) allList.checked = on;
-  onCheckChange();
-}
-
-function openTagModal(action) {
-  const ids = getChecked();
-  if (!ids.length) return;
-
-  // Inject hidden image_id inputs
-  const container = document.getElementById('tag-image-inputs');
-  container.innerHTML = ids.map(id =>
-    `<input type="hidden" name="image_ids" value="${id}">`
-  ).join('');
-
-  document.getElementById('tag-action').value = action;
-  document.getElementById('tag-modal-title').textContent =
-    action === 'remove' ? 'Remove tag' : 'Add tag';
-  document.getElementById('tag-submit-btn').textContent =
-        action === 'remove' ? 'Remove' : 'Add';
-  const form = document.getElementById('tag-form');
-  form.classList.toggle('hide-new-tag', action === 'remove');
-
-  document.getElementById('tag-modal').classList.add('open');
-}
-
-function closeTagModal() {
-  document.getElementById('tag-modal').classList.remove('open');
-}
-</script>
+<!-- ─── BATCH DELETE MODAL ───────────────────────────── -->
+<div class="modal-overlay" id="delete-modal">
+  <div class="modal" style="max-width:400px;border-color:rgba(248,113,113,0.25);">
+    <div class="modal-header">
+      <h2>Delete images</h2>
+      <button class="modal-close" onclick="closeDeleteModal()">✕</button>
+    </div>
+    <p style="font-size:14px;color:var(--text-muted);margin-bottom:8px;">
+      You are about to permanently delete
+      <strong id="delete-count-label" style="color:var(--danger);">0 image(s)</strong>.
+      This cannot be undone.
+    </p>
+    <form method="post" action="{% url 'batch_delete' %}" id="delete-form">
+      {% csrf_token %}
+      <input type="hidden" name="next" value="{{ request.get_full_path }}">
+      <div id="delete-image-inputs"></div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-ghost" onclick="closeDeleteModal()">Cancel</button>
+        <button type="submit" class="btn btn-danger">✕ Delete permanently</button>
+      </div>
+    </form>
+  </div>
+</div>
 
 {% endblock %}
