@@ -947,11 +947,12 @@ hr, .divider { border: none; border-top: 1px solid var(--border); margin: 22px 0
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  overflow: hidden;
+  overflow: visible;
   cursor: pointer;
   transition: all .15s;
   text-decoration: none; color: inherit; display: block;
 }
+
 .image-grid-card:hover { border-color: var(--accent); }
 .image-grid-card.selected { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-glow); }
 
@@ -1087,6 +1088,9 @@ hr, .divider { border: none; border-top: 1px solid var(--border); margin: 22px 0
 .image-card-link * {
   color: var(--text) !important;
 }
+.image-card-link {
+  cursor: pointer;
+}
 .image-card-link:visited,
 .image-card-link:hover,
 .image-card-link:active {
@@ -1101,10 +1105,19 @@ hr, .divider { border: none; border-top: 1px solid var(--border); margin: 22px 0
   border-radius: 20px;
   font-size: 10px; font-weight: 600;
   font-family: 'DM Mono', monospace;
-  background: color-mix(in srgb, var(--tc, #6366f1) 18%, transparent);
+  position: relative;
+  background: transparent;
   color: var(--tc, #6366f1);
-  border: 1px solid color-mix(in srgb, var(--tc, #6366f1) 35%, transparent);
+  border: 1px solid var(--tc, #6366f1);
   white-space: nowrap;
+}
+.tag-chip::before {
+  content: '';
+  position: absolute; inset: 0;
+  border-radius: inherit;
+  background: var(--tc, #6366f1);
+  opacity: 0.15;
+  pointer-events: none;
 }
 .tag-chips { display: flex; flex-wrap: wrap; gap: 3px; margin: 4px 0 2px; }
 
@@ -1132,6 +1145,44 @@ hr, .divider { border: none; border-top: 1px solid var(--border); margin: 22px 0
   content: '✓'; font-size: 11px; color: #fff; font-weight: 700;
 }
 .image-grid-card.selected { border-color: var(--accent); box-shadow: 0 0 0 2px var(--accent-glow); }
+
+.img-open-btn {
+  position: absolute; top: 40px; right: 8px; z-index: 3;
+  width: 26px; height: 26px;
+  background: rgba(15,15,23,.75);
+  border: 1px solid rgba(255,255,255,.15);
+  border-radius: 6px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 13px; color: rgba(255,255,255,.9);
+  backdrop-filter: blur(6px);
+  transition: all .12s;
+  text-decoration: none;
+  opacity: 0;
+}
+.image-grid-card:hover .img-open-btn { opacity: 1; }
+.img-open-btn:hover { background: rgba(99,102,241,.5); border-color: var(--accent); color: #fff; }
+
+.img-delete-btn-wrap {
+  position: absolute; top: 8px; right: 8px; z-index: 3;
+  opacity: 0;
+  transition: opacity .12s;
+}
+.image-grid-card:hover .img-delete-btn-wrap { opacity: 1; }
+
+.img-delete-btn {
+  width: 26px; height: 26px;
+  background: rgba(15,15,23,.75);
+  border: 1px solid rgba(248,113,113,.3);
+  border-radius: 6px;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 12px; color: var(--danger);
+  backdrop-filter: blur(6px);
+  transition: all .12s;
+  cursor: pointer;
+  padding: 0;
+  line-height: 1;
+}
+.img-delete-btn:hover { background: rgba(248,113,113,.25); border-color: var(--danger); }
 
 /* Batch bar */
 .batch-bar {

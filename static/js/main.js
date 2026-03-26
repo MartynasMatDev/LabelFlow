@@ -153,3 +153,61 @@ document.addEventListener('DOMContentLoaded', () => {
   };
 
 });
+
+window.getChecked = function() {
+  return [...document.querySelectorAll('.img-checkbox:checked')].map(c => c.value);
+};
+
+window.onCheckChange = function() {
+  const checked = getChecked();
+  const bar = document.getElementById('batch-bar');
+  const num = document.getElementById('batch-count-num');
+  if (!bar) return;
+  num.textContent = checked.length;
+  bar.classList.toggle('visible', checked.length > 0);
+  document.querySelectorAll('.image-grid-card').forEach(card => {
+    const cb = card.querySelector('.img-checkbox');
+    if (cb) card.classList.toggle('selected', cb.checked);
+  });
+};
+
+window.selectAll = function(on) {
+  document.querySelectorAll('.img-checkbox').forEach(cb => { cb.checked = on; });
+  onCheckChange();
+};
+
+window.openTagModal = function(action) {
+  const ids = getChecked();
+  if (!ids.length) return;
+  const container = document.getElementById('tag-image-inputs');
+  container.innerHTML = ids.map(id =>
+    `<input type="hidden" name="image_ids" value="${id}">`
+  ).join('');
+  document.getElementById('tag-action').value = action;
+  document.getElementById('tag-modal-title').textContent =
+    action === 'remove' ? 'Remove tag' : 'Add tag';
+  document.getElementById('tag-submit-btn').textContent =
+    action === 'remove' ? 'Remove' : 'Add';
+  document.getElementById('tag-form').classList.toggle('hide-new-tag', action === 'remove');
+  document.getElementById('tag-modal').classList.add('open');
+};
+
+window.closeTagModal = function() {
+  document.getElementById('tag-modal').classList.remove('open');
+};
+
+// ── Batch delete modal ────────────────────────────────
+window.openDeleteModal = function() {
+  const ids = getChecked();
+  if (!ids.length) return;
+  const container = document.getElementById('delete-image-inputs');
+  container.innerHTML = ids.map(id =>
+    `<input type="hidden" name="image_ids" value="${id}">`
+  ).join('');
+  document.getElementById('delete-count-label').textContent = `${ids.length} image(s)`;
+  document.getElementById('delete-modal').classList.add('open');
+};
+
+window.closeDeleteModal = function() {
+  document.getElementById('delete-modal').classList.remove('open');
+};
