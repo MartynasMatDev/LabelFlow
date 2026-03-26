@@ -1,4 +1,5 @@
 import os
+import json
 from datetime import datetime
 
 from django.http import JsonResponse
@@ -9,7 +10,7 @@ from django.db.models import Q
 from django.views.decorators.http import require_POST
 
 from apps.projects.models import Project
-from .models import Image, Tag
+from .models import Image, Tag, BoundingBox
 
 
 ALLOWED_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.webp', '.bmp', '.gif'}
@@ -34,24 +35,20 @@ def image_list(request, project_id=None):
     else:
         images = Image.objects.filter(project__in=_user_projects(request.user))
 
-    # Filtering
     status_filter = request.GET.get('status', '')
     if status_filter in ('pending', 'partial', 'done'):
         images = images.filter(status=status_filter)
 
-    # Tag filter
     tag_filter = request.GET.get('tag', '')
     if tag_filter:
         images = images.filter(tags__id=tag_filter)
 
-    # Search
     q = request.GET.get('q', '').strip()
     if q:
         images = images.filter(name__icontains=q)
 
-    # Date filtering
     start_date = request.GET.get('start_date', '').strip()
-    end_date = request.GET.get('end_date', '').strip()
+    end_date   = request.GET.get('end_date', '').strip()
 
     if start_date:
         try:
@@ -67,7 +64,6 @@ def image_list(request, project_id=None):
         except ValueError:
             end_date = ''
 
-    # Sort
     sort = request.GET.get('sort', '-uploaded_at')
     if sort in ('name', '-name', 'uploaded_at', '-uploaded_at', 'status'):
         images = images.order_by(sort)
@@ -93,7 +89,6 @@ def image_list(request, project_id=None):
 
 @login_required
 def image_upload(request):
-    """Classic multi-file upload (form POST) — unchanged behaviour."""
     projects = _user_projects(request.user)
 
     if request.method == 'POST':
@@ -132,10 +127,7 @@ def image_upload(request):
             uploaded += 1
 
         if uploaded:
-            messages.success(
-                request,
-                f'Uploaded {uploaded} image(s) to project "{project.name}".'
-            )
+            messages.success(request, f'Uploaded {uploaded} image(s) to project "{project.name}".')
         return redirect('project_images', project_id=project.id)
 
     selected_project_id = request.GET.get('project')
@@ -150,17 +142,6 @@ def image_upload(request):
 @login_required
 @require_POST
 def image_upload_ajax(request):
-    """
-    Upload a single image via fetch() (used by the folder-upload UI).
-
-    Request body (multipart):
-        project     – project pk
-        image_file  – the file
-
-    Response (JSON):
-        { success: true,  name: "...", id: 123 }
-        { success: false, error: "reason" }
-    """
     project_id = request.POST.get('project', '').strip()
     if not project_id:
         return JsonResponse({'success': False, 'error': 'No project specified.'}, status=400)
@@ -177,15 +158,10 @@ def image_upload_ajax(request):
     if not f:
         return JsonResponse({'success': False, 'error': 'No file received.'}, status=400)
 
-    # Validate extension
     ext = os.path.splitext(f.name)[1].lower()
     if ext not in ALLOWED_EXTENSIONS:
-        return JsonResponse(
-            {'success': False, 'error': f'Unsupported file type "{ext}".'},
-            status=400,
-        )
+        return JsonResponse({'success': False, 'error': f'Unsupported file type "{ext}".'}, status=400)
 
-    # Validate size
     if f.size > MAX_FILE_BYTES:
         return JsonResponse(
             {'success': False, 'error': f'File exceeds 20 MB limit ({f.size // (1024*1024)} MB).'},
@@ -219,9 +195,144 @@ def image_delete(request, image_id):
     return redirect('project_images', project_id=project.id)
 
 
+@login_required
 def image_detail(request, pk):
     image = get_object_or_404(Image, pk=pk)
-    return render(request, 'app/image_detail.html', {'image': image})
+    if not image.project.user_has_access(request.user):
+        messages.error(request, 'You do not have access to this image.')
+        return redirect('image_list')
+    boxes = [b.to_dict() for b in image.bounding_boxes.select_related('label').all()]
+    return render(request, 'app/image_detail.html', {
+        'image':      image,
+        'active_nav': 'images',
+        'project':    image.project,
+        'boxes_json': json.dumps(boxes),
+    })
+
+
+# ─── ANNOTATION VIEWS ────────────────────────────────────────────────────────
+
+@login_required
+def image_annotate(request, pk):
+    """Full-screen annotation interface for a single image."""
+    image = get_object_or_404(Image, pk=pk)
+    if not image.project.user_has_access(request.user):
+        messages.error(request, 'You do not have access to this image.')
+        return redirect('image_list')
+
+    boxes    = [b.to_dict() for b in image.bounding_boxes.select_related('label').all()]
+    all_tags = Tag.objects.all()
+
+    ctx = {
+        'active_nav': 'images',
+        'project':    image.project,
+        'image':      image,
+        'boxes_json': json.dumps(boxes),
+        'all_tags':   all_tags,
+        'user_role':  image.project.get_user_role(request.user) or 'admin',
+    }
+    return render(request, 'app/image_annotate.html', ctx)
+
+
+@login_required
+@require_POST
+def annotation_save(request, pk):
+    """
+    Replace all bounding boxes for an image with the posted payload.
+
+    Request body (JSON):
+        { "boxes": [ { "id": null|int, "label_id": int|null,
+                        "x": float, "y": float,
+                        "width": float, "height": float } ],
+          "mark_done": bool }
+    """
+    image = get_object_or_404(Image, pk=pk)
+    if not image.project.user_has_access(request.user):
+        return JsonResponse({'error': 'Access denied.'}, status=403)
+
+    try:
+        data     = json.loads(request.body)
+        incoming = data.get('boxes', [])
+        mark_done = data.get('mark_done', False)
+    except (json.JSONDecodeError, AttributeError):
+        return JsonResponse({'error': 'Invalid JSON.'}, status=400)
+
+    kept_ids = []
+    saved    = []
+
+    for b in incoming:
+        box_id   = b.get('id')
+        label_id = b.get('label_id')
+        label    = Tag.objects.filter(pk=label_id).first() if label_id else None
+
+        try:
+            x      = float(b['x'])
+            y      = float(b['y'])
+            width  = float(b['width'])
+            height = float(b['height'])
+        except (KeyError, ValueError, TypeError):
+            return JsonResponse({'error': 'Invalid box coordinates.'}, status=400)
+
+        # If label_id is 0/null but label_name is provided, get-or-create the tag
+        if not label and b.get('label_name'):
+            label, _ = Tag.objects.get_or_create(
+                name=b['label_name'],
+                defaults={
+                    'color':      b.get('label_color', '#6366f1'),
+                    'created_by': request.user,
+                }
+            )
+
+        if box_id:
+            box = BoundingBox.objects.filter(pk=box_id, image=image).first()
+            if box:
+                box.label  = label
+                box.x      = x
+                box.y      = y
+                box.width  = width
+                box.height = height
+                box.save()
+                kept_ids.append(box.pk)
+                saved.append(box.to_dict())
+                continue
+
+        box = BoundingBox.objects.create(
+            image=image,
+            label=label,
+            x=x, y=y,
+            width=width,
+            height=height,
+            created_by=request.user,
+        )
+        kept_ids.append(box.pk)
+        saved.append(box.to_dict())
+
+    # Delete boxes removed client-side
+    image.bounding_boxes.exclude(pk__in=kept_ids).delete()
+
+    # Update image status
+    if mark_done:
+        image.status = 'done'
+    elif saved:
+        image.status = 'partial'
+    else:
+        image.status = 'pending'
+    image.save(update_fields=['status'])
+
+    return JsonResponse({'success': True, 'boxes': saved, 'status': image.status})
+
+
+@login_required
+@require_POST
+def annotation_delete_box(request, pk, box_pk):
+    """Delete a single bounding box by ID."""
+    image = get_object_or_404(Image, pk=pk)
+    if not image.project.user_has_access(request.user):
+        return JsonResponse({'error': 'Access denied.'}, status=403)
+
+    box = get_object_or_404(BoundingBox, pk=box_pk, image=image)
+    box.delete()
+    return JsonResponse({'success': True})
 
 
 @login_required
@@ -231,9 +342,9 @@ def batch_tag(request):
         return JsonResponse({'error': 'POST only'}, status=405)
 
     image_ids = request.POST.getlist('image_ids')
-    tag_ids = request.POST.getlist('tag_ids')
-    new_tag = request.POST.get('new_tag', '').strip()
-    action = request.POST.get('action', 'add')  # 'add' | 'remove'
+    tag_ids   = request.POST.getlist('tag_ids')
+    new_tag   = request.POST.get('new_tag', '').strip()
+    action    = request.POST.get('action', 'add')
 
     accessible = Image.objects.filter(
         id__in=image_ids,
