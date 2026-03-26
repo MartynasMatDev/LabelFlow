@@ -2,6 +2,16 @@
 
 {% block title %}App — LabelFlow{% endblock %}
 
+{% block extra_head %}
+{# ── Prevent flash of wrong theme — runs before paint ── #}
+<script>
+  (function () {
+    var t = localStorage.getItem('lf-theme') || 'light';
+    document.documentElement.setAttribute('data-theme', t);
+  })();
+</script>
+{% endblock %}
+
 {% block body %}
 <div class="app-shell">
 
@@ -45,6 +55,12 @@
     </nav>
 
     <div class="sidebar-bottom">
+      <!-- Theme toggle -->
+      <button class="theme-toggle" onclick="toggleTheme()" title="Toggle theme">
+        <span class="theme-toggle-icon nav-icon">☾</span>
+        <span class="theme-toggle-label">Dark mode</span>
+      </button>
+
       <a href="{% url 'profile' %}" class="user-item">
         <div class="avatar avatar-md avatar-c0">
           {{ request.user.first_name.0|default:request.user.username.0|upper }}{{ request.user.last_name.0|upper }}
@@ -54,7 +70,7 @@
           <div class="user-role">{{ user_role|default:"User" }}</div>
         </div>
       </a>
-      <a href="{% url 'logout' %}" class="nav-item" style="margin-top:4px;">
+      <a href="{% url 'logout' %}" class="nav-item" style="margin-top:2px;">
         <span class="nav-icon">→</span> Log out
       </a>
     </div>
@@ -66,7 +82,7 @@
 
     <div class="toolbar-search">
       <span class="toolbar-search-icon">⌕</span>
-      <input type="search" placeholder="Search..." id="global-search" autocomplete="off">
+      <input type="search" placeholder="Search…" id="global-search" autocomplete="off">
     </div>
 
     <span class="toolbar-sep"></span>
