@@ -51,10 +51,6 @@ class Project(models.Model):
         self.is_archived = True
         self.save(update_fields=['is_archived', 'updated_at'])
 
-    def restore(self):
-        self.is_archived = False
-        self.save(update_fields=['is_archived', 'updated_at'])
-
 
 class ProjectMember(models.Model):
     ROLE_CHOICES = [
