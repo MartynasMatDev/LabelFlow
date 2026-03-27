@@ -3,7 +3,6 @@
 {% block toolbar_title %}Dashboard{% endblock %}
 
 {% block toolbar_actions %}
-<a href="{% url 'project_create' %}" class="btn btn-primary btn-sm">+ New project</a>
 {% endblock %}
 
 {% block app_content %}
@@ -11,10 +10,6 @@
   <div class="page-title">
     <h1>Welcome, {{ request.user.first_name|default:request.user.username }} 👋</h1>
     <p>work overview</p>
-  </div>
-  <div class="page-actions">
-    <a href="{% url 'image_upload' %}" class="btn btn-secondary btn-sm">↑ Upload</a>
-    <a href="{% url 'project_create' %}" class="btn btn-primary btn-sm">+ New project</a>
   </div>
 </div>
 
