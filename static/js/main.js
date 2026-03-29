@@ -401,8 +401,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('sum-failed').textContent  = fail;
     summary.classList.add('visible');
 
-    btnView.href         = `/images/project/${pid}/`;
-    btnView.style.display = '';
+    btnView.href = `/app/images/project/${pid}/`;    btnView.style.display = '';
   };
 
   function addError(name, reason) {
@@ -815,7 +814,7 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('sum-failed').textContent  = fail;
     summary.classList.add('visible');
 
-    btnView.href         = `/images/project/${pid}/`;
+    btnView.href         = `/app/images/project/${pid}/`;
     btnView.style.display = '';
   };
 
