@@ -192,10 +192,43 @@ def image_delete(request, image_id):
         image.image_file.delete(save=False)
         image.delete()
         messages.success(request, f'Image "{image.name}" has been deleted.')
+    next_url = request.POST.get('next') or request.META.get('HTTP_REFERER')
+    if next_url:
+        return redirect(next_url)
     return redirect('project_images', project_id=project.id)
 
 
 @login_required
+@require_POST
+def batch_delete(request):
+    """Delete multiple images at once."""
+    image_ids = request.POST.getlist('image_ids')
+
+    accessible = Image.objects.filter(
+        id__in=image_ids,
+        project__in=_user_projects(request.user)
+    )
+
+    # Only allow deletion if user is admin of all affected projects
+    deleted_count = 0
+    skipped_count = 0
+    for image in accessible:
+        if image.project.user_is_admin(request.user):
+            image.image_file.delete(save=False)
+            image.delete()
+            deleted_count += 1
+        else:
+            skipped_count += 1
+
+    if deleted_count:
+        messages.success(request, f'Deleted {deleted_count} image(s).')
+    if skipped_count:
+        messages.warning(request, f'{skipped_count} image(s) skipped — admin only.')
+
+    next_url = request.POST.get('next') or request.META.get('HTTP_REFERER', '/')
+    return redirect(next_url)
+
+
 def image_detail(request, pk):
     image = get_object_or_404(Image, pk=pk)
     if not image.project.user_has_access(request.user):

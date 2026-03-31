@@ -290,7 +290,9 @@
           Queued — <span id="queue-count">0</span> file(s)
         </span>
         <button type="button" class="btn btn-ghost btn-sm"
-                onclick="clearQueue()">✕ Clear</button>
+                onclick="clearQueue()"
+                onmouseenter="this.style.color='var(--danger)'"
+                onmouseleave="this.style.color=''">✕ Clear all</button>
       </div>
 
       <div class="queue-list" id="queue-list"></div>
@@ -323,7 +325,8 @@
       <!-- Actions -->
       <div class="upload-actions">
         <button type="button" class="btn btn-primary" id="btn-upload"
-                disabled onclick="startUpload()">↑ Upload</button>
+                disabled onclick="startUpload()"
+                data-upload-url="{% url 'image_upload_ajax' %}">↑ Upload</button>
         <a href="#" class="btn btn-secondary" id="btn-view" style="display:none;">
           → View project
         </a>
@@ -586,7 +589,7 @@
     document.getElementById('sum-failed').textContent  = fail;
     summary.classList.add('visible');
 
-    btnView.href         = `/images/project/${pid}/`;
+    btnView.href         = `/app/images/project/${pid}/`;
     btnView.style.display = '';
   };
 
