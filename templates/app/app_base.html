@@ -65,9 +65,14 @@
           <div class="user-role">{{ user_role|default:"User" }}</div>
         </div>
       </a>
-      <a href="{% url 'logout' %}" class="nav-item" style="margin-top:4px;">
-        <span class="nav-icon">→</span> Log out
-      </a>
+
+      <!-- Logout form – replaces the original link -->
+      <form method="post" action="{% url 'logout' %}" style="margin-top:4px;">
+        {% csrf_token %}
+        <button type="submit" class="nav-item" style="background:none; border:none; width:100%; text-align:left; cursor:pointer;">
+          <span class="nav-icon">→</span> Log out
+        </button>
+      </form>
     </div>
   </aside>
 
