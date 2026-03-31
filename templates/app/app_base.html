@@ -2,6 +2,16 @@
 
 {% block title %}App — LabelFlow{% endblock %}
 
+{% block extra_head %}
+{# ── Prevent flash of wrong theme — runs before paint ── #}
+<script>
+  (function () {
+    var t = localStorage.getItem('lf-theme') || 'light';
+    document.documentElement.setAttribute('data-theme', t);
+  })();
+</script>
+{% endblock %}
+
 {% block body %}
 <div class="app-shell">
 
@@ -57,7 +67,7 @@
 
     <div class="toolbar-search">
       <span class="toolbar-search-icon">⌕</span>
-      <input type="search" placeholder="Search..." id="global-search" autocomplete="off">
+      <input type="search" placeholder="Search…" id="global-search" autocomplete="off">
     </div>
 
     <span class="toolbar-sep"></span>
