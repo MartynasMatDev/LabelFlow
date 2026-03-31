@@ -8,6 +8,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.db.models import Q
 from django.views.decorators.http import require_POST
+from django.urls import reverse   # <-- added
 
 from apps.projects.models import Project
 from .models import Image, Tag, BoundingBox
@@ -131,10 +132,13 @@ def image_upload(request):
         return redirect('project_images', project_id=project.id)
 
     selected_project_id = request.GET.get('project')
+    # Build base URL for project detail (with placeholder 0)
+    project_detail_base = reverse('project_detail', args=[0])
     ctx = {
         'active_nav': 'upload',
         'projects': projects,
         'selected_project_id': int(selected_project_id) if selected_project_id else None,
+        'project_detail_base': project_detail_base,   # <-- added
     }
     return render(request, 'app/image_upload.html', ctx)
 

@@ -398,8 +398,12 @@ window.closeDeleteModal = () => document.getElementById('delete-modal').classLis
     document.getElementById('sum-failed').textContent  = fail;
     summary.classList.add('visible');
 
-    btnView.href          = `/images/project/${pid}/`;
-    btnView.style.display = '';
+    // ── FIX: Use base URL from hidden element ──
+    const baseUrl = document.getElementById('project-detail-base')?.dataset.url;
+    if (baseUrl) {
+        btnView.href = baseUrl.replace('0', pid);
+        btnView.style.display = '';
+    }
   };
 
   function addError(name, reason) {

@@ -1,10 +1,11 @@
 {% extends "base.html" %}
-{% block title %}LabelFlow — Image Annotation Platform{% endblock %}
+{% block title %}LabelFlow — Annotation Platform for ML Teams{% endblock %}
 
 {% block body %}
 <nav class="web-nav">
   <a href="/" class="web-nav-logo">Label<em>Flow</em></a>
   <div class="web-nav-links">
+    <button class="web-theme-btn" id="theme-btn" title="Toggle theme" aria-label="Toggle theme">☀</button>
     <a href="{% url 'login' %}" class="btn btn-ghost">Sign in</a>
     <a href="{% url 'register' %}" class="btn btn-primary">Get started free</a>
   </div>
@@ -13,15 +14,14 @@
 <section class="hero">
   <div class="hero-grid-bg"></div>
   <div class="hero-glow"></div>
-  <div style="position:relative; max-width:860px; margin:0 auto;" class="fade-up">
-    <div class="hero-tag">◆ Image Annotation Platform</div>
-    <h1>Data that trains<br><em>great AI</em></h1>
+  <div style="position:relative; max-width:820px; margin:0 auto;" class="fade-up">
+    <div class="hero-tag">◆ Open annotation platform</div>
+    <h1>Label smarter,<br>ship <em>better models</em></h1>
     <p class="hero-lead">
-      A professional annotation system for teams and researchers.
-      Bounding boxes, polygons, classification — all in one tool.
+      Stop wrestling with annotation tools. LabelFlow gives your team a fast, focused workspace — from image upload to export-ready datasets.
     </p>
     <div class="hero-cta">
-      <a href="{% url 'register' %}" class="btn btn-primary btn-lg">Create an account →</a>
+      <a href="{% url 'register' %}" class="btn btn-primary btn-lg">Start annotating free →</a>
       <a href="{% url 'login' %}" class="btn btn-secondary btn-lg">Sign in</a>
     </div>
   </div>
@@ -35,46 +35,46 @@
 
 <section class="features-section">
   <div class="features-header">
-    <h2>Everything you need to annotate</h2>
-    <p>From upload to export — one seamless workflow</p>
+    <h2>Built for the whole pipeline</h2>
+    <p>Every tool your annotation workflow actually needs — nothing it doesn't</p>
   </div>
   <div class="features-grid stagger">
     <div class="feature-card">
       <span class="feature-icon">⬡</span>
-      <h3>Precise annotation tools</h3>
-      <p>Bounding boxes, polygons, classification tags — for accurate data labeling.</p>
+      <h3>Pixel-accurate tools</h3>
+      <p>Bounding boxes, polygons, and classification labels. Fast keyboard shortcuts, no lag, no frustration.</p>
     </div>
     <div class="feature-card">
       <span class="feature-icon">◈</span>
-      <h3>Team management</h3>
-      <p>Multi-user support with roles: admin, annotator, and reviewer.</p>
+      <h3>Role-based teams</h3>
+      <p>Admins, annotators, reviewers — assign access per project. No accidental overwrites, no chaos.</p>
     </div>
     <div class="feature-card">
       <span class="feature-icon">◎</span>
-      <h3>Project organization</h3>
-      <p>Separate projects with their own datasets, teams, and settings.</p>
+      <h3>Project workspaces</h3>
+      <p>Keep datasets, teams, and labels neatly separated. Switch context without losing your place.</p>
     </div>
     <div class="feature-card">
       <span class="feature-icon">⬕</span>
-      <h3>Fast export</h3>
-      <p>COCO JSON, Pascal VOC, YOLO TXT, CSV — ready in seconds.</p>
+      <h3>One-click export</h3>
+      <p>COCO JSON, Pascal VOC, YOLO TXT, CSV — export exactly what your training script expects.</p>
     </div>
     <div class="feature-card">
       <span class="feature-icon">⬔</span>
       <h3>REST API</h3>
-      <p>Integrate with your infrastructure. Automate your data pipeline.</p>
+      <p>Automate uploads, trigger exports, query annotation status. Fits any MLOps pipeline.</p>
     </div>
     <div class="feature-card">
       <span class="feature-icon">◉</span>
-      <h3>Image management</h3>
-      <p>Upload individual files or entire folders. Sort, filter, and search with ease.</p>
+      <h3>Smart image management</h3>
+      <p>Batch upload folders, tag images, filter by status. Find what you need in seconds.</p>
     </div>
   </div>
 </section>
 
 <section class="formats-section">
-  <h2>Export formats</h2>
-  <p>All major machine learning formats supported</p>
+  <h2>Works with your stack</h2>
+  <p>All major ML training formats — out of the box</p>
   <div class="format-chips">
     <div class="format-chip">COCO JSON</div>
     <div class="format-chip">Pascal VOC XML</div>
@@ -84,14 +84,94 @@
   </div>
 </section>
 
+<section class="team-section">
+  <div class="team-header">
+    <h2>Who built this</h2>
+    <p>A small team that got tired of bad annotation tools and decided to fix it</p>
+  </div>
+  <div class="team-grid stagger">
+
+    <div class="team-card" style="--tc-gradient: linear-gradient(90deg, #6366f1, #818cf8);">
+      <div class="team-avatar" style="background: linear-gradient(135deg, #6366f1, #818cf8);">MJ</div>
+      <div class="team-name">Martynas J.</div>
+      <div class="team-role">Lead Engineer</div>
+      <div class="team-bio">Full-stack architect. Built the core annotation engine and Django backend from scratch.</div>
+      <div class="team-links">
+        <a href="#" class="team-link" title="GitHub">⌥</a>
+        <a href="#" class="team-link" title="LinkedIn">in</a>
+      </div>
+    </div>
+
+    <div class="team-card" style="--tc-gradient: linear-gradient(90deg, #34d399, #059669);">
+      <div class="team-avatar" style="background: linear-gradient(135deg, #34d399, #059669);">AT</div>
+      <div class="team-name">Agnė T.</div>
+      <div class="team-role">ML Engineer</div>
+      <div class="team-bio">Designed export pipelines and annotation format compatibility across COCO, YOLO, VOC.</div>
+      <div class="team-links">
+        <a href="#" class="team-link" title="GitHub">⌥</a>
+        <a href="#" class="team-link" title="LinkedIn">in</a>
+      </div>
+    </div>
+
+    <div class="team-card" style="--tc-gradient: linear-gradient(90deg, #f59e0b, #d97706);">
+      <div class="team-avatar" style="background: linear-gradient(135deg, #f59e0b, #d97706);">DK</div>
+      <div class="team-name">Dominykas K.</div>
+      <div class="team-role">UX Designer</div>
+      <div class="team-bio">Crafted the interface so annotators can work fast without thinking about the tool.</div>
+      <div class="team-links">
+        <a href="#" class="team-link" title="GitHub">⌥</a>
+        <a href="#" class="team-link" title="LinkedIn">in</a>
+      </div>
+    </div>
+
+    <div class="team-card" style="--tc-gradient: linear-gradient(90deg, #a78bfa, #7c3aed);">
+      <div class="team-avatar" style="background: linear-gradient(135deg, #a78bfa, #7c3aed);">EV</div>
+      <div class="team-name">Eglė V.</div>
+      <div class="team-role">Product & QA</div>
+      <div class="team-bio">Keeps the roadmap honest. Makes sure every feature ships without breaking the other ones.</div>
+      <div class="team-links">
+        <a href="#" class="team-link" title="GitHub">⌥</a>
+        <a href="#" class="team-link" title="LinkedIn">in</a>
+      </div>
+    </div>
+
+  </div>
+</section>
+
 <section class="cta-section">
-  <h2>Get started today</h2>
-  <p>Free account, unlimited projects. Perfect for students and teams alike.</p>
-  <a href="{% url 'register' %}" class="btn btn-primary btn-lg">Sign up for free</a>
+  <h2>Ready when you are</h2>
+  <p>Free account, unlimited projects. No credit card. No nonsense.</p>
+  <a href="{% url 'register' %}" class="btn btn-primary btn-lg">Create your account →</a>
 </section>
 
 <footer class="web-footer">
   <a href="/" class="web-footer-logo">Label<em>Flow</em></a>
   <span>© 2026 LabelFlow · built with Django</span>
 </footer>
+
+<script>
+(function () {
+  const btn = document.getElementById('theme-btn');
+  const html = document.documentElement;
+  const stored = localStorage.getItem('lf-theme');
+
+  function apply(theme) {
+    if (theme === 'light') {
+      html.setAttribute('data-theme', 'light');
+      btn.textContent = '☽';
+    } else {
+      html.removeAttribute('data-theme');
+      btn.textContent = '☀';
+    }
+    localStorage.setItem('lf-theme', theme);
+  }
+
+  apply(stored || 'dark');
+
+  btn.addEventListener('click', () => {
+    const current = html.getAttribute('data-theme');
+    apply(current === 'light' ? 'dark' : 'light');
+  });
+})();
+</script>
 {% endblock %}
