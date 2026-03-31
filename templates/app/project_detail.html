@@ -4,9 +4,6 @@
 
 {% block toolbar_actions %}
 <a href="{% url 'image_upload' %}?project={{ project.id }}" class="btn btn-secondary btn-sm">↑ Upload</a>
-{% if is_admin %}
-<a href="{% url 'team_management' project.id %}" class="btn btn-ghost btn-sm">⬔ Team</a>
-{% endif %}
 {% if is_admin and not project.is_archived %}
 <a href="{% url 'archive_project' project.id %}"
    class="btn btn-danger btn-sm"
@@ -34,10 +31,6 @@
       · {{ project.image_count }} images
       {% if user_role %} · <span class="badge badge-accent" style="font-size:10px;">{{ user_role }}</span>{% endif %}
     </p>
-  </div>
-  <div class="page-actions">
-    <a href="{% url 'project_images' project.id %}" class="btn btn-secondary btn-sm">All images</a>
-    {% if is_admin %}<a href="{% url 'team_management' project.id %}" class="btn btn-primary btn-sm">Team</a>{% endif %}
   </div>
 </div>
 
@@ -71,8 +64,12 @@
       <div class="empty-state" style="padding:32px 20px;">
         <div class="empty-icon">⬡</div>
         <h3>No images yet</h3>
+         {% if not project.is_archived %}
         <p>Upload the first images</p>
         <a href="{% url 'image_upload' %}?project={{ project.id }}" class="btn btn-primary btn-sm mt-4">↑ Upload</a>
+        {% else %}
+        <p>This project is archived and cannot accept new images.</p>
+        {% endif %}
       </div>
       {% endif %}
     </div>

@@ -55,22 +55,7 @@
     </nav>
 
     <div class="sidebar-bottom">
-      <!-- Theme toggle -->
-      <button class="theme-toggle" onclick="toggleTheme()" title="Toggle theme">
-        <span class="theme-toggle-icon nav-icon">☾</span>
-        <span class="theme-toggle-label">Dark mode</span>
-      </button>
-
-      <a href="{% url 'profile' %}" class="user-item">
-        <div class="avatar avatar-md avatar-c0">
-          {{ request.user.first_name.0|default:request.user.username.0|upper }}{{ request.user.last_name.0|upper }}
-        </div>
-        <div class="user-info">
-          <div class="user-name">{{ request.user.get_full_name|default:request.user.username }}</div>
-          <div class="user-role">{{ user_role|default:"User" }}</div>
-        </div>
-      </a>
-      <a href="{% url 'logout' %}" class="nav-item" style="margin-top:2px;">
+      <a href="{% url 'logout' %}" class="nav-item" style="margin-top:4px;">
         <span class="nav-icon">→</span> Log out
       </a>
     </div>
