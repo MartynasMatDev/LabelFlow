@@ -1,12 +1,46 @@
 /* LabelFlow – main.js */
 
+/* ── Theme management ──────────────────────────────────────
+   Persists in localStorage as 'lf-theme' = 'light' | 'dark'
+   Applied to <html data-theme="..."> before paint to avoid flash.
+   The inline <script> in app_base.html applies it immediately;
+   this block handles the toggle button clicks.
+─────────────────────────────────────────────────────────── */
+(function () {
+  // Apply saved theme immediately (also done inline in <head> to avoid FOUC)
+  const saved = localStorage.getItem('lf-theme') || 'light';
+  document.documentElement.setAttribute('data-theme', saved);
+})();
+
+window.toggleTheme = function () {
+  const current = document.documentElement.getAttribute('data-theme') || 'light';
+  const next    = current === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', next);
+  localStorage.setItem('lf-theme', next);
+  // Update toggle button label
+  document.querySelectorAll('.theme-toggle-label').forEach(el => {
+    el.textContent = next === 'dark' ? 'Light mode' : 'Dark mode';
+  });
+  document.querySelectorAll('.theme-toggle-icon').forEach(el => {
+    el.textContent = next === 'dark' ? '☀' : '☾';
+  });
+};
+
 document.addEventListener('DOMContentLoaded', () => {
 
-  // ── Modal helpers ───────────────────────────────
+  // Sync toggle labels to current theme on load
+  const theme = document.documentElement.getAttribute('data-theme') || 'light';
+  document.querySelectorAll('.theme-toggle-label').forEach(el => {
+    el.textContent = theme === 'dark' ? 'Light mode' : 'Dark mode';
+  });
+  document.querySelectorAll('.theme-toggle-icon').forEach(el => {
+    el.textContent = theme === 'dark' ? '☀' : '☾';
+  });
+
+  // ── Modal helpers ───────────────────────────────────────
   document.querySelectorAll('[data-open-modal]').forEach(btn => {
     btn.addEventListener('click', () => {
-      const modalId = btn.dataset.openModal;
-      const modal = document.getElementById(modalId);
+      const modal = document.getElementById(btn.dataset.openModal);
       if (modal) modal.classList.add('open');
     });
   });
@@ -28,8 +62,8 @@ document.addEventListener('DOMContentLoaded', () => {
       e.target.classList.remove('open');
   });
 
-  // ── Tabs ───────────────────────────────────────
-  window.switchTab = function(tabId) {
+  // ── Tabs ───────────────────────────────────────────────
+  window.switchTab = function (tabId) {
     const container = document.querySelector('[data-tabs]') || document;
     container.querySelectorAll('.tab-btn').forEach(btn => {
       btn.classList.toggle('active', btn.dataset.tab === tabId);
@@ -39,8 +73,8 @@ document.addEventListener('DOMContentLoaded', () => {
     });
   };
 
-  // ── View toggle (grid/list) ───────────────────
-  window.setView = function(mode) {
+  // ── View toggle (grid/list) ────────────────────────────
+  window.setView = function (mode) {
     const grid = document.getElementById('image-grid-view');
     const list = document.getElementById('image-list-view');
     const gbtn = document.getElementById('btn-grid');
@@ -59,13 +93,13 @@ document.addEventListener('DOMContentLoaded', () => {
   const savedView = localStorage.getItem('lf-view');
   if (savedView) setView(savedView);
 
-  // ── CSRF cookie helper ─────────────────────────
-  window.getCookie = function(name) {
+  // ── CSRF cookie helper ──────────────────────────────────
+  window.getCookie = function (name) {
     const m = document.cookie.match('(^|;)\\s*' + name + '=([^;]*)');
     return m ? decodeURIComponent(m[2]) : null;
   };
 
-  // ── Auto-dismiss alerts ────────────────────────
+  // ── Auto-dismiss alerts ─────────────────────────────────
   document.querySelectorAll('.alert').forEach(el => {
     setTimeout(() => {
       el.style.transition = 'opacity .4s';
@@ -74,8 +108,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }, 4000);
   });
 
-    // ── Drop-zone upload ──────────────────────────
-  window.initDropZone = function(zoneId, inputId, previewId) {
+  // ── Drop-zone upload ────────────────────────────────────
+  window.initDropZone = function (zoneId, inputId, previewId) {
     const zone  = document.getElementById(zoneId);
     const input = document.getElementById(inputId);
     if (!zone || !input) return;
@@ -84,38 +118,29 @@ document.addEventListener('DOMContentLoaded', () => {
     zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('dragover'); });
     zone.addEventListener('dragleave', () => zone.classList.remove('dragover'));
     zone.addEventListener('drop', e => {
-      e.preventDefault();
-      zone.classList.remove('dragover');
-
+      e.preventDefault(); zone.classList.remove('dragover');
       const dt = e.dataTransfer;
       if (dt && dt.files && dt.files.length) {
-        // Copy files into a DataTransfer to set input.files reliably
         const dataTransfer = new DataTransfer();
         Array.from(dt.files).forEach(f => dataTransfer.items.add(f));
         input.files = dataTransfer.files;
         handleFilePreview(input.files, previewId);
       }
     });
-
     input.addEventListener('change', () => handleFilePreview(input.files, previewId));
   };
 
-  window.handleFilePreview = function(files, previewId) {
-    const container = document.getElementById(previewId);
+  window.handleFilePreview = function (files, previewId) {
+    const container  = document.getElementById(previewId);
     const previewWrap = document.getElementById('file-preview-wrap');
-    const countEl = document.getElementById('upload-file-count');
-    const submitBtn = document.getElementById('upload-submit');
-
+    const countEl    = document.getElementById('upload-file-count');
+    const submitBtn  = document.getElementById('upload-submit');
     if (!container) return;
 
-    // Clear old previews (and revoke object URLs)
-    const imgs = container.querySelectorAll('img[data-object-url]');
-    imgs.forEach(img => {
-      const url = img.getAttribute('data-object-url');
-      if (url) URL.revokeObjectURL(url);
+    container.querySelectorAll('img[data-object-url]').forEach(img => {
+      URL.revokeObjectURL(img.getAttribute('data-object-url'));
     });
 
-    // No files -> clear preview and disable submit
     if (!files || files.length === 0) {
       container.innerHTML = '';
       if (previewWrap) previewWrap.style.display = 'none';
@@ -124,18 +149,14 @@ document.addEventListener('DOMContentLoaded', () => {
       return;
     }
 
-    // Show preview wrapper and update count + enable submit
     container.innerHTML = '';
     if (previewWrap) previewWrap.style.display = '';
     if (countEl) countEl.textContent = `${files.length} file(s) selected`;
     if (submitBtn) submitBtn.disabled = false;
 
-    // Render up to 10 thumbnails
     Array.from(files).slice(0, 10).forEach(f => {
       const wrap = document.createElement('div');
-      wrap.style.cssText =
-        'width:56px;height:56px;border-radius:7px;background:var(--surface2);border:1px solid var(--border);overflow:hidden;flex-shrink:0;display:inline-block;';
-
+      wrap.style.cssText = 'width:52px;height:52px;border-radius:6px;background:var(--surface2);border:1px solid var(--border);overflow:hidden;flex-shrink:0;display:inline-block;';
       if (f.type && f.type.startsWith('image/')) {
         const img = document.createElement('img');
         const objUrl = URL.createObjectURL(f);
@@ -144,10 +165,8 @@ document.addEventListener('DOMContentLoaded', () => {
         img.style.cssText = 'width:100%;height:100%;object-fit:cover;';
         wrap.appendChild(img);
       } else {
-        wrap.innerHTML =
-          '<span style="font-size:22px;display:flex;align-items:center;justify-content:center;height:100%">⬡</span>';
+        wrap.innerHTML = '<span style="font-size:20px;display:flex;align-items:center;justify-content:center;height:100%">⬡</span>';
       }
-
       container.appendChild(wrap);
     });
   };
