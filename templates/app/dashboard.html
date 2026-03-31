@@ -10,11 +10,7 @@
 <div class="page-header">
   <div class="page-title">
     <h1>Welcome, {{ request.user.first_name|default:request.user.username }} 👋</h1>
-    <p>work overview</p>
-  </div>
-  <div class="page-actions">
-    <a href="{% url 'image_upload' %}" class="btn btn-secondary btn-sm">↑ Upload</a>
-    <a href="{% url 'project_create' %}" class="btn btn-primary btn-sm">+ New project</a>
+    <p>Work overview</p>
   </div>
 </div>
 
@@ -43,7 +39,7 @@
 </div>
 
 <div class="dashboard-grid">
-  <!-- Projects -->
+  <!-- Active projects -->
   <div class="card card-flat">
     <div class="section-header" style="padding:18px 22px 0;">
       <h2>Active projects</h2>
@@ -56,7 +52,7 @@
           <div class="project-row-icon">{{ project.emoji }}</div>
           <div class="project-row-info">
             <div class="project-row-name">{{ project.name }}</div>
-            <div class="project-row-meta">{{ project.image_count }} pav. · {{ project.member_count }} members · {{ project.get_annotation_type_display }}</div>
+            <div class="project-row-meta">{{ project.image_count }} img · {{ project.member_count }} members · {{ project.get_annotation_type_display }}</div>
           </div>
           <div class="progress-wrap">
             <div class="progress-bar"><div class="progress-fill" style="width:0%"></div></div>
@@ -75,14 +71,15 @@
     </div>
   </div>
 
-  <!-- Quick actions -->
+  <!-- Quick actions & account -->
   <div>
     <div class="card" style="margin-bottom:16px;">
       <h2 style="font-size:14px;margin-bottom:16px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;font-family:'DM Mono',monospace;">Quick actions</h2>
       <div class="flex flex-col gap-2">
         <a href="{% url 'project_create' %}" class="btn btn-secondary btn-full">◈ New project</a>
-        <a href="{% url 'image_upload' %}" class="btn btn-secondary btn-full">⬡ Upload images</a>
-        <a href="{% url 'project_list' %}" class="btn btn-ghost btn-full">◉ All projects</a>
+        <a href="{% url 'image_upload' %}"   class="btn btn-secondary btn-full">⬡ Upload images</a>
+        <a href="{% url 'project_list' %}"   class="btn btn-ghost btn-full">◉ All projects</a>
+        <a href="{% url 'archived_projects' %}" class="btn btn-ghost btn-full">📦 Archived</a>
       </div>
     </div>
 
