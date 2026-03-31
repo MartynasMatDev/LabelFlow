@@ -45,6 +45,17 @@
     </nav>
 
     <div class="sidebar-bottom">
+      <!-- ── Theme toggle ── -->
+      <button
+        id="theme-toggle-btn"
+        class="theme-toggle-btn"
+        onclick="toggleTheme()"
+        title="Toggle light/dark mode"
+      >
+        <span class="theme-icon" id="theme-icon">☀️</span>
+        <span class="theme-label" id="theme-label">Light mode</span>
+      </button>
+
       <a href="{% url 'profile' %}" class="user-item">
         <div class="avatar avatar-md avatar-c0">
           {{ request.user.first_name.0|default:request.user.username.0|upper }}{{ request.user.last_name.0|upper }}
