@@ -38,62 +38,35 @@
   </div>
 </div>
 
-<div class="dashboard-grid">
-  <!-- Active projects -->
-  <div class="card card-flat">
-    <div class="section-header" style="padding:18px 22px 0;">
-      <h2>Active projects</h2>
-      <a href="{% url 'project_list' %}" class="btn btn-ghost btn-sm">All →</a>
-    </div>
-    <div style="padding-bottom:8px;">
-      {% if projects %}
-        {% for project in projects %}
-        <a href="{% url 'project_detail' project.id %}" class="project-row">
-          <div class="project-row-icon">{{ project.emoji }}</div>
-          <div class="project-row-info">
-            <div class="project-row-name">{{ project.name }}</div>
-            <div class="project-row-meta">{{ project.image_count }} img · {{ project.member_count }} members · {{ project.get_annotation_type_display }}</div>
-          </div>
-          <div class="progress-wrap">
-            <div class="progress-bar"><div class="progress-fill" style="width:0%"></div></div>
-            <div class="progress-lbl">0% annotated</div>
-          </div>
-        </a>
-        {% endfor %}
-      {% else %}
-        <div class="empty-state" style="padding:40px 20px;">
-          <div class="empty-icon">◈</div>
-          <h3>No active projects</h3>
-          <p>Create a new project to begin</p>
-          <a href="{% url 'project_create' %}" class="btn btn-primary btn-sm mt-4">+ Create a project</a>
-        </div>
-      {% endif %}
-    </div>
+<!-- Active projects — full width -->
+<div class="card card-flat">
+  <div class="section-header" style="padding:18px 22px 0;">
+    <h2>Active projects</h2>
+    <a href="{% url 'project_list' %}" class="btn btn-ghost btn-sm">All →</a>
   </div>
-
-  <!-- Quick actions & account -->
-  <div>
-    <div class="card" style="margin-bottom:16px;">
-      <h2 style="font-size:14px;margin-bottom:16px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;font-family:'DM Mono',monospace;">Quick actions</h2>
-      <div class="flex flex-col gap-2">
-        <a href="{% url 'project_create' %}" class="btn btn-secondary btn-full">◈ New project</a>
-        <a href="{% url 'image_upload' %}"   class="btn btn-secondary btn-full">⬡ Upload images</a>
-        <a href="{% url 'project_list' %}"   class="btn btn-ghost btn-full">◉ All projects</a>
-        <a href="{% url 'archived_projects' %}" class="btn btn-ghost btn-full">📦 Archived</a>
-      </div>
-    </div>
-
-    <div class="card">
-      <h2 style="font-size:14px;margin-bottom:12px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;font-family:'DM Mono',monospace;">Account</h2>
-      <div class="flex items-center gap-3" style="margin-bottom:14px;">
-        <div class="avatar avatar-md avatar-c0">{{ request.user.first_name.0|default:request.user.username.0|upper }}{{ request.user.last_name.0|upper }}</div>
-        <div>
-          <div style="font-size:14px;font-weight:600;">{{ request.user.get_full_name|default:request.user.username }}</div>
-          <div style="font-size:12px;color:var(--text-muted);">{{ request.user.email }}</div>
+  <div style="padding-bottom:8px;">
+    {% if projects %}
+      {% for project in projects %}
+      <a href="{% url 'project_detail' project.id %}" class="project-row">
+        <div class="project-row-icon">{{ project.emoji }}</div>
+        <div class="project-row-info">
+          <div class="project-row-name">{{ project.name }}</div>
+          <div class="project-row-meta">{{ project.image_count }} img · {{ project.member_count }} members · {{ project.get_annotation_type_display }}</div>
         </div>
+        <div class="progress-wrap">
+          <div class="progress-bar"><div class="progress-fill" style="width:0%"></div></div>
+          <div class="progress-lbl">0% annotated</div>
+        </div>
+      </a>
+      {% endfor %}
+    {% else %}
+      <div class="empty-state" style="padding:40px 20px;">
+        <div class="empty-icon">◈</div>
+        <h3>No active projects</h3>
+        <p>Create a new project to begin</p>
+        <a href="{% url 'project_create' %}" class="btn btn-primary btn-sm mt-4">+ Create a project</a>
       </div>
-      <a href="{% url 'profile' %}" class="btn btn-ghost btn-sm btn-full">Settings</a>
-    </div>
+    {% endif %}
   </div>
 </div>
 {% endblock %}
