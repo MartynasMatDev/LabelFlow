@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% load static %}
 {% block title %}LabelFlow — Annotation Platform for ML Teams{% endblock %}
 
 {% block body %}
@@ -90,51 +91,65 @@
     <p>A small team that got tired of bad annotation tools and decided to fix it</p>
   </div>
   <div class="team-grid stagger">
-
+    <!-- Martynas Matutis - Tech Lead -->
     <div class="team-card" style="--tc-gradient: linear-gradient(90deg, #6366f1, #818cf8);">
-      <div class="team-avatar" style="background: linear-gradient(135deg, #6366f1, #818cf8);">MJ</div>
-      <div class="team-name">Martynas J.</div>
-      <div class="team-role">Lead Engineer</div>
-      <div class="team-bio">Full-stack architect. Built the core annotation engine and Django backend from scratch.</div>
-      <div class="team-links">
-        <a href="#" class="team-link" title="GitHub">⌥</a>
-        <a href="#" class="team-link" title="LinkedIn">in</a>
+      <div class="team-avatar" style="background: linear-gradient(135deg, #6366f1, #818cf8); position: relative;">
+        <div class="team-avatar-fallback" id="fb-mm" style="position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 2rem; font-weight: 600; color: white;">MM</div>
+        <img src="{% static 'images/team/martynas.png' %}"
+             alt="Martynas Matutis"
+             style="position: relative; z-index: 1; width: 100%; height: 100%; object-fit: cover; border-radius: 9999px;"
+             onload="document.getElementById('fb-mm').style.display='none'"
+             onerror="this.style.display='none'">
       </div>
+      <div class="team-name">Martynas Matutis</div>
+      <div class="team-role">Tech Lead / DevOps</div>
+      <div class="team-bio">Full‑stack architect with deep expertise in Django and real‑time systems. Built the core annotation engine and leads technical direction.</div>
     </div>
 
+    <!-- Viltė Gluoksnytė - Scrum Master / QA -->
     <div class="team-card" style="--tc-gradient: linear-gradient(90deg, #34d399, #059669);">
-      <div class="team-avatar" style="background: linear-gradient(135deg, #34d399, #059669);">AT</div>
-      <div class="team-name">Agnė T.</div>
-      <div class="team-role">ML Engineer</div>
-      <div class="team-bio">Designed export pipelines and annotation format compatibility across COCO, YOLO, VOC.</div>
-      <div class="team-links">
-        <a href="#" class="team-link" title="GitHub">⌥</a>
-        <a href="#" class="team-link" title="LinkedIn">in</a>
+      <div class="team-avatar" style="background: linear-gradient(135deg, #34d399, #059669); position: relative;">
+        <div class="team-avatar-fallback" id="fb-vg" style="position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 2rem; font-weight: 600; color: white;">VG</div>
+        <img src="{% static 'images/team/vilte.png' %}"
+             alt="Viltė Gluoksnytė"
+             style="position: relative; z-index: 1; width: 100%; height: 100%; object-fit: cover; border-radius: 9999px;"
+             onload="document.getElementById('fb-vg').style.display='none'"
+             onerror="this.style.display='none'">
       </div>
+      <div class="team-name">Viltė Gluoksnytė</div>
+      <div class="team-role">Scrum Master / QA</div>
+      <div class="team-bio">Ensures smooth delivery through agile practices and rigorous testing. Manages the backlog and keeps the team aligned on quality.</div>
     </div>
 
+    <!-- Deimantė Mišeikytė - Senior Python/Web Developer -->
     <div class="team-card" style="--tc-gradient: linear-gradient(90deg, #f59e0b, #d97706);">
-      <div class="team-avatar" style="background: linear-gradient(135deg, #f59e0b, #d97706);">DK</div>
-      <div class="team-name">Dominykas K.</div>
-      <div class="team-role">UX Designer</div>
-      <div class="team-bio">Crafted the interface so annotators can work fast without thinking about the tool.</div>
-      <div class="team-links">
-        <a href="#" class="team-link" title="GitHub">⌥</a>
-        <a href="#" class="team-link" title="LinkedIn">in</a>
+      <div class="team-avatar" style="background: linear-gradient(135deg, #f59e0b, #d97706); position: relative;">
+        <div class="team-avatar-fallback" id="fb-dm" style="position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 2rem; font-weight: 600; color: white;">DM</div>
+        <img src="{% static 'images/team/deimante.png' %}"
+             alt="Deimantė Mišeikytė"
+             style="position: relative; z-index: 1; width: 100%; height: 100%; object-fit: cover; border-radius: 9999px;"
+             onload="document.getElementById('fb-dm').style.display='none'"
+             onerror="this.style.display='none'">
       </div>
+      <div class="team-name">Deimantė Mišeikytė</div>
+      <div class="team-role">Senior Python / Web Developer</div>
+      <div class="team-bio">Specialises in backend APIs, database optimisation, and frontend integration. Crafts robust, scalable features that power the platform.</div>
     </div>
 
+    <!-- Erika Demenytė - Junior Web Developer / UI-UX Designer -->
     <div class="team-card" style="--tc-gradient: linear-gradient(90deg, #a78bfa, #7c3aed);">
-      <div class="team-avatar" style="background: linear-gradient(135deg, #a78bfa, #7c3aed);">EV</div>
-      <div class="team-name">Eglė V.</div>
-      <div class="team-role">Product & QA</div>
-      <div class="team-bio">Keeps the roadmap honest. Makes sure every feature ships without breaking the other ones.</div>
-      <div class="team-links">
-        <a href="#" class="team-link" title="GitHub">⌥</a>
-        <a href="#" class="team-link" title="LinkedIn">in</a>
+      <div class="team-avatar" style="background: linear-gradient(135deg, #a78bfa, #7c3aed); position: relative;">
+        <div class="team-avatar-fallback" id="fb-ed" style="position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 2rem; font-weight: 600; color: white;">ED</div>
+        <img src="{% static 'images/team/erika.png' %}"
+             alt="Erika Demenytė"
+             style="position: relative; z-index: 1; width: 100%; height: 100%; object-fit: cover; border-radius: 9999px;"
+             onload="document.getElementById('fb-ed').style.display='none'"
+             onerror="this.style.display='none'">
       </div>
+      <div class="team-name">Erika Demenytė</div>
+      <div class="team-role">Junior Web Developer / UI‑UX Designer</div>
+      <div class="team-bio">Creates intuitive, accessible interfaces and assists with frontend development. Focuses on user experience and visual consistency.</div>
     </div>
-
   </div>
 </section>
 

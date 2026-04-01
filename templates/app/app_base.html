@@ -65,14 +65,9 @@
           <div class="user-role">{{ user_role|default:"User" }}</div>
         </div>
       </a>
-
-      <!-- Logout form – replaces the original link -->
-      <form method="post" action="{% url 'logout' %}" style="margin-top:4px;">
-        {% csrf_token %}
-        <button type="submit" class="nav-item" style="background:none; border:none; width:100%; text-align:left; cursor:pointer;">
-          <span class="nav-icon">→</span> Log out
-        </button>
-      </form>
+      <a href="{% url 'logout' %}" class="nav-item" style="margin-top:4px;">
+        <span class="nav-icon">→</span> Log out
+      </a>
     </div>
   </aside>
 
@@ -89,11 +84,6 @@
 
     <div class="flex gap-2">
       {% block toolbar_actions %}{% endblock %}
-      <a href="{% url 'profile' %}" class="btn btn-icon btn-ghost" title="Profile">
-        <div class="avatar avatar-sm avatar-c0">
-          {{ request.user.first_name.0|default:request.user.username.0|upper }}{{ request.user.last_name.0|upper }}
-        </div>
-      </a>
     </div>
   </header>
 
