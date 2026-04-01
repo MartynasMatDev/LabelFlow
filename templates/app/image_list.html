@@ -90,8 +90,7 @@
 
     <!-- Card body — clicking selects checkbox -->
     <div class="image-card-link"
-         onclick="document.querySelector('.img-checkbox[value=\\'{{ image.id }}\\']').click()">
-
+        onclick="this.closest('.image-grid-card').querySelector('.img-checkbox').click()">
       <div class="image-thumb">
         {% if image.image_file %}
           <img src="{{ image.image_file.url }}" alt="{{ image.name }}" loading="lazy">
