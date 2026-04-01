@@ -12,6 +12,8 @@
 
 {% block extra_head %}
 <style>
+/* Override app-content padding for annotate full-screen layout */
+.app-content { padding: 0 !important; overflow: hidden !important; min-height: 0 !important; }
 /* ── Layout ─────────────────────────────────────────────── */
 .annotate-shell {
   display: grid;
@@ -915,8 +917,8 @@ const Annotator = (() => {
     fd.append('new_tag_color', color);
     fd.append('next',          window.location.href);
 
-    const r    = await fetch("{% url 'batch_tag' %}", { method: 'POST', headers: { 'X-CSRFToken': csrf() }, body: fd });
-    // batch_tag redirects — we just want the tag created.
+    await fetch("{% url 'batch_tag' %}", { method: 'POST', headers: { 'X-CSRFToken': csrf() }, redirect: 'manual', body: fd });
+    // batch_tag redirects — we just want the tag created, redirect is ignored.
     // Now fetch the tag id by looking it up in the DOM we'll add a chip:
 
     // Optimistically add chip to label grid & apply to selected box
