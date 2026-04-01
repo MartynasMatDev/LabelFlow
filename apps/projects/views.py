@@ -4,8 +4,11 @@ from django.contrib.auth.models import User
 from django.contrib import messages
 from django.db.models import Q
 from django.http import JsonResponse
+from django.urls import reverse
+from django.utils import timezone
 
-from .models import Project, ProjectMember, ActivityLog
+from .models import Project, ProjectMember, ActivityLog, Invitation
+from .email import send_invitation_email
 from .activity import log_activity
 
 
@@ -83,7 +86,6 @@ def project_detail(request, project_id):
     from apps.images.models import Image
     images = Image.objects.filter(project=project).order_by('-uploaded_at')[:6]
 
-    # Activity feed — last 50 entries; support filtering via GET params
     activity_qs = ActivityLog.objects.filter(project=project).select_related('user')
 
     filter_user   = request.GET.get('activity_user', '').strip()
@@ -96,7 +98,6 @@ def project_detail(request, project_id):
 
     activity_logs = activity_qs[:50]
 
-    # Distinct users + action types for filter dropdowns
     activity_users   = (
         User.objects.filter(activity_logs__project=project)
         .distinct()
@@ -110,7 +111,6 @@ def project_detail(request, project_id):
         'images': images,
         'user_role': project.get_user_role(request.user) or 'admin',
         'is_admin': project.user_is_admin(request.user),
-        # Activity
         'activity_logs': activity_logs,
         'activity_users': activity_users,
         'activity_actions': activity_actions,
@@ -122,10 +122,6 @@ def project_detail(request, project_id):
 
 @login_required
 def activity_feed_json(request, project_id):
-    """
-    JSON endpoint for polling new activities.
-    Returns the 50 most recent activity entries (or since ?since=<pk>).
-    """
     project = get_object_or_404(Project, id=project_id)
     if not project.user_has_access(request.user):
         return JsonResponse({'error': 'Forbidden'}, status=403)
@@ -206,13 +202,57 @@ def team_management(request, project_id):
                              detail=f'{name}: {old_role} → {membership.get_role_display()}')
                 messages.success(request, 'Role updated successfully.')
 
+        elif action == 'send_invitation':
+            email = request.POST.get('email', '').strip()
+            role = request.POST.get('role', 'annotator')
+            # Validate email
+            if not email:
+                messages.error(request, 'Email address is required.')
+                return redirect('team_management', project_id=project.id)
+            # Check if email is already a member
+            user_exists = User.objects.filter(email=email).first()
+            if user_exists and ProjectMember.objects.filter(project=project, user=user_exists).exists():
+                messages.error(request, f'{email} is already a member of this project.')
+                return redirect('team_management', project_id=project.id)
+            # Check for pending invitation
+            if Invitation.objects.filter(project=project, email=email, accepted_at__isnull=True).exists():
+                messages.warning(request, f'An invitation has already been sent to {email}.')
+                return redirect('team_management', project_id=project.id)
+            # Create invitation
+            invitation = Invitation.objects.create(
+                project=project,
+                email=email,
+                invited_by=request.user,
+                role=role,
+                expires_at=timezone.now() + timezone.timedelta(days=7)  # expire after 7 days
+            )
+            # Send email
+            try:
+                send_invitation_email(invitation)
+                messages.success(request, f'Invitation sent to {email}.')
+            except Exception as e:
+                messages.warning(request, f'Invitation created but email could not be sent: {str(e)}')
+            return redirect('team_management', project_id=project.id)
+
+        elif action == 'cancel_invitation':
+            invitation_id = request.POST.get('invitation_id')
+            try:
+                inv = Invitation.objects.get(id=invitation_id, project=project)
+                inv.delete()
+                messages.success(request, f'Invitation to {inv.email} cancelled.')
+            except Invitation.DoesNotExist:
+                messages.error(request, 'Invitation not found.')
+
         return redirect('team_management', project_id=project.id)
 
     members = project.members.select_related('user').all()
+    pending_invitations = project.invitations.filter(accepted_at__isnull=True)
+
     ctx = {
         'active_nav': 'team',
         'project': project,
         'members': members,
+        'pending_invitations': pending_invitations,
         'role_choices': ProjectMember.ROLE_CHOICES,
     }
     return render(request, 'app/team_management.html', ctx)
@@ -250,3 +290,54 @@ def restore_project(request, project_id):
     log_activity(project, request.user, 'project_restored', detail=project.name)
     messages.success(request, f'Project "{project.name}" restored.')
     return redirect('archived_projects')
+
+
+def invitation_prompt(request, token):
+    invitation = get_object_or_404(Invitation, token=token)
+    if invitation.accepted_at is not None:
+        messages.info(request, 'This invitation has already been accepted.')
+        return redirect('project_detail', project_id=invitation.project.id)
+    if invitation.is_expired():
+        messages.error(request, 'This invitation has expired.')
+        return redirect('dashboard')
+
+    if request.user.is_authenticated:
+        if request.user.email == invitation.email:
+            # Accept and redirect
+            invitation.accept(request.user)
+            log_activity(invitation.project, request.user, 'member_added',
+                         detail=request.user.get_full_name() or request.user.username)
+            messages.success(request, f'You have been added to {invitation.project.name} as a {invitation.get_role_display()}.')
+            return redirect('project_detail', project_id=invitation.project.id)
+        else:
+            messages.error(request, f'This invitation is for {invitation.email}. Please log out and log in with that account.')
+            return redirect('profile')
+
+    # Not logged in: show prompt with links to login/register
+    ctx = {
+        'invitation': invitation,
+        'login_url': reverse('login') + f'?next={reverse("accept_invitation", args=[token])}',
+        'register_url': reverse('register') + f'?next={reverse("accept_invitation", args=[token])}',
+    }
+    return render(request, 'app/invitation_prompt.html', ctx)
+
+
+@login_required
+def accept_invitation(request, token):
+    invitation = get_object_or_404(Invitation, token=token)
+    if invitation.accepted_at:
+        messages.info(request, 'Invitation already accepted.')
+        return redirect('project_detail', invitation.project.id)
+    if invitation.is_expired():
+        messages.error(request, 'Invitation expired.')
+        return redirect('dashboard')
+
+    if request.user.email != invitation.email:
+        messages.error(request, f'This invitation is for {invitation.email}. Please log out and log in with that account.')
+        return redirect('profile')
+
+    invitation.accept(request.user)
+    log_activity(invitation.project, request.user, 'member_added',
+                 detail=request.user.get_full_name() or request.user.username)
+    messages.success(request, f'Welcome to {invitation.project.name}!')
+    return redirect('project_detail', invitation.project.id)

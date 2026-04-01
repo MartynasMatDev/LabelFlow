@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Invitation to join {{ project_name }}</title>
+    <style>
+        body { font-family: 'DM Sans', sans-serif; line-height: 1.6; }
+        .container { max-width: 500px; margin: 0 auto; padding: 20px; border: 1px solid #ddd; border-radius: 10px; }
+        .button { display: inline-block; padding: 10px 20px; background: #6366f1; color: #fff; text-decoration: none; border-radius: 6px; }
+        .footer { margin-top: 20px; font-size: 12px; color: #666; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>Invitation to join "{{ project_name }}"</h2>
+        <p>Hello,</p>
+        <p><strong>{{ inviter }}</strong> has invited you to collaborate on the project <strong>{{ project_name }}</strong> on LabelFlow.</p>
+        <p>You will be added as a <strong>{{ invitation.get_role_display }}</strong>.</p>
+        <p style="margin: 25px 0;">
+            <a href="{{ accept_url }}" class="button">Accept Invitation</a>
+        </p>
+        <p>If the button doesn't work, copy and paste this link into your browser:</p>
+        <p><code>{{ accept_url }}</code></p>
+        <p>This invitation expires in 7 days.</p>
+        <div class="footer">
+            &copy; LabelFlow
+        </div>
+    </div>
+</body>
+</html>
