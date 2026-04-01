@@ -13,9 +13,6 @@
     <h1>Projects</h1>
     <p>{{ projects.count }} project{% if projects.count != 1 %}s{% endif %} in your account</p>
   </div>
-  <div class="page-actions">
-    <a href="{% url 'project_create' %}" class="btn btn-primary">+ New Project</a>
-  </div>
 </div>
 
 {% if projects %}
@@ -52,9 +49,7 @@
   <div class="empty-icon">◈</div>
   <h3>No projects yet</h3>
   <p>Create your first project and start annotating</p>
-  <a href="{% url 'project_create' %}" class="btn btn-primary mt-4">
-    + Create your first project
-  </a>
+  <a href="{% url 'project_create' %}" class="btn btn-primary mt-4">+ Create your first project</a>
 </div>
 {% endif %}
 {% endblock %}

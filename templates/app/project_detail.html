@@ -3,6 +3,7 @@
 {% block toolbar_title %}{{ project.name }}{% endblock %}
 
 {% block toolbar_actions %}
+<a href="{% url 'project_images' project.id %}" class="btn btn-secondary btn-sm">All images</a>
 <a href="{% url 'image_upload' %}?project={{ project.id }}" class="btn btn-secondary btn-sm">↑ Upload</a>
 {% if is_admin %}
 <a href="{% url 'team_management' project.id %}" class="btn btn-ghost btn-sm">⬔ Team</a>
@@ -24,9 +25,7 @@
       <h1>{{ project.name }}</h1>
     </div>
     {% if project.is_archived %}
-    <div class="badge badge-warning" style="margin-bottom:6px;">
-      Archived (read-only)
-    </div>
+    <div class="badge badge-warning" style="margin-bottom:6px;">Archived (read-only)</div>
     {% endif %}
     <p>
       {{ project.get_annotation_type_display }}
@@ -34,10 +33,6 @@
       · {{ project.image_count }} images
       {% if user_role %} · <span class="badge badge-accent" style="font-size:10px;">{{ user_role }}</span>{% endif %}
     </p>
-  </div>
-  <div class="page-actions">
-    <a href="{% url 'project_images' project.id %}" class="btn btn-secondary btn-sm">All images</a>
-    {% if is_admin %}<a href="{% url 'team_management' project.id %}" class="btn btn-primary btn-sm">Team</a>{% endif %}
   </div>
 </div>
 
@@ -71,7 +66,7 @@
       <div class="empty-state" style="padding:32px 20px;">
         <div class="empty-icon">⬡</div>
         <h3>No images yet</h3>
-         {% if not project.is_archived %}
+        {% if not project.is_archived %}
         <p>Upload the first images</p>
         <a href="{% url 'image_upload' %}?project={{ project.id }}" class="btn btn-primary btn-sm mt-4">↑ Upload</a>
         {% else %}
@@ -82,7 +77,7 @@
     </div>
   </div>
 
-  <!-- Info -->
+  <!-- Info sidebar -->
   <div>
     <div class="card" style="margin-bottom:16px;">
       <h3 style="font-size:13px;margin-bottom:14px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;font-family:'DM Mono',monospace;">
@@ -120,9 +115,7 @@
       <div class="flex items-center gap-2" style="margin-bottom:10px;">
         <div class="avatar avatar-sm avatar-c{{ forloop.counter0|divisibleby:5 }}">{{ member.get_initials }}</div>
         <div style="flex:1;min-width:0;">
-          <div style="font-size:13px;font-weight:600;">
-            {{ member.user.get_full_name|default:member.user.username }}
-          </div>
+          <div style="font-size:13px;font-weight:600;">{{ member.user.get_full_name|default:member.user.username }}</div>
           <div style="font-size:11px;color:var(--text-muted);">{{ member.get_role_display }}</div>
         </div>
       </div>
@@ -130,9 +123,7 @@
       <p class="text-sm text-muted">No members</p>
       {% endfor %}
       {% if is_admin %}
-      <a href="{% url 'team_management' project.id %}" class="btn btn-ghost btn-sm btn-full mt-2">
-        Manage team
-      </a>
+      <a href="{% url 'team_management' project.id %}" class="btn btn-ghost btn-sm btn-full mt-2">Manage team</a>
       {% endif %}
     </div>
   </div>

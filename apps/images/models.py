@@ -1,4 +1,5 @@
 import os
+import json
 from django.db import models
 from django.contrib.auth.models import User
 from apps.projects.models import Project
@@ -59,8 +60,18 @@ class Image(models.Model):
     @property
     def resolution(self):
         if self.width and self.height:
-            return f"{self.width}×{self.height}"
-        return '—'
+            return f"{self.width}\u00d7{self.height}"
+        return '\u2014'
+
+    @property
+    def preview_boxes_json(self):
+        """
+        Returns a JSON string of all bounding boxes for this image,
+        in the same format used by image_detail.html / image_annotate.html.
+        Used by the image list lightbox preview.
+        """
+        boxes = [b.to_dict() for b in self.bounding_boxes.select_related('label').all()]
+        return json.dumps(boxes)
 
 
 class BoundingBox(models.Model):
@@ -77,7 +88,7 @@ class BoundingBox(models.Model):
         related_name='bounding_boxes',
         help_text='Tag/label for this annotation'
     )
-    # Stored as percentages (0–100) — resolution-independent
+    # Stored as percentages (0-100) - resolution-independent
     x      = models.FloatField(help_text='Left edge as % of image width')
     y      = models.FloatField(help_text='Top edge as % of image height')
     width  = models.FloatField(help_text='Width as % of image width')
