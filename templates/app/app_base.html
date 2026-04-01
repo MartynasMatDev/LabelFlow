@@ -45,6 +45,17 @@
     </nav>
 
     <div class="sidebar-bottom">
+      <!-- ── Theme toggle ── -->
+      <button
+        id="theme-toggle-btn"
+        class="theme-toggle-btn"
+        onclick="toggleTheme()"
+        title="Toggle light/dark mode"
+      >
+        <span class="theme-icon" id="theme-icon">☀️</span>
+        <span class="theme-label" id="theme-label">Light mode</span>
+      </button>
+
       <a href="{% url 'profile' %}" class="user-item">
         <div class="avatar avatar-md avatar-c0">
           {{ request.user.first_name.0|default:request.user.username.0|upper }}{{ request.user.last_name.0|upper }}
@@ -54,9 +65,16 @@
           <div class="user-role">{{ user_role|default:"User" }}</div>
         </div>
       </a>
-      <a href="{% url 'logout' %}" class="nav-item" style="margin-top:4px;">
-        <span class="nav-icon">→</span> Log out
-      </a>
+
+      <!-- Logout — must be POST to avoid 405 -->
+      <form method="post" action="{% url 'logout' %}" style="margin:4px 8px 0;">
+        {% csrf_token %}
+        <button type="submit"
+                class="nav-item"
+                style="width:100%;background:none;border:none;cursor:pointer;text-align:left;">
+          <span class="nav-icon">→</span> Log out
+        </button>
+      </form>
     </div>
   </aside>
 
@@ -73,11 +91,6 @@
 
     <div class="flex gap-2">
       {% block toolbar_actions %}{% endblock %}
-      <a href="{% url 'profile' %}" class="btn btn-icon btn-ghost" title="Profile">
-        <div class="avatar avatar-sm avatar-c0">
-          {{ request.user.first_name.0|default:request.user.username.0|upper }}{{ request.user.last_name.0|upper }}
-        </div>
-      </a>
     </div>
   </header>
 

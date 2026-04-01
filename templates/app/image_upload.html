@@ -27,7 +27,7 @@
   color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: .06em;
-  font-family: 'DM Mono', monospace;
+  font-family: var(--font-mono);
   margin-bottom: 8px;
 }
 .project-selector select { width: 100%; }
@@ -52,7 +52,7 @@
   margin-bottom: 20px; line-height: 1.6;
 }
 .drop-zone-sub code {
-  font-family: 'DM Mono', monospace;
+  font-family: var(--font-mono);
   font-size: 11px;
 }
 .drop-zone-btns { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
@@ -84,7 +84,7 @@
   color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: .06em;
-  font-family: 'DM Mono', monospace;
+  font-family: var(--font-mono);
 }
 .queue-list {
   max-height: 300px;
@@ -126,7 +126,7 @@
 }
 .queue-size {
   font-size: 11px; color: var(--text-muted);
-  font-family: 'DM Mono', monospace; flex-shrink: 0;
+  font-family: var(--font-mono); flex-shrink: 0;
 }
 .queue-status { flex-shrink: 0; width: 18px; text-align: center; font-size: 13px; }
 
@@ -142,7 +142,7 @@
   margin-bottom: 8px;
 }
 .progress-lbl   { font-size: 13px; font-weight: 600; color: var(--text); }
-.progress-count { font-size: 12px; color: var(--text-muted); font-family: 'DM Mono', monospace; }
+.progress-count { font-size: 12px; color: var(--text-muted); font-family: var(--font-mono); }
 .progress-track { height: 5px; background: var(--surface3); border-radius: 99px; overflow: hidden; }
 .progress-fill  {
   height: 100%; background: var(--accent);
@@ -166,7 +166,7 @@
   font-size: 11px; font-weight: 700;
   color: var(--danger); margin-bottom: 6px;
   text-transform: uppercase; letter-spacing: .05em;
-  font-family: 'DM Mono', monospace;
+  font-family: var(--font-mono);
 }
 .error-log-row { display: flex; gap: 8px; font-size: 12px; padding: 2px 0; color: var(--text-muted); }
 .error-log-row .en { font-weight: 600; color: var(--text); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -188,7 +188,7 @@
 }
 .sum-row:last-child { border-bottom: none; }
 .sum-label { color: var(--text-muted); }
-.sum-val   { font-weight: 700; font-family: 'DM Mono', monospace; }
+.sum-val   { font-weight: 700; font-family: var(--font-mono); }
 .sum-ok     { color: var(--success); }
 .sum-warn   { color: var(--warning); }
 .sum-danger { color: var(--danger); }
@@ -214,7 +214,7 @@
   color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: .07em;
-  font-family: 'DM Mono', monospace;
+  font-family: var(--font-mono);
   margin-bottom: 14px;
 }
 .upload-info-row {
@@ -225,7 +225,7 @@
 }
 .upload-info-row:last-child { border-bottom: none; }
 .upload-info-row .k { color: var(--text-muted); }
-.upload-info-row .v { font-family: 'DM Mono', monospace; font-weight: 600; }
+.upload-info-row .v { font-family: var(--font-mono); font-weight: 600; }
 </style>
 {% endblock %}
 
@@ -248,10 +248,12 @@
       <select id="project-select">
         <option value="">— select a project —</option>
         {% for p in projects %}
+        {% if not p.is_archived %}
         <option value="{{ p.id }}"
           {% if selected_project_id == p.id %}selected{% endif %}>
           {{ p.emoji }} {{ p.name }}
         </option>
+        {% endif %}
         {% endfor %}
       </select>
     </div>
@@ -355,6 +357,9 @@
   </div>
 
 </div>
+
+<!-- Hidden element with the base URL for project detail -->
+<div id="project-detail-base" data-url="{{ project_detail_base }}" style="display:none;"></div>
 {% endblock %}
 
 {% block extra_scripts %}
@@ -444,19 +449,37 @@
       sz.className   = 'queue-size';
       sz.textContent = fmt(f.size);
 
+      const rm = document.createElement('button');
+      rm.type        = 'button';
+      rm.textContent = '✕';
+      rm.title       = 'Remove';
+      rm.style.cssText = 'background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:13px;padding:0 2px;flex-shrink:0;transition:color .12s;';
+      rm.onmouseenter = () => { rm.style.color = 'var(--danger)'; };
+      rm.onmouseleave = () => { rm.style.color = 'var(--text-muted)'; };
+      rm.onclick = () => {
+        pending = pending.filter(p => key(p) !== k);
+        row.remove();
+        queueCount.textContent = pending.length;
+        btnUpload.disabled = pending.length === 0;
+        if (pending.length === 0) queueWrap.classList.remove('visible');
+      };
+
       row.appendChild(thumb(f)); row.appendChild(nm);
       row.appendChild(sz);       row.appendChild(st);
+      row.appendChild(rm);
       queueList.appendChild(row);
     });
 
     queueWrap.classList.add('visible');
     queueCount.textContent = pending.length;
 
-    statsCard.style.display = '';
-    document.getElementById('stat-found').textContent   = files.length;
-    document.getElementById('stat-valid').textContent   = pending.length;
-    document.getElementById('stat-preskip').textContent = preSkipped;
-    document.getElementById('stat-size').textContent    = fmt(bytes);
+    if (statsCard) {
+      statsCard.style.display = '';
+      document.getElementById('stat-found').textContent   = files.length;
+      document.getElementById('stat-valid').textContent   = pending.length;
+      document.getElementById('stat-preskip').textContent = preSkipped;
+      document.getElementById('stat-size').textContent    = fmt(bytes);
+    }
 
     btnUpload.disabled = pending.length === 0;
   }
@@ -470,10 +493,10 @@
     errorLog.classList.remove('visible');
     errorList.innerHTML = '';
     summary.classList.remove('visible');
-    btnUpload.disabled = true;
+    btnUpload.disabled  = true;
     btnView.style.display = 'none';
-    statsCard.style.display = 'none';
-    inputFiles.value = '';
+    if (statsCard) statsCard.style.display = 'none';
+    inputFiles.value  = '';
     inputFolder.value = '';
   };
 
@@ -491,7 +514,7 @@
 
   // ── Drag & drop ───────────────────────────────────────────
   dropZone.addEventListener('dragover',  e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
-  dropZone.addEventListener('dragleave', ()=> dropZone.classList.remove('drag-over'));
+  dropZone.addEventListener('dragleave', ()  => dropZone.classList.remove('drag-over'));
   dropZone.addEventListener('drop', async e => {
     e.preventDefault();
     dropZone.classList.remove('drag-over');
@@ -522,7 +545,7 @@
     if (!pid) { alert('Please select a project first.'); return; }
 
     running = true;
-    btnUpload.disabled = true;
+    btnUpload.disabled  = true;
     errorList.innerHTML = '';
     errorLog.classList.remove('visible');
     summary.classList.remove('visible');
@@ -534,6 +557,8 @@
     progFill.style.width  = '0%';
     progLbl.textContent   = 'Uploading…';
     progCount.textContent = `0 / ${total}`;
+
+    const uploadUrl = btnUpload.dataset.uploadUrl;
 
     async function uploadOne(file) {
       const k   = key(file);
@@ -547,7 +572,7 @@
       fd.append('image_file', file, file.name);
 
       try {
-        const r = await fetch('{% url "image_upload_ajax" %}', {
+        const r = await fetch(uploadUrl, {
           method: 'POST', headers: { 'X-CSRFToken': csrf() }, body: fd,
         });
         const d = await r.json();
@@ -589,8 +614,12 @@
     document.getElementById('sum-failed').textContent  = fail;
     summary.classList.add('visible');
 
-    btnView.href         = `/app/images/project/${pid}/`;
-    btnView.style.display = '';
+    // ── FIX: Use base URL from hidden element ──
+    const baseUrl = document.getElementById('project-detail-base')?.dataset.url;
+    if (baseUrl) {
+        btnView.href = baseUrl.replace('0', pid);
+        btnView.style.display = '';
+    }
   };
 
   function addError(name, reason) {
