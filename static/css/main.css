@@ -1321,3 +1321,12 @@ hr, .divider { border: none; border-top: 1px solid var(--border); margin: 22px 0
   color: var(--text-muted);
   line-height: 1.65;
 }
+.metrics-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr); /* 2 per row */
+  gap: 16px;
+}
+.metric-card {
+  height: 300px;   /* 👈 control chart height here */
+  padding: 12px;
+}
