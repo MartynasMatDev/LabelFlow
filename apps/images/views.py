@@ -8,9 +8,10 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.db.models import Q
 from django.views.decorators.http import require_POST
-from django.urls import reverse   # <-- added
+from django.urls import reverse
 
 from apps.projects.models import Project
+from apps.projects.activity import log_activity
 from .models import Image, Tag, BoundingBox
 
 
@@ -94,7 +95,7 @@ def image_upload(request):
 
     if request.method == 'POST':
         project_id = request.POST.get('project')
-        project = get_object_or_404(Project, id=project_id)
+        project    = get_object_or_404(Project, id=project_id)
 
         if not project.user_has_access(request.user):
             messages.error(request, 'You do not have access to this project.')
@@ -118,27 +119,27 @@ def image_upload(request):
                 messages.warning(request, f'File too large (max 20 MB): {f.name}')
                 continue
 
-            Image.objects.create(
+            image = Image.objects.create(
                 project=project,
                 uploaded_by=request.user,
                 image_file=f,
                 name=f.name,
                 file_size=f.size,
             )
+            log_activity(project, request.user, 'image_uploaded', detail=image.name)
             uploaded += 1
 
         if uploaded:
             messages.success(request, f'Uploaded {uploaded} image(s) to project "{project.name}".')
         return redirect('project_images', project_id=project.id)
 
-    selected_project_id = request.GET.get('project')
-    # Build base URL for project detail (with placeholder 0)
-    project_detail_base = reverse('project_detail', args=[0])
+    selected_project_id  = request.GET.get('project')
+    project_detail_base  = reverse('project_detail', args=[0])
     ctx = {
         'active_nav': 'upload',
         'projects': projects,
         'selected_project_id': int(selected_project_id) if selected_project_id else None,
-        'project_detail_base': project_detail_base,   # <-- added
+        'project_detail_base': project_detail_base,
     }
     return render(request, 'app/image_upload.html', ctx)
 
@@ -180,6 +181,7 @@ def image_upload_ajax(request):
             name=f.name,
             file_size=f.size,
         )
+        log_activity(project, request.user, 'image_uploaded', detail=image.name)
     except Exception as exc:
         return JsonResponse({'success': False, 'error': str(exc)}, status=500)
 
@@ -188,14 +190,16 @@ def image_upload_ajax(request):
 
 @login_required
 def image_delete(request, image_id):
-    image = get_object_or_404(Image, id=image_id)
+    image   = get_object_or_404(Image, id=image_id)
     project = image.project
     if not project.user_is_admin(request.user):
         messages.error(request, 'Only an administrator can delete images.')
     else:
+        name = image.name
         image.image_file.delete(save=False)
         image.delete()
-        messages.success(request, f'Image "{image.name}" has been deleted.')
+        log_activity(project, request.user, 'image_deleted', detail=name)
+        messages.success(request, f'Image "{name}" has been deleted.')
     next_url = request.POST.get('next') or request.META.get('HTTP_REFERER')
     if next_url:
         return redirect(next_url)
@@ -205,21 +209,21 @@ def image_delete(request, image_id):
 @login_required
 @require_POST
 def batch_delete(request):
-    """Delete multiple images at once."""
-    image_ids = request.POST.getlist('image_ids')
-
+    image_ids  = request.POST.getlist('image_ids')
     accessible = Image.objects.filter(
         id__in=image_ids,
         project__in=_user_projects(request.user)
     )
 
-    # Only allow deletion if user is admin of all affected projects
     deleted_count = 0
     skipped_count = 0
     for image in accessible:
         if image.project.user_is_admin(request.user):
+            name    = image.name
+            project = image.project
             image.image_file.delete(save=False)
             image.delete()
+            log_activity(project, request.user, 'image_deleted', detail=name)
             deleted_count += 1
         else:
             skipped_count += 1
@@ -247,11 +251,10 @@ def image_detail(request, pk):
     })
 
 
-# ─── ANNOTATION VIEWS ────────────────────────────────────────────────────────
+# ─── ANNOTATION VIEWS ─────────────────────────────────────────────────────────
 
 @login_required
 def image_annotate(request, pk):
-    """Full-screen annotation interface for a single image."""
     image = get_object_or_404(Image, pk=pk)
     if not image.project.user_has_access(request.user):
         messages.error(request, 'You do not have access to this image.')
@@ -274,22 +277,13 @@ def image_annotate(request, pk):
 @login_required
 @require_POST
 def annotation_save(request, pk):
-    """
-    Replace all bounding boxes for an image with the posted payload.
-
-    Request body (JSON):
-        { "boxes": [ { "id": null|int, "label_id": int|null,
-                        "x": float, "y": float,
-                        "width": float, "height": float } ],
-          "mark_done": bool }
-    """
     image = get_object_or_404(Image, pk=pk)
     if not image.project.user_has_access(request.user):
         return JsonResponse({'error': 'Access denied.'}, status=403)
 
     try:
-        data     = json.loads(request.body)
-        incoming = data.get('boxes', [])
+        data      = json.loads(request.body)
+        incoming  = data.get('boxes', [])
         mark_done = data.get('mark_done', False)
     except (json.JSONDecodeError, AttributeError):
         return JsonResponse({'error': 'Invalid JSON.'}, status=400)
@@ -310,7 +304,6 @@ def annotation_save(request, pk):
         except (KeyError, ValueError, TypeError):
             return JsonResponse({'error': 'Invalid box coordinates.'}, status=400)
 
-        # If label_id is 0/null but label_name is provided, get-or-create the tag
         if not label and b.get('label_name'):
             label, _ = Tag.objects.get_or_create(
                 name=b['label_name'],
@@ -324,30 +317,24 @@ def annotation_save(request, pk):
             box = BoundingBox.objects.filter(pk=box_id, image=image).first()
             if box:
                 box.label  = label
-                box.x      = x
-                box.y      = y
-                box.width  = width
-                box.height = height
+                box.x, box.y, box.width, box.height = x, y, width, height
                 box.save()
                 kept_ids.append(box.pk)
                 saved.append(box.to_dict())
                 continue
 
         box = BoundingBox.objects.create(
-            image=image,
-            label=label,
-            x=x, y=y,
-            width=width,
-            height=height,
+            image=image, label=label,
+            x=x, y=y, width=width, height=height,
             created_by=request.user,
         )
         kept_ids.append(box.pk)
         saved.append(box.to_dict())
 
-    # Delete boxes removed client-side
     image.bounding_boxes.exclude(pk__in=kept_ids).delete()
 
-    # Update image status
+    # Update status and log
+    prev_status = image.status
     if mark_done:
         image.status = 'done'
     elif saved:
@@ -356,17 +343,23 @@ def annotation_save(request, pk):
         image.status = 'pending'
     image.save(update_fields=['status'])
 
+    # Log the annotation action
+    if mark_done and prev_status != 'done':
+        log_activity(image.project, request.user, 'annotation_done',
+                     detail=image.name, meta={'image_id': image.pk, 'box_count': len(saved)})
+    elif saved:
+        log_activity(image.project, request.user, 'annotation_saved',
+                     detail=image.name, meta={'image_id': image.pk, 'box_count': len(saved)})
+
     return JsonResponse({'success': True, 'boxes': saved, 'status': image.status})
 
 
 @login_required
 @require_POST
 def annotation_delete_box(request, pk, box_pk):
-    """Delete a single bounding box by ID."""
     image = get_object_or_404(Image, pk=pk)
     if not image.project.user_has_access(request.user):
         return JsonResponse({'error': 'Access denied.'}, status=403)
-
     box = get_object_or_404(BoundingBox, pk=box_pk, image=image)
     box.delete()
     return JsonResponse({'success': True})
@@ -374,7 +367,6 @@ def annotation_delete_box(request, pk, box_pk):
 
 @login_required
 def batch_tag(request):
-    """Add or remove tags on multiple images at once."""
     if request.method != 'POST':
         return JsonResponse({'error': 'POST only'}, status=405)
 
@@ -398,11 +390,22 @@ def batch_tag(request):
 
     tags = Tag.objects.filter(id__in=tag_ids)
 
+    # Collect affected projects for logging
+    projects_affected = {}
     for image in accessible:
         if action == 'remove':
             image.tags.remove(*tags)
         else:
             image.tags.add(*tags)
+        projects_affected[image.project_id] = image.project
+
+    tag_names = ', '.join(t.name for t in tags)
+    for project in projects_affected.values():
+        log_activity(
+            project, request.user,
+            'tag_removed' if action == 'remove' else 'tag_added',
+            detail=tag_names,
+        )
 
     messages.success(
         request,
