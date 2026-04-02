@@ -43,41 +43,159 @@
 {% endif %}
 
 <div class="dashboard-grid">
-  <!-- Images preview -->
-  <div class="card card-flat">
-    <div class="section-header" style="padding:18px 22px 0;">
-      <h2>Images</h2>
-      <a href="{% url 'project_images' project.id %}" class="btn btn-ghost btn-sm">All →</a>
+
+  <!-- ── 3-Tab Card ──────────────────────────────────────── -->
+  <div class="card card-flat" id="main-tab-card">
+
+    <!-- Tab Header -->
+    <div class="pd-tabs" role="tablist">
+      <button class="pd-tab pd-tab--active" role="tab" data-tab="images" aria-selected="true">
+        <span class="pd-tab__icon">⬡</span> Images
+        <span class="pd-tab__badge">{{ project.image_count }}</span>
+      </button>
+      <button class="pd-tab" role="tab" data-tab="activity" aria-selected="false">
+        <span class="pd-tab__icon">◎</span> Activity
+        <span class="pd-tab__badge" id="activity-count-badge">{{ activity_logs|length }}</span>
+      </button>
+      <button class="pd-tab" role="tab" data-tab="metrics" aria-selected="false">
+        <span class="pd-tab__icon">▦</span> Project Metrics
+      </button>
     </div>
-    <div style="padding:16px 18px;">
-      {% if images %}
-      <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:8px;">
-        {% for image in images %}
-        <div style="aspect-ratio:4/3;background:var(--surface2);border-radius:8px;overflow:hidden;border:1px solid var(--border);">
-          {% if image.image_file %}
-          <img src="{{ image.image_file.url }}" alt="{{ image.name }}" style="width:100%;height:100%;object-fit:cover;" loading="lazy">
+
+    <!-- ── Tab: Images ────────────────────────────── -->
+    <div class="pd-panel" id="tab-images" role="tabpanel">
+      <div style="padding:16px 18px;">
+        {% if images %}
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:8px;">
+          {% for image in images %}
+          <div style="aspect-ratio:4/3;background:var(--surface2);border-radius:8px;overflow:hidden;border:1px solid var(--border);">
+            {% if image.image_file %}
+            <img src="{{ image.image_file.url }}" alt="{{ image.name }}"
+                 style="width:100%;height:100%;object-fit:cover;" loading="lazy">
+            {% else %}
+            <div style="display:flex;align-items:center;justify-content:center;height:100%;font-size:20px;color:var(--text-dim);">⬡</div>
+            {% endif %}
+          </div>
+          {% endfor %}
+        </div>
+        <div style="margin-top:14px;text-align:center;">
+          <a href="{% url 'project_images' project.id %}" class="btn btn-ghost btn-sm">View all images →</a>
+        </div>
+        {% else %}
+        <div class="empty-state" style="padding:32px 20px;">
+          <div class="empty-icon">⬡</div>
+          <h3>No images yet</h3>
+          {% if not project.is_archived %}
+          <p>Upload the first images</p>
+          <a href="{% url 'image_upload' %}?project={{ project.id }}" class="btn btn-primary btn-sm mt-4">↑ Upload</a>
           {% else %}
-          <div style="display:flex;align-items:center;justify-content:center;height:100%;font-size:20px;color:var(--text-dim);">⬡</div>
+          <p>This project is archived and cannot accept new images.</p>
           {% endif %}
         </div>
-        {% endfor %}
-      </div>
-      {% else %}
-      <div class="empty-state" style="padding:32px 20px;">
-        <div class="empty-icon">⬡</div>
-        <h3>No images yet</h3>
-        {% if not project.is_archived %}
-        <p>Upload the first images</p>
-        <a href="{% url 'image_upload' %}?project={{ project.id }}" class="btn btn-primary btn-sm mt-4">↑ Upload</a>
-        {% else %}
-        <p>This project is archived and cannot accept new images.</p>
         {% endif %}
       </div>
-      {% endif %}
     </div>
-  </div>
 
-  <!-- Info sidebar -->
+    <!-- ── Tab: Activity ──────────────────────────── -->
+    <div class="pd-panel pd-panel--hidden" id="tab-activity" role="tabpanel">
+
+      <!-- Filter bar -->
+      <div class="activity-filters">
+        <form method="get" id="activity-filter-form" style="display:contents;">
+          <select name="activity_user" class="activity-select" onchange="this.form.submit()">
+            <option value="">All members</option>
+            {% for uname in activity_users %}
+            <option value="{{ uname }}" {% if filter_user == uname %}selected{% endif %}>{{ uname }}</option>
+            {% endfor %}
+          </select>
+          <select name="activity_action" class="activity-select" onchange="this.form.submit()">
+            <option value="">All actions</option>
+            {% for key, label in activity_actions %}
+            <option value="{{ key }}" {% if filter_action == key %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+          <!-- preserve tab anchor -->
+          <input type="hidden" name="_tab" value="activity">
+          {% if filter_user or filter_action %}
+          <a href="?_tab=activity#tab-activity" class="btn btn-ghost btn-sm" style="flex-shrink:0;">✕ Clear</a>
+          {% endif %}
+        </form>
+
+        <!-- Auto-refresh toggle -->
+        <label class="activity-autorefresh" title="Auto-refresh every 30 s">
+          <span class="activity-autorefresh__dot" id="refresh-dot"></span>
+          <input type="checkbox" id="auto-refresh-toggle" checked style="display:none;">
+          Live
+        </label>
+      </div>
+
+      <!-- Timeline -->
+      <div class="activity-timeline" id="activity-timeline">
+        {% if activity_logs %}
+          {% for entry in activity_logs %}
+          <div class="activity-item" data-id="{{ entry.pk }}">
+            <div class="activity-item__line"></div>
+            <div class="activity-item__dot activity-dot--{{ entry.color_class }}">
+              <span>{{ entry.icon }}</span>
+            </div>
+            <div class="activity-item__body">
+              <div class="activity-item__header">
+                <div class="activity-avatar activity-avatar--{{ forloop.counter0|divisibleby:5 }}">
+                  {{ entry.get_initials }}
+                </div>
+                <span class="activity-item__actor">{{ entry.actor_name }}</span>
+                <span class="activity-item__action">{{ entry.get_action_display }}</span>
+              </div>
+              {% if entry.detail %}
+              <div class="activity-item__detail">{{ entry.detail }}</div>
+              {% endif %}
+              <time class="activity-item__time" datetime="{{ entry.created_at|date:'c' }}">
+                {{ entry.created_at|date:"Y-m-d H:i" }}
+              </time>
+            </div>
+          </div>
+          {% endfor %}
+        {% else %}
+        <div class="empty-state" style="padding:40px 20px;">
+          <div class="empty-icon">◎</div>
+          <h3>No activity yet</h3>
+          <p>Actions like uploads, annotations and team changes will appear here.</p>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- ── Tab: Metrics ───────────────────────────── -->
+    <div class="pd-panel pd-panel--hidden" id="tab-metrics" role="tabpanel">
+
+      <!-- Hidden data container -->
+      <div id="metrics-data"
+           data-images-labels="{% for u in images_per_user %}{{ u.uploaded_by__username|default:'Unknown' }},{% endfor %}"
+           data-images-values="{% for u in images_per_user %}{{ u.count }},{% endfor %}"
+
+           data-boxes-labels="{% for u in boxes_per_user %}{{ u.created_by__username|default:'Unknown' }},{% endfor %}"
+           data-boxes-values="{% for u in boxes_per_user %}{{ u.count }},{% endfor %}"
+
+           data-annotations-labels="{% for u in annotations_done_per_user %}{{ u.user__username|default:'Unknown' }},{% endfor %}"
+           data-annotations-values="{% for u in annotations_done_per_user %}{{ u.count }},{% endfor %}"
+
+           data-timeline-labels="{% for t in uploads_timeline %}{{ t.day }},{% endfor %}"
+           data-timeline-values="{% for t in uploads_timeline %}{{ t.count }},{% endfor %}">
+      </div>
+
+      <div class="metrics-grid">
+        <div class="metric-card"><canvas id="chart-images-user"></canvas></div>
+        <div class="metric-card"><canvas id="chart-boxes-user"></canvas></div>
+        <div class="metric-card"><canvas id="chart-annotations-user"></canvas></div>
+        <div class="metric-card metric-card--wide"><canvas id="chart-timeline"></canvas></div>
+      </div>
+
+    </div>
+
+
+    </div><!-- /main-tab-card -->
+
+  <!-- ── Info sidebar ────────────────────────────────────── -->
   <div>
     <div class="card" style="margin-bottom:16px;">
       <h3 style="font-size:13px;margin-bottom:14px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;font-family:'DM Mono',monospace;">
@@ -128,4 +246,391 @@
     </div>
   </div>
 </div>
+
+<!-- ── Tab styles ──────────────────────────────────────────── -->
+<style>
+/* ── Tab strip ──────────────────────────────────────────── */
+.pd-tabs {
+  display: flex;
+  gap: 0;
+  border-bottom: 1px solid var(--border);
+  padding: 0 6px;
+  background: var(--surface2);
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+}
+
+.pd-tab {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 14px 18px 12px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-muted);
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  transition: color .15s, border-color .15s;
+  position: relative;
+  top: 1px;
+  letter-spacing: .01em;
+  font-family: 'DM Mono', monospace;
+}
+
+.pd-tab:hover { color: var(--text); }
+
+.pd-tab--active {
+  color: var(--accent-bright);
+  border-bottom-color: var(--accent);
+}
+
+.pd-tab__icon { font-size: 14px; opacity: .7; }
+.pd-tab--active .pd-tab__icon { opacity: 1; }
+
+.pd-tab__badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 18px;
+  height: 18px;
+  padding: 0 5px;
+  border-radius: 9px;
+  font-size: 10px;
+  font-weight: 600;
+  background: var(--surface3);
+  color: var(--text-muted);
+  transition: background .15s, color .15s;
+}
+
+.pd-tab--active .pd-tab__badge {
+  background: var(--accent-glow);
+  color: var(--accent-bright);
+}
+
+/* ── Panels ─────────────────────────────────────────────── */
+.pd-panel { display: block; }
+.pd-panel--hidden { display: none; }
+
+/* ── Activity filter bar ────────────────────────────────── */
+.activity-filters {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 18px;
+  border-bottom: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+
+.activity-select {
+  background: var(--surface3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text);
+  font-size: 12px;
+  padding: 5px 10px;
+  font-family: 'DM Mono', monospace;
+  cursor: pointer;
+  transition: border-color .15s;
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%236b6b88'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
+  padding-right: 24px;
+}
+
+.activity-select:focus { outline: none; border-color: var(--accent); }
+
+.activity-autorefresh {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-family: 'DM Mono', monospace;
+  color: var(--text-muted);
+  cursor: pointer;
+  user-select: none;
+}
+
+.activity-autorefresh__dot {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: var(--text-dim);
+  transition: background .3s;
+}
+
+.activity-autorefresh__dot--live {
+  background: var(--success);
+  box-shadow: 0 0 6px var(--success);
+  animation: pulse-dot 2s ease-in-out infinite;
+}
+
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: .4; }
+}
+
+/* ── Timeline ───────────────────────────────────────────── */
+.activity-timeline {
+  padding: 20px 18px 20px 22px;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  max-height: 460px;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--surface3) transparent;
+}
+
+.activity-timeline::-webkit-scrollbar { width: 4px; }
+.activity-timeline::-webkit-scrollbar-thumb { background: var(--surface3); border-radius: 2px; }
+
+/* Each row */
+.activity-item {
+  display: grid;
+  grid-template-columns: 20px 32px 1fr;
+  gap: 0 10px;
+  position: relative;
+  padding-bottom: 20px;
+  animation: fadeSlideIn .3s ease both;
+}
+
+.activity-item:last-child { padding-bottom: 0; }
+.activity-item:last-child .activity-item__line { display: none; }
+
+@keyframes fadeSlideIn {
+  from { opacity: 0; transform: translateY(-6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Vertical connector line */
+.activity-item__line {
+  grid-column: 2;
+  grid-row: 1;
+  width: 1px;
+  background: var(--border);
+  margin: 28px auto 0;
+  height: calc(100% - 14px);
+}
+
+/* Dot */
+.activity-item__dot {
+  grid-column: 2;
+  grid-row: 1;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  flex-shrink: 0;
+  border: 1.5px solid transparent;
+  position: relative;
+  z-index: 1;
+  margin-top: -2px;
+}
+
+.activity-dot--accent  { background: var(--accent-glow);  border-color: var(--border-accent); color: var(--accent-bright); }
+.activity-dot--success { background: rgba(52,211,153,.08); border-color: rgba(52,211,153,.25); color: var(--success); }
+.activity-dot--warning { background: rgba(251,191,36,.08); border-color: rgba(251,191,36,.25); color: var(--warning); }
+.activity-dot--danger  { background: rgba(248,113,113,.08);border-color: rgba(248,113,113,.25);color: var(--danger); }
+
+/* Body */
+.activity-item__body {
+  grid-column: 3;
+  grid-row: 1;
+  padding-top: 4px;
+}
+
+.activity-item__header {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  flex-wrap: wrap;
+}
+
+/* Mini avatar */
+.activity-avatar {
+  width: 22px; height: 22px;
+  border-radius: 50%;
+  font-size: 9px;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  font-family: 'DM Mono', monospace;
+}
+
+/* Reuse existing avatar color palette */
+.activity-avatar--true  { background: rgba(99,102,241,.18); color: var(--accent-bright); }
+.activity-avatar--false { background: rgba(52,211,153,.18); color: var(--success); }
+
+.activity-item__actor {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.activity-item__action {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-family: 'DM Mono', monospace;
+}
+
+.activity-item__detail {
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--text-muted);
+  background: var(--surface3);
+  border-radius: var(--radius-sm);
+  padding: 3px 8px;
+  display: inline-block;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: 'DM Mono', monospace;
+  border: 1px solid var(--border);
+}
+
+.activity-item__time {
+  display: block;
+  margin-top: 5px;
+  font-size: 11px;
+  color: var(--text-dim);
+  font-family: 'DM Mono', monospace;
+}
+
+/* New item highlight */
+.activity-item--new {
+  animation: highlightNew .8s ease both;
+}
+
+@keyframes highlightNew {
+  0%  { background: var(--accent-glow); border-radius: 8px; }
+  100%{ background: transparent; }
+}
+</style>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<!-- ── Tab + Activity JS ───────────────────────────────────── -->
+<script>
+(function () {
+  // ── Tab switching ───────────────────────────────────────
+  const tabs   = document.querySelectorAll('.pd-tab');
+  const panels = document.querySelectorAll('.pd-panel');
+
+  function activateTab(tabId) {
+    tabs.forEach(t => {
+      const active = t.dataset.tab === tabId;
+      t.classList.toggle('pd-tab--active', active);
+      t.setAttribute('aria-selected', String(active));
+    });
+    panels.forEach(p => {
+      p.classList.toggle('pd-panel--hidden', p.id !== 'tab-' + tabId);
+    });
+    // Persist choice in URL hash without reloading
+    history.replaceState(null, '', '#tab-' + tabId);
+  }
+
+  tabs.forEach(tab => tab.addEventListener('click', () => activateTab(tab.dataset.tab)));
+
+  // Restore tab from URL hash or GET param
+  const urlParams = new URLSearchParams(location.search);
+  const hashTab   = location.hash.replace('#tab-', '');
+  const paramTab  = urlParams.get('_tab');
+  const initTab   = hashTab || paramTab;
+  if (initTab && ['images', 'activity', 'metrics'].includes(initTab)) {
+    activateTab(initTab);
+  }
+
+  // ── Auto-refresh activity feed ──────────────────────────
+  const toggle   = document.getElementById('auto-refresh-toggle');
+  const dot      = document.getElementById('refresh-dot');
+  const timeline = document.getElementById('activity-timeline');
+  const PROJECT_ID = '{{ project.id }}';
+  const FEED_URL   = '{% url "activity_feed_json" project.id %}';
+
+  let latestId = null;
+  let timer    = null;
+
+  // Seed latest id from rendered items
+  const firstItem = timeline && timeline.querySelector('.activity-item[data-id]');
+  if (firstItem) latestId = parseInt(firstItem.dataset.id, 10);
+
+  function setLive(live) {
+    dot.classList.toggle('activity-autorefresh__dot--live', live);
+  }
+
+  function buildItem(entry) {
+    const div = document.createElement('div');
+    div.className = 'activity-item activity-item--new';
+    div.dataset.id = entry.id;
+    // Alternate avatar color
+    const avatarClass = (parseInt(entry.id, 10) % 2 === 0) ? 'activity-avatar--true' : 'activity-avatar--false';
+    div.innerHTML = `
+      <div class="activity-item__line"></div>
+      <div class="activity-item__dot activity-dot--${entry.color}">
+        <span>${entry.icon}</span>
+      </div>
+      <div class="activity-item__body">
+        <div class="activity-item__header">
+          <div class="activity-avatar ${avatarClass}">${entry.initials}</div>
+          <span class="activity-item__actor">${entry.actor}</span>
+          <span class="activity-item__action">${entry.action}</span>
+        </div>
+        ${entry.detail ? `<div class="activity-item__detail">${entry.detail}</div>` : ''}
+        <time class="activity-item__time" datetime="${entry.iso}">${entry.timestamp}</time>
+      </div>`;
+    return div;
+  }
+
+  async function pollActivity() {
+    if (!toggle.checked) return;
+    try {
+      const url = FEED_URL + (latestId ? `?since=${latestId}` : '');
+      const res  = await fetch(url, { credentials: 'same-origin' });
+      if (!res.ok) return;
+      const data = await res.json();
+      const items = data.activities || [];
+      if (items.length) {
+        // Remove empty-state if present
+        const empty = timeline.querySelector('.empty-state');
+        if (empty) empty.remove();
+
+        items.forEach(entry => {
+          const existing = timeline.querySelector(`.activity-item[data-id="${entry.id}"]`);
+          if (!existing) {
+            const el = buildItem(entry);
+            timeline.insertBefore(el, timeline.firstChild);
+          }
+          if (!latestId || entry.id > latestId) latestId = entry.id;
+        });
+
+        // Update badge count
+        const badge = document.getElementById('activity-count-badge');
+        if (badge) badge.textContent = timeline.querySelectorAll('.activity-item').length;
+      }
+    } catch (e) {
+      // silently ignore
+    }
+  }
+
+  function startPolling() {
+    setLive(true);
+    timer = setInterval(pollActivity, 30000);
+  }
+
+  function stopPolling() {
+    setLive(false);
+    clearInterval(timer);
+  }
+
+  toggle.addEventListener('change', () => toggle.checked ? startPolling() : stopPolling());
+  startPolling();
+})();
+</script>
 {% endblock %}
