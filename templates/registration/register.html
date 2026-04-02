@@ -43,14 +43,31 @@
   <div class="auth-main">
     <div class="auth-box fade-up">
       <div class="auth-box-header">
-        <h1>Create an account</h1>
-        <p>Sign up for free — no credit card required</p>
+        {% if prefill_email %}
+          <h1>Accept your invitation</h1>
+          <p>Create a free account to join the project</p>
+        {% else %}
+          <h1>Create an account</h1>
+          <p>Sign up for free — no credit card required</p>
+        {% endif %}
       </div>
+
+      {% if prefill_email %}
+      <div class="alert alert-info" style="margin-bottom:18px;">
+        ✉ You were invited to join a project. Register with <strong>{{ prefill_email }}</strong> to accept.
+      </div>
+      {% endif %}
 
       {% if form.non_field_errors %}
       <div class="alert alert-error">
         {% for error in form.non_field_errors %}{{ error }}{% endfor %}
       </div>
+      {% endif %}
+
+      {% if messages %}
+        {% for message in messages %}
+        <div class="alert alert-{{ message.tags }}">{{ message }}</div>
+        {% endfor %}
       {% endif %}
 
       <form method="post" novalidate>
@@ -59,7 +76,7 @@
           <div class="form-group">
             <label for="{{ form.first_name.id_for_label }}">First name</label>
             <input type="text" name="first_name" id="{{ form.first_name.id_for_label }}"
-                   value="{{ form.first_name.value|default:'' }}" placeholder="Jonas" required>
+                   value="{{ form.first_name.value|default:'' }}" placeholder="Jonas" required autofocus>
             {% if form.first_name.errors %}<div class="form-error">{{ form.first_name.errors|join:", " }}</div>{% endif %}
           </div>
           <div class="form-group">
@@ -69,12 +86,24 @@
             {% if form.last_name.errors %}<div class="form-error">{{ form.last_name.errors|join:", " }}</div>{% endif %}
           </div>
         </div>
+
         <div class="form-group">
           <label for="{{ form.email.id_for_label }}">Email</label>
-          <input type="email" name="email" id="{{ form.email.id_for_label }}"
-                 value="{{ form.email.value|default:'' }}" placeholder="jonas@example.com" required>
+          {% if prefill_email %}
+            {# Hidden input carries the actual value; visible input is read-only / cosmetic #}
+            <input type="hidden" name="email" value="{{ prefill_email }}">
+            <input type="email" id="{{ form.email.id_for_label }}"
+                   value="{{ prefill_email }}"
+                   readonly
+                   style="opacity:.7;cursor:not-allowed;background:var(--bg-muted,#f3f4f6);">
+            <div class="form-hint">This email is required to accept your invitation and cannot be changed.</div>
+          {% else %}
+            <input type="email" name="email" id="{{ form.email.id_for_label }}"
+                   value="{{ form.email.value|default:'' }}" placeholder="jonas@example.com" required>
+          {% endif %}
           {% if form.email.errors %}<div class="form-error">{{ form.email.errors|join:", " }}</div>{% endif %}
         </div>
+
         <div class="form-group">
           <label for="{{ form.username.id_for_label }}">Username</label>
           <input type="text" name="username" id="{{ form.username.id_for_label }}"
@@ -95,11 +124,15 @@
           <div id="pw-match" class="form-hint" style="display:none;"></div>
           {% if form.password2.errors %}<div class="form-error">{{ form.password2.errors|join:", " }}</div>{% endif %}
         </div>
-        <button type="submit" class="btn btn-primary btn-full btn-lg">Register →</button>
+
+        <button type="submit" class="btn btn-primary btn-full btn-lg">
+          {% if prefill_email %}Accept &amp; Register →{% else %}Register →{% endif %}
+        </button>
       </form>
 
       <div class="auth-footer-link">
-        Already have an account? <a href="{% url 'login' %}">Log in</a>
+        Already have an account?
+        <a href="{% url 'login' %}{% if request.GET.next %}?next={{ request.GET.next }}{% endif %}">Log in</a>
       </div>
     </div>
   </div>
