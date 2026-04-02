@@ -8,6 +8,8 @@ from django.http import JsonResponse
 from .models import Project, ProjectMember, ActivityLog
 from .activity import log_activity
 
+from django.db.models import Count, Avg
+from apps.images.models import Image, BoundingBox
 
 def _user_projects(user, include_archived=False):
     qs = Project.objects.filter(
@@ -72,6 +74,31 @@ def project_create(request):
 
     return render(request, 'app/project_create.html', {'active_nav': 'projects'})
 
+def _project_metrics(project):
+    images_qs = Image.objects.filter(project=project)
+
+    total_images = images_qs.count()
+
+    status_counts = images_qs.values('status').annotate(count=Count('id'))
+    status_map = {item['status']: item['count'] for item in status_counts}
+
+    total_boxes = BoundingBox.objects.filter(image__project=project).count()
+
+    avg_boxes = BoundingBox.objects.filter(
+        image__project=project
+    ).values('image').annotate(c=Count('id')).aggregate(avg=Avg('c'))['avg'] or 0
+
+    total_tags = project.images.values('tags').distinct().count()
+
+    return {
+        'total_images': total_images,
+        'pending': status_map.get('pending', 0),
+        'partial': status_map.get('partial', 0),
+        'done': status_map.get('done', 0),
+        'total_boxes': total_boxes,
+        'avg_boxes': round(avg_boxes, 2),
+        'total_tags': total_tags,
+    }
 
 @login_required
 def project_detail(request, project_id):
@@ -104,12 +131,49 @@ def project_detail(request, project_id):
     )
     activity_actions = ActivityLog.ACTION_CHOICES
 
+    metrics = _project_metrics(project)
+
+    # Images uploaded per user
+    images_per_user = (
+        Image.objects.filter(project=project)
+        .values('uploaded_by__username')
+        .annotate(count=Count('id'))
+    )
+
+    # Boxes created per user
+    boxes_per_user = (
+        BoundingBox.objects.filter(image__project=project)
+        .values('created_by__username')
+        .annotate(count=Count('id'))
+    )
+
+    # Annotations completed per user (activity log)
+    annotations_done_per_user = (
+        ActivityLog.objects.filter(project=project, action='annotation_done')
+        .values('user__username')
+        .annotate(count=Count('id'))
+    )
+
+    # Timeline (images uploaded per day)
+    uploads_timeline = (
+        Image.objects.filter(project=project)
+        .extra({'day': "date(uploaded_at)"})
+        .values('day')
+        .annotate(count=Count('id'))
+        .order_by('day')
+    )
+
     ctx = {
         'active_nav': 'projects',
         'project': project,
         'images': images,
         'user_role': project.get_user_role(request.user) or 'admin',
         'is_admin': project.user_is_admin(request.user),
+        'metrics': metrics,
+        'images_per_user': list(images_per_user),
+        'boxes_per_user': list(boxes_per_user),
+        'annotations_done_per_user': list(annotations_done_per_user),
+        'uploads_timeline': list(uploads_timeline),
         # Activity
         'activity_logs': activity_logs,
         'activity_users': activity_users,

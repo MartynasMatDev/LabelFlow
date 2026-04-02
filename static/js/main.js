@@ -570,3 +570,164 @@ function getRotatedFile(file) {
   });
 }
 })();
+
+/* ── Project Metrics Charts ───────────────────────────── */
+(function () {
+  const container = document.getElementById('metrics-data');
+  if (!container) return; // not on project page
+
+  function parseList(str) {
+    if (!str) return [];
+    return str.split(',').map(s => s.trim()).filter(Boolean);
+  }
+
+  function parseNumbers(str) {
+    return parseList(str).map(Number);
+  }
+
+  // ── Extract data from HTML ────────────────────────────
+  const imagesLabels = parseList(container.dataset.imagesLabels);
+  const imagesData   = parseNumbers(container.dataset.imagesValues);
+
+  const boxesLabels  = parseList(container.dataset.boxesLabels);
+  const boxesData    = parseNumbers(container.dataset.boxesValues);
+
+  const annLabels    = parseList(container.dataset.annotationsLabels);
+  const annData      = parseNumbers(container.dataset.annotationsValues);
+
+  const timeLabels   = parseList(container.dataset.timelineLabels);
+  const timeData     = parseNumbers(container.dataset.timelineValues);
+
+  // ── Colors (match your theme) ─────────────────────────
+  const colors = [
+    'rgba(99,102,241,0.6)',
+    'rgba(52,211,153,0.6)',
+    'rgba(251,191,36,0.6)',
+    'rgba(248,113,113,0.6)',
+    'rgba(56,189,248,0.6)',
+  ];
+
+  // ── Polar chart creator ───────────────────────────────
+  function createPolar(canvasId, labels, data, title) {
+    const el = document.getElementById(canvasId);
+    if (!el) return;
+
+    new Chart(el, {
+      type: 'polarArea',
+      data: {
+        labels: labels,
+        datasets: [{
+          data: data,
+          backgroundColor: colors,
+        }]
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+
+        plugins: {
+          legend: {
+            position: 'top'
+          },
+
+          // ✅ ADD THIS BLOCK
+          title: {
+            display: true,
+            text: title,
+            color: getComputedStyle(document.documentElement)
+              .getPropertyValue('--text-muted')
+              .trim(),
+            font: {
+              size: 14,
+              weight: '600'
+            },
+            padding: {
+              top: 6,
+              bottom: 10
+            }
+          }
+        },
+
+        scales: {
+          r: {
+            beginAtZero: true,
+            ticks: {
+              color: getComputedStyle(document.documentElement)
+                .getPropertyValue('--text')
+            },
+            grid: {
+              color: 'rgba(120,120,160,0.15)'
+            },
+            angleLines: {
+              color: 'rgba(120,120,160,0.15)'
+            },
+            pointLabels: {
+              color: getComputedStyle(document.documentElement)
+                .getPropertyValue('--text')
+            }
+          }
+        }
+      }
+    });
+  }
+
+  // ── Build charts ──────────────────────────────────────
+  createPolar('chart-images-user', imagesLabels, imagesData, 'Images per User');
+  createPolar('chart-boxes-user', boxesLabels, boxesData, 'Boxes per User');
+  createPolar('chart-annotations-user', annLabels, annData, 'Completed per User');
+
+  // ── Timeline (stepped line) ───────────────────────────
+  const timelineCanvas = document.getElementById('chart-timeline');
+  if (timelineCanvas) {
+    new Chart(timelineCanvas, {
+      type: 'line',
+      data: {
+        labels: timeLabels,
+        datasets: [{
+          label: 'Uploads',
+          data: timeData,
+          borderColor: 'rgba(99,102,241,1)',
+          fill: false,
+          stepped: true
+        }]
+      },
+      options: {
+        responsive: true,
+        interaction: {
+          intersect: false,
+          axis: 'x'
+        },
+        plugins: {
+          legend: {
+            labels: { color: getComputedStyle(document.documentElement).getPropertyValue('--text') }
+          }
+        },
+        scales: {
+          x: {
+            ticks: {
+              color: getComputedStyle(document.documentElement).getPropertyValue('--text')
+            },
+            grid: {
+              display: true,
+              color: 'rgba(120,120,160,0.15)',   // ✅ stronger grid
+              lineWidth: 1
+            }
+          },
+          y: {
+            beginAtZero: true,
+            ticks: {
+              precision: 0,
+              color: getComputedStyle(document.documentElement).getPropertyValue('--text')
+            },
+            grid: {
+              display: true,
+              color: 'rgba(120,120,160,0.15)',   // ✅ visible horizontal lines
+              lineWidth: 1
+            }
+          }
+        }
+      }
+    });
+  }
+
+})();
