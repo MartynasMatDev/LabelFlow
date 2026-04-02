@@ -163,6 +163,12 @@ window.closeDeleteModal = () => document.getElementById('delete-modal').classLis
   let preSkipped = 0;
   let running    = false;
 
+  const rotations  = new Map();
+  let editIdx       = -1;
+  let editTempDeg   = 0;
+  let editObjectURL = null;
+  const unsavedBuf  = new Map();
+
   const dropZone    = document.getElementById('drop-zone');
   const inputFiles  = document.getElementById('input-files');
   const inputFolder = document.getElementById('input-folder');
@@ -179,6 +185,13 @@ window.closeDeleteModal = () => document.getElementById('delete-modal').classLis
   const errorList   = document.getElementById('error-list');
   const summary     = document.getElementById('upload-summary');
   const statsCard   = document.getElementById('stats-card');
+  const editOverlay  = document.getElementById('edit-modal-overlay');
+  const editImg      = document.getElementById('edit-preview-img');
+  const editFilename = document.getElementById('edit-modal-filename');
+  const editNavPrev  = document.getElementById('edit-nav-prev');
+  const editNavNext  = document.getElementById('edit-nav-next');
+  const editNavCtr   = document.getElementById('edit-nav-counter');
+
 
   function ext(n)  { return n.slice(n.lastIndexOf('.')).toLowerCase(); }
   function fmt(b)  {
@@ -188,17 +201,37 @@ window.closeDeleteModal = () => document.getElementById('delete-modal').classLis
   }
   function esc(s)  { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
   function csrf()  { const m = document.cookie.match('(^|;)\\s*csrftoken=([^;]*)'); return m ? decodeURIComponent(m[2]) : ''; }
-  function key(f)  { return CSS.escape((f.name + f.size + f.lastModified).replace(/\W/g, '_')); }
+  function fileKey(f) { return (f.name + f.size + f.lastModified).replace(/\W/g, '_'); }
 
-  function thumb(file) {
-    const d   = document.createElement('div');
+  function buildThumb(file) {
+    const d = document.createElement('div');
     d.className = 'queue-thumb';
     if (file.type.startsWith('image/')) {
       const img = document.createElement('img');
-      img.src   = URL.createObjectURL(file);
+      img.src = URL.createObjectURL(file);
+      const deg = rotations.get(fileKey(file)) || 0;
+      if (deg) {
+        img.style.transform = `rotate(${deg}deg)`;
+        const badge = document.createElement('span');
+        badge.className   = 'rot-badge';
+        badge.textContent = deg + '°';
+        d.appendChild(badge);
+      }
       d.appendChild(img);
     } else { d.textContent = '⬡'; }
     return d;
+  }
+
+  function refreshThumb(file) {
+    const k   = fileKey(file);
+    const row = queueList.querySelector(`[data-fkey="${CSS.escape(fileKey(file))}"]`);    if (!row) return;
+    const old = row.querySelector('.queue-thumb');
+    if (old) {
+      old.querySelectorAll('img').forEach(img => {
+        if (img.src && img.src.startsWith('blob:')) URL.revokeObjectURL(img.src);
+      });
+      old.replaceWith(buildThumb(file));
+    }
   }
 
   function buildQueue(files) {
@@ -218,7 +251,7 @@ window.closeDeleteModal = () => document.getElementById('delete-modal').classLis
       if (valid) { pending.push(f); bytes += f.size; }
       else       { preSkipped++; }
 
-      const k   = key(f);
+      const k   = fileKey(f);
       const row = document.createElement('div');
       row.className    = 'queue-item' + (valid ? '' : ' skipped');
       row.dataset.fkey = k;
@@ -237,25 +270,41 @@ window.closeDeleteModal = () => document.getElementById('delete-modal').classLis
       sz.className   = 'queue-size';
       sz.textContent = fmt(f.size);
 
-      const rm = document.createElement('button');
-      rm.type        = 'button';
-      rm.textContent = '✕';
-      rm.title       = 'Remove';
-      rm.style.cssText = 'background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:13px;padding:0 2px;flex-shrink:0;transition:color .12s;';
-      rm.onmouseenter = () => { rm.style.color = 'var(--danger)'; };
-      rm.onmouseleave = () => { rm.style.color = 'var(--text-muted)'; };
-      rm.onclick = () => {
-        pending = pending.filter(p => key(p) !== k);
-        row.remove();
-        queueCount.textContent = pending.length;
-        btnUpload.disabled = pending.length === 0;
-        if (pending.length === 0) queueWrap.classList.remove('visible');
-      };
+  const actions = document.createElement('div');
+  actions.className = 'queue-item-actions';
 
-      row.appendChild(thumb(f)); row.appendChild(nm);
-      row.appendChild(sz);       row.appendChild(st);
-      row.appendChild(rm);
-      queueList.appendChild(row);
+  if (valid) {
+    const editBtn = document.createElement('button');
+    editBtn.type      = 'button';
+    editBtn.className = 'qi-btn edit-btn';
+    editBtn.title     = 'Rotate / edit';
+    editBtn.textContent = '✎';
+    editBtn.onclick = () => {
+      const idx = pending.indexOf(f);
+      if (idx !== -1) openEditModal(idx);
+  };
+  actions.appendChild(editBtn);
+  }
+
+  const rm = document.createElement('button');
+  rm.type        = 'button';
+  rm.className   = 'qi-btn rm-btn';
+  rm.textContent = '✕';
+  rm.title       = 'Remove';
+  rm.onclick = () => {
+    pending = pending.filter(p => fileKey(p) !== k);
+    rotations.delete(k);
+    row.remove();
+    queueCount.textContent = pending.length;
+    btnUpload.disabled = pending.length === 0;
+    if (pending.length === 0) queueWrap.classList.remove('visible');
+  };
+  actions.appendChild(rm);
+
+  row.appendChild(buildThumb(f)); row.appendChild(nm);
+  row.appendChild(sz);            row.appendChild(st);
+  row.appendChild(actions);
+  queueList.appendChild(row);
     });
 
     queueWrap.classList.add('visible');
@@ -274,6 +323,7 @@ window.closeDeleteModal = () => document.getElementById('delete-modal').classLis
 
   window.clearQueue = function () {
     pending = []; preSkipped = 0;
+    rotations.clear();
     queueList.innerHTML = '';
     queueWrap.classList.remove('visible');
     progSec.classList.remove('visible');
@@ -345,15 +395,15 @@ window.closeDeleteModal = () => document.getElementById('delete-modal').classLis
     const uploadUrl = btnUpload.dataset.uploadUrl;
 
     async function uploadOne(file) {
-      const k   = key(file);
-      const row = queueList.querySelector(`[data-fkey="${k}"]`);
-      const st  = row?.querySelector('.queue-status');
+      const k   = fileKey(file);
+      const row = queueList.querySelector(`[data-fkey="${CSS.escape(k)}"]`);      const st  = row?.querySelector('.queue-status');
       if (row) row.classList.add('uploading');
       if (st)  st.textContent = '↑';
 
+      const uploadFile = await getRotatedFile(file);
       const fd = new FormData();
       fd.append('project',    pid);
-      fd.append('image_file', file, file.name);
+      fd.append('image_file', uploadFile, uploadFile.name);
 
       try {
         const r = await fetch(uploadUrl, {
@@ -413,6 +463,112 @@ window.closeDeleteModal = () => document.getElementById('delete-modal').classLis
     r.innerHTML = `<span class="en">${esc(name)}</span><span class="er">${esc(reason)}</span>`;
     errorList.appendChild(r);
   }
+  function syncModalUI() {
+  const file = pending[editIdx];
+  editFilename.textContent  = file.name;
+  editNavCtr.textContent    = `${editIdx + 1} / ${pending.length}`;
+  editNavPrev.disabled      = editIdx === 0;
+  editNavNext.disabled      = editIdx === pending.length - 1;
+  editImg.style.transform   = `rotate(${editTempDeg}deg)`;
+  const saved = rotations.get(fileKey(pending[editIdx])) || 0;
+}
+
+window.openEditModal = function (idx) {
+  if (idx < 0 || idx >= pending.length) return;
+  unsavedBuf.clear();
+  editIdx     = idx;
+  editTempDeg = rotations.get(fileKey(pending[idx])) || 0;
+  if (editObjectURL) { URL.revokeObjectURL(editObjectURL); editObjectURL = null; }
+  editObjectURL = URL.createObjectURL(pending[idx]);
+  editImg.src   = editObjectURL;
+  syncModalUI();
+  editOverlay.classList.add('open');
+};
+
+window.editNavigate = function (dir) {
+  if (editIdx < 0) return;
+  const next = editIdx + dir;
+  if (next < 0 || next >= pending.length) return;
+  unsavedBuf.set(fileKey(pending[editIdx]), editTempDeg);
+  editIdx     = next;
+  const fk    = fileKey(pending[editIdx]);
+  editTempDeg = unsavedBuf.has(fk) ? unsavedBuf.get(fk) : (rotations.get(fk) || 0);
+  if (editObjectURL) { URL.revokeObjectURL(editObjectURL); editObjectURL = null; }
+  editObjectURL = URL.createObjectURL(pending[editIdx]);
+  editImg.src   = editObjectURL;
+  syncModalUI();
+};
+
+window.applyRotation = function (delta) {
+  editTempDeg = (((editTempDeg + delta) % 360) + 360) % 360;
+  syncModalUI();
+};
+
+window.resetRotation = function () {
+  editTempDeg = 0;
+  syncModalUI();
+};
+
+window.saveRotation = function () {
+  if (editIdx < 0 || editIdx >= pending.length) return;
+  const k = fileKey(pending[editIdx]);
+  if (editTempDeg === 0) rotations.delete(k);
+  else                   rotations.set(k, editTempDeg);
+  refreshThumb(pending[editIdx]);
+  closeOverlay();
+};
+
+window.closeEditModal = function () { closeOverlay(); };
+
+function closeOverlay() {
+  editOverlay.classList.remove('open');
+  setTimeout(() => {
+    if (editObjectURL) { URL.revokeObjectURL(editObjectURL); editObjectURL = null; }
+    editImg.src = '';
+    editImg.style.transform = '';
+  }, 220);
+  editIdx = -1; editTempDeg = 0; unsavedBuf.clear();
+}
+
+document.addEventListener('keydown', e => {
+  if (!editOverlay || !editOverlay.classList.contains('open')) return;
+  if (e.key === 'Escape')     { closeEditModal();      return; }
+  if (e.key === 'Enter')      { saveRotation();        return; }
+  if (e.key === 'ArrowLeft')  { editNavigate(-1);      return; }
+  if (e.key === 'ArrowRight') { editNavigate(1);       return; }
+  if (e.key === 'ArrowUp')    { e.preventDefault(); applyRotation(-90); }
+  if (e.key === 'ArrowDown')  { e.preventDefault(); applyRotation(90);  }
+});
+
+editOverlay.addEventListener('click', e => {
+  if (e.target === editOverlay) closeEditModal();
+});
+
+function getRotatedFile(file) {
+  const deg = rotations.get(fileKey(file)) || 0;
+  if (deg === 0) return Promise.resolve(file);
+  return new Promise(resolve => {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = () => {
+      const swapped = deg === 90 || deg === 270;
+      const canvas  = document.createElement('canvas');
+      canvas.width  = swapped ? img.height : img.width;
+      canvas.height = swapped ? img.width  : img.height;
+      const ctx = canvas.getContext('2d');
+      ctx.translate(canvas.width / 2, canvas.height / 2);
+      ctx.rotate(deg * Math.PI / 180);
+      ctx.drawImage(img, -img.width / 2, -img.height / 2);
+      URL.revokeObjectURL(url);
+      const mime = ['image/png','image/webp','image/gif'].includes(file.type) ? file.type : 'image/jpeg';
+      canvas.toBlob(blob => {
+        resolve(blob ? new File([blob], file.name, { type: mime, lastModified: file.lastModified }) : file);
+      }, mime, 0.95);
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); resolve(file); };
+    img.src = url;
+  });
+}
 })();
 
 /* ── Project Metrics Charts ───────────────────────────── */
