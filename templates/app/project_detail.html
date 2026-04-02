@@ -167,13 +167,33 @@
 
     <!-- ── Tab: Metrics ───────────────────────────── -->
     <div class="pd-panel pd-panel--hidden" id="tab-metrics" role="tabpanel">
-      <div class="empty-state" style="padding:60px 20px;">
-        <div class="empty-icon" style="font-size:32px;">▦</div>
-        <h3>Project Metrics</h3>
-        <p style="color:var(--text-muted);font-size:13px;">Coming soon — charts and statistics will appear here.</p>
+
+      <!-- Hidden data container -->
+      <div id="metrics-data"
+           data-images-labels="{% for u in images_per_user %}{{ u.uploaded_by__username|default:'Unknown' }},{% endfor %}"
+           data-images-values="{% for u in images_per_user %}{{ u.count }},{% endfor %}"
+
+           data-boxes-labels="{% for u in boxes_per_user %}{{ u.created_by__username|default:'Unknown' }},{% endfor %}"
+           data-boxes-values="{% for u in boxes_per_user %}{{ u.count }},{% endfor %}"
+
+           data-annotations-labels="{% for u in annotations_done_per_user %}{{ u.user__username|default:'Unknown' }},{% endfor %}"
+           data-annotations-values="{% for u in annotations_done_per_user %}{{ u.count }},{% endfor %}"
+
+           data-timeline-labels="{% for t in uploads_timeline %}{{ t.day }},{% endfor %}"
+           data-timeline-values="{% for t in uploads_timeline %}{{ t.count }},{% endfor %}">
       </div>
+
+      <div class="metrics-grid">
+        <div class="metric-card"><canvas id="chart-images-user"></canvas></div>
+        <div class="metric-card"><canvas id="chart-boxes-user"></canvas></div>
+        <div class="metric-card"><canvas id="chart-annotations-user"></canvas></div>
+        <div class="metric-card metric-card--wide"><canvas id="chart-timeline"></canvas></div>
+      </div>
+
     </div>
-  </div><!-- /main-tab-card -->
+
+
+    </div><!-- /main-tab-card -->
 
   <!-- ── Info sidebar ────────────────────────────────────── -->
   <div>
@@ -495,7 +515,7 @@
   100%{ background: transparent; }
 }
 </style>
-
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <!-- ── Tab + Activity JS ───────────────────────────────────── -->
 <script>
 (function () {

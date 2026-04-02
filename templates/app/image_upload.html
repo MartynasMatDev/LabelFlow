@@ -117,8 +117,161 @@
   overflow: hidden; flex-shrink: 0;
   display: flex; align-items: center; justify-content: center;
   font-size: 14px; color: var(--text-dim);
+  position: relative;
 }
 .queue-thumb img { width: 100%; height: 100%; object-fit: cover; }
+
+
+.queue-thumb .rot-badge {
+  position: absolute;
+  bottom: 1px; right: 1px;
+  background: rgba(0,0,0,.65);
+  color: #fff;
+  font-size: 8px;
+  font-family: var(--font-mono);
+  padding: 1px 3px;
+  border-radius: 3px;
+  line-height: 1.2;
+  pointer-events: none;
+}
+
+.queue-item-actions {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+.qi-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 13px;
+  padding: 2px 4px;
+  border-radius: 4px;
+  transition: color .12s, background .12s, opacity .12s;
+  opacity: 0.55;
+  line-height: 1;
+}
+.qi-btn:hover { opacity: 1; background: var(--surface3); }
+.qi-btn.edit-btn { color: var(--accent-bright); }
+.qi-btn.rm-btn   { color: var(--text-muted); }
+.qi-btn.rm-btn:hover { color: var(--danger); }
+
+/* ══ Rotation edit modal ══════════════════════════════ */
+#edit-modal-overlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,.80);
+  backdrop-filter: blur(8px);
+  z-index: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .2s;
+}
+#edit-modal-overlay.open { opacity: 1; pointer-events: all; }
+.edit-modal {
+  background: var(--surface);
+  border: 1px solid var(--border-hover);
+  border-radius: var(--radius-xl);
+  width: 100%;
+  max-width: 560px;
+  max-height: calc(100vh - 40px);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  transform: translateY(14px) scale(.98);
+  transition: transform .2s;
+}
+#edit-modal-overlay.open .edit-modal { transform: translateY(0) scale(1); }
+.edit-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.edit-modal-title {
+  font-size: 14px; font-weight: 700; color: var(--text);
+  flex: 1; min-width: 0;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  margin-right: 12px;
+}
+.edit-modal-nav { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
+.edit-nav-btn {
+  background: var(--surface2);
+  border: 1px solid var(--border-hover);
+  border-radius: 6px;
+  color: var(--text-muted);
+  cursor: pointer; font-size: 14px; padding: 5px 9px;
+  transition: all .12s; line-height: 1;
+}
+.edit-nav-btn:hover:not(:disabled) { background: var(--surface3); color: var(--text); border-color: var(--accent); }
+.edit-nav-btn:disabled { opacity: .3; cursor: not-allowed; }
+.edit-nav-counter {
+  font-size: 12px; color: var(--text-muted);
+  font-family: var(--font-mono);
+  min-width: 46px; text-align: center;
+}
+.edit-modal-close {
+  background: none; border: none; color: var(--text-muted);
+  font-size: 18px; cursor: pointer; padding: 4px 6px;
+  border-radius: 6px; transition: all .12s; line-height: 1; margin-left: 8px;
+}
+.edit-modal-close:hover { color: var(--text); background: var(--surface2); }
+.edit-modal-stage {
+  flex: 1; overflow: hidden; background: var(--bg);
+  display: flex; align-items: center; justify-content: center;
+  min-height: 300px; max-height: 400px; position: relative;
+}
+.edit-modal-stage-inner {
+  display: flex; align-items: center; justify-content: center;
+  width: 100%; height: 100%; padding: 20px;
+}
+#edit-preview-img {
+  max-width: 100%; max-height: 360px;
+  object-fit: contain; border-radius: 6px;
+  transition: transform .22s cubic-bezier(.4,0,.2,1);
+  display: block;
+}
+.edit-deg-badge {
+  position: absolute; bottom: 12px; right: 12px;
+  background: rgba(0,0,0,.55); backdrop-filter: blur(4px);
+  border: 1px solid var(--border-hover); border-radius: 6px;
+  padding: 4px 10px; font-family: var(--font-mono); font-size: 12px;
+  color: var(--text-muted); pointer-events: none; transition: color .15s;
+}
+.edit-deg-badge.changed { color: var(--accent-bright); }
+.edit-modal-toolbar {
+  display: flex; align-items: center; gap: 8px;
+  padding: 14px 20px;
+  border-top: 1px solid var(--border);
+  background: var(--surface2); flex-shrink: 0; flex-wrap: wrap;
+}
+.edit-toolbar-label {
+  font-size: 11px; font-family: var(--font-mono); font-weight: 700;
+  color: var(--text-muted); text-transform: uppercase;
+  letter-spacing: .06em; margin-right: 4px;
+}
+.edit-rot-btn {
+  display: inline-flex; align-items: center; gap: 5px;
+  background: var(--surface3); border: 1px solid var(--border-hover);
+  border-radius: 7px; color: var(--text); cursor: pointer;
+  font-size: 13px; padding: 7px 14px;
+  font-family: 'DM Sans', sans-serif; font-weight: 500;
+  transition: all .12s; line-height: 1;
+}
+.edit-rot-btn:hover { border-color: var(--accent); background: var(--accent-glow); color: var(--accent-bright); }
+.edit-rot-btn .icon { font-size: 15px; }
+.edit-modal-footer {
+  display: flex; align-items: center; justify-content: flex-end;
+  gap: 8px; padding: 12px 20px;
+  border-top: 1px solid var(--border); flex-shrink: 0;
+}
+
 .queue-name {
   flex: 1; min-width: 0;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
@@ -360,275 +513,36 @@
 
 <!-- Hidden element with the base URL for project detail -->
 <div id="project-detail-base" data-url="{{ project_detail_base }}" style="display:none;"></div>
+
+<!-- Rotation edit modal -->
+<div id="edit-modal-overlay">
+  <div class="edit-modal" role="dialog" aria-modal="true" aria-label="Rotate image">
+    <div class="edit-modal-header">
+      <span class="edit-modal-title" id="edit-modal-filename">image.jpg</span>
+      <div class="edit-modal-nav">
+        <button class="edit-nav-btn" id="edit-nav-prev" title="Previous (←)" onclick="editNavigate(-1)">←</button>
+        <span class="edit-nav-counter" id="edit-nav-counter">1 / 1</span>
+        <button class="edit-nav-btn" id="edit-nav-next" title="Next (→)" onclick="editNavigate(1)">→</button>
+      </div>
+      <button class="edit-modal-close" onclick="closeEditModal()" title="Cancel (Esc)">✕</button>
+    </div>
+    <div class="edit-modal-stage">
+      <div class="edit-modal-stage-inner">
+        <img id="edit-preview-img" src="" alt="Preview">
+      </div>
+    </div>
+    <div class="edit-modal-toolbar">
+      <span class="edit-toolbar-label">Rotate</span>
+      <button class="edit-rot-btn" onclick="applyRotation(-90)"><span class="icon">↺</span> −90°</button>
+      <button class="edit-rot-btn" onclick="applyRotation(90)"><span class="icon">↻</span> +90°</button>
+      <button class="edit-rot-btn" onclick="applyRotation(180)">↕ 180°</button>
+      <button class="edit-rot-btn" onclick="resetRotation()" style="color:var(--text-muted);">⊙ Reset</button>
+    </div>
+    <div class="edit-modal-footer">
+      <button type="button" class="btn btn-ghost btn-sm" onclick="closeEditModal()">Cancel</button>
+      <button type="button" class="btn btn-primary btn-sm" onclick="saveRotation()">✓ Apply</button>
+    </div>
+  </div>
+</div>
 {% endblock %}
 
-{% block extra_scripts %}
-<script>
-(function () {
-  const ALLOWED = new Set(['.jpg','.jpeg','.png','.webp','.bmp','.gif']);
-  const MAX_B   = 20 * 1024 * 1024;
-
-  let pending      = [];
-  let preSkipped   = 0;
-  let running      = false;
-
-  // DOM
-  const dropZone    = document.getElementById('drop-zone');
-  const inputFiles  = document.getElementById('input-files');
-  const inputFolder = document.getElementById('input-folder');
-  const queueWrap   = document.getElementById('queue-wrap');
-  const queueList   = document.getElementById('queue-list');
-  const queueCount  = document.getElementById('queue-count');
-  const btnUpload   = document.getElementById('btn-upload');
-  const btnView     = document.getElementById('btn-view');
-  const progSec     = document.getElementById('progress-section');
-  const progFill    = document.getElementById('progress-fill');
-  const progLbl     = document.getElementById('progress-lbl');
-  const progCount   = document.getElementById('progress-count');
-  const errorLog    = document.getElementById('error-log');
-  const errorList   = document.getElementById('error-list');
-  const summary     = document.getElementById('upload-summary');
-  const statsCard   = document.getElementById('stats-card');
-
-  // ── Helpers ──────────────────────────────────────────────
-  function ext(n)  { return n.slice(n.lastIndexOf('.')).toLowerCase(); }
-  function fmt(b)  {
-    if (b < 1024)    return b + ' B';
-    if (b < 1048576) return (b/1024).toFixed(1) + ' KB';
-    return (b/1048576).toFixed(1) + ' MB';
-  }
-  function esc(s)  { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
-  function csrf()  { const m = document.cookie.match('(^|;)\\s*csrftoken=([^;]*)'); return m ? decodeURIComponent(m[2]) : ''; }
-  function key(f)  { return CSS.escape((f.name + f.size + f.lastModified).replace(/\W/g,'_')); }
-
-  function thumb(file) {
-    const d = document.createElement('div');
-    d.className = 'queue-thumb';
-    if (file.type.startsWith('image/')) {
-      const img = document.createElement('img');
-      img.src = URL.createObjectURL(file);
-      d.appendChild(img);
-    } else { d.textContent = '⬡'; }
-    return d;
-  }
-
-  // ── Build queue ───────────────────────────────────────────
-  function buildQueue(files) {
-    pending    = [];
-    preSkipped = 0;
-    queueList.innerHTML = '';
-    errorLog.classList.remove('visible');
-    errorList.innerHTML = '';
-    summary.classList.remove('visible');
-    progSec.classList.remove('visible');
-    btnView.style.display = 'none';
-
-    let bytes = 0;
-    files.forEach(f => {
-      const e     = ext(f.name);
-      const valid = ALLOWED.has(e) && f.size <= MAX_B;
-      if (valid) { pending.push(f); bytes += f.size; }
-      else       { preSkipped++; }
-
-      const k   = key(f);
-      const row = document.createElement('div');
-      row.className    = 'queue-item' + (valid ? '' : ' skipped');
-      row.dataset.fkey = k;
-
-      const st = document.createElement('span');
-      st.className    = 'queue-status';
-      st.dataset.fkey = k;
-      st.textContent  = valid ? '○' : '⚠';
-      st.title        = valid ? 'Queued' : (!ALLOWED.has(e) ? 'Invalid type' : '>20 MB');
-
-      const nm = document.createElement('span');
-      nm.className   = 'queue-name';
-      nm.textContent = f.name;
-
-      const sz = document.createElement('span');
-      sz.className   = 'queue-size';
-      sz.textContent = fmt(f.size);
-
-      const rm = document.createElement('button');
-      rm.type        = 'button';
-      rm.textContent = '✕';
-      rm.title       = 'Remove';
-      rm.style.cssText = 'background:none;border:none;color:var(--text-muted);cursor:pointer;font-size:13px;padding:0 2px;flex-shrink:0;transition:color .12s;';
-      rm.onmouseenter = () => { rm.style.color = 'var(--danger)'; };
-      rm.onmouseleave = () => { rm.style.color = 'var(--text-muted)'; };
-      rm.onclick = () => {
-        pending = pending.filter(p => key(p) !== k);
-        row.remove();
-        queueCount.textContent = pending.length;
-        btnUpload.disabled = pending.length === 0;
-        if (pending.length === 0) queueWrap.classList.remove('visible');
-      };
-
-      row.appendChild(thumb(f)); row.appendChild(nm);
-      row.appendChild(sz);       row.appendChild(st);
-      row.appendChild(rm);
-      queueList.appendChild(row);
-    });
-
-    queueWrap.classList.add('visible');
-    queueCount.textContent = pending.length;
-
-    if (statsCard) {
-      statsCard.style.display = '';
-      document.getElementById('stat-found').textContent   = files.length;
-      document.getElementById('stat-valid').textContent   = pending.length;
-      document.getElementById('stat-preskip').textContent = preSkipped;
-      document.getElementById('stat-size').textContent    = fmt(bytes);
-    }
-
-    btnUpload.disabled = pending.length === 0;
-  }
-
-  // ── Clear ─────────────────────────────────────────────────
-  window.clearQueue = function () {
-    pending = []; preSkipped = 0;
-    queueList.innerHTML = '';
-    queueWrap.classList.remove('visible');
-    progSec.classList.remove('visible');
-    errorLog.classList.remove('visible');
-    errorList.innerHTML = '';
-    summary.classList.remove('visible');
-    btnUpload.disabled  = true;
-    btnView.style.display = 'none';
-    if (statsCard) statsCard.style.display = 'none';
-    inputFiles.value  = '';
-    inputFolder.value = '';
-  };
-
-  // ── Inputs ────────────────────────────────────────────────
-  inputFiles.addEventListener('change', () => {
-    if (inputFiles.files.length) buildQueue([...inputFiles.files]);
-  });
-
-  inputFolder.addEventListener('change', () => {
-    const flat = [...inputFolder.files].filter(
-      f => f.webkitRelativePath.split('/').length === 2
-    );
-    if (flat.length) buildQueue(flat);
-  });
-
-  // ── Drag & drop ───────────────────────────────────────────
-  dropZone.addEventListener('dragover',  e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
-  dropZone.addEventListener('dragleave', ()  => dropZone.classList.remove('drag-over'));
-  dropZone.addEventListener('drop', async e => {
-    e.preventDefault();
-    dropZone.classList.remove('drag-over');
-    const collected = [];
-    for (const item of [...e.dataTransfer.items]) {
-      const entry = item.webkitGetAsEntry?.();
-      if (!entry) continue;
-      if (entry.isDirectory) {
-        await new Promise(res => {
-          entry.createReader().readEntries(entries => {
-            const fe = entries.filter(en => en.isFile);
-            let n = fe.length;
-            if (!n) { res(); return; }
-            fe.forEach(en => en.file(f => { collected.push(f); if (!--n) res(); }));
-          });
-        });
-      } else if (entry.isFile) {
-        await new Promise(res => entry.file(f => { collected.push(f); res(); }));
-      }
-    }
-    if (collected.length) buildQueue(collected);
-  });
-
-  // ── Upload ────────────────────────────────────────────────
-  window.startUpload = async function () {
-    if (running || !pending.length) return;
-    const pid = document.getElementById('project-select').value;
-    if (!pid) { alert('Please select a project first.'); return; }
-
-    running = true;
-    btnUpload.disabled  = true;
-    errorList.innerHTML = '';
-    errorLog.classList.remove('visible');
-    summary.classList.remove('visible');
-
-    const total = pending.length;
-    let ok = 0, fail = 0, idx = 0;
-
-    progSec.classList.add('visible');
-    progFill.style.width  = '0%';
-    progLbl.textContent   = 'Uploading…';
-    progCount.textContent = `0 / ${total}`;
-
-    const uploadUrl = btnUpload.dataset.uploadUrl;
-
-    async function uploadOne(file) {
-      const k   = key(file);
-      const row = queueList.querySelector(`[data-fkey="${k}"]`);
-      const st  = row?.querySelector('.queue-status');
-      if (row) row.classList.add('uploading');
-      if (st)  st.textContent = '↑';
-
-      const fd = new FormData();
-      fd.append('project',    pid);
-      fd.append('image_file', file, file.name);
-
-      try {
-        const r = await fetch(uploadUrl, {
-          method: 'POST', headers: { 'X-CSRFToken': csrf() }, body: fd,
-        });
-        const d = await r.json();
-        if (d.success) {
-          ok++;
-          if (row) { row.classList.remove('uploading'); row.classList.add('done'); }
-          if (st)  st.textContent = '✓';
-        } else {
-          fail++;
-          if (row) { row.classList.remove('uploading'); row.classList.add('error'); }
-          if (st)  st.textContent = '✕';
-          addError(file.name, d.error || 'Server error');
-        }
-      } catch (_) {
-        fail++;
-        if (row) { row.classList.remove('uploading'); row.classList.add('error'); }
-        if (st)  st.textContent = '✕';
-        addError(file.name, 'Network error');
-      }
-
-      const done = ok + fail;
-      progFill.style.width  = Math.round(done / total * 100) + '%';
-      progCount.textContent = `${done} / ${total}`;
-      progLbl.textContent   = done < total ? 'Uploading…' : 'Finishing…';
-    }
-
-    async function worker() {
-      while (idx < pending.length) await uploadOne(pending[idx++]);
-    }
-
-    await Promise.all(Array.from({ length: Math.min(3, total) }, worker));
-
-    running = false;
-    progLbl.textContent = 'Done';
-
-    document.getElementById('sum-total').textContent   = total;
-    document.getElementById('sum-ok').textContent      = ok;
-    document.getElementById('sum-skipped').textContent = preSkipped;
-    document.getElementById('sum-failed').textContent  = fail;
-    summary.classList.add('visible');
-
-    // ── FIX: Use base URL from hidden element ──
-    const baseUrl = document.getElementById('project-detail-base')?.dataset.url;
-    if (baseUrl) {
-        btnView.href = baseUrl.replace('0', pid);
-        btnView.style.display = '';
-    }
-  };
-
-  function addError(name, reason) {
-    errorLog.classList.add('visible');
-    const r = document.createElement('div');
-    r.className = 'error-log-row';
-    r.innerHTML = `<span class="en">${esc(name)}</span><span class="er">${esc(reason)}</span>`;
-    errorList.appendChild(r);
-  }
-})();
-</script>
-{% endblock %}
