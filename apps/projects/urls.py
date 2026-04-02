@@ -11,4 +11,6 @@ urlpatterns = [
     path('projects/<int:project_id>/archive/',       views.archive_project,    name='archive_project'),
     path('projects/<int:project_id>/restore/',       views.restore_project,    name='restore_project'),
     path('projects/<int:project_id>/activity/',      views.activity_feed_json, name='activity_feed_json'),
+
+
 ]

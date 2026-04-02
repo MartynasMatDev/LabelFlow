@@ -15,10 +15,14 @@ def register(request):
             user = form.save()
             login(request, user)
             messages.success(request, f'Hello, {user.first_name}! Your account was successfully created.')
+            next_url = request.GET.get('next')
+            if next_url:
+                return redirect(next_url)
             return redirect('dashboard')
     else:
         form = RegisterForm()
     return render(request, 'registration/register.html', {'form': form})
+
 
 @login_required
 def profile(request):
