@@ -1,5 +1,7 @@
 from django.db import models
 from django.contrib.auth.models import User
+import uuid
+from django.utils import timezone
 
 
 class Project(models.Model):
@@ -105,9 +107,7 @@ class ActivityLog(models.Model):
     project    = models.ForeignKey(Project, on_delete=models.CASCADE, related_name='activity_logs')
     user       = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='activity_logs')
     action     = models.CharField(max_length=40, choices=ACTION_CHOICES)
-    # Human-readable detail (e.g. image name, member username)
     detail     = models.CharField(max_length=500, blank=True)
-    # Optional JSON metadata for future use
     meta       = models.JSONField(default=dict, blank=True)
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
 
@@ -168,3 +168,37 @@ class ActivityLog(models.Model):
     @property
     def color_class(self):
         return self.ACTION_COLORS.get(self.action, 'accent')
+
+
+class Invitation(models.Model):
+    """Invitation to join a project via email."""
+    project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name='invitations')
+    email = models.EmailField()
+    invited_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='sent_invitations')
+    role = models.CharField(max_length=20, choices=ProjectMember.ROLE_CHOICES, default='annotator')
+    token = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField(null=True, blank=True)
+    accepted_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        unique_together = ('project', 'email')
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"Invitation for {self.email} to {self.project.name}"
+
+    def is_expired(self):
+        if self.expires_at:
+            return timezone.now() > self.expires_at
+        return False
+
+    def accept(self, user):
+        """Mark invitation as accepted and add the user to the project."""
+        self.accepted_at = timezone.now()
+        self.save()
+        ProjectMember.objects.get_or_create(
+            project=self.project,
+            user=user,
+            defaults={'role': self.role}
+        )
