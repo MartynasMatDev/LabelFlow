@@ -270,28 +270,23 @@ def team_management(request, project_id):
         elif action == 'send_invitation':
             email = request.POST.get('email', '').strip()
             role = request.POST.get('role', 'annotator')
-            # Validate email
             if not email:
                 messages.error(request, 'Email address is required.')
                 return redirect('team_management', project_id=project.id)
-            # Check if email is already a member
             user_exists = User.objects.filter(email=email).first()
             if user_exists and ProjectMember.objects.filter(project=project, user=user_exists).exists():
                 messages.error(request, f'{email} is already a member of this project.')
                 return redirect('team_management', project_id=project.id)
-            # Check for pending invitation
             if Invitation.objects.filter(project=project, email=email, accepted_at__isnull=True).exists():
                 messages.warning(request, f'An invitation has already been sent to {email}.')
                 return redirect('team_management', project_id=project.id)
-            # Create invitation
             invitation = Invitation.objects.create(
                 project=project,
                 email=email,
                 invited_by=request.user,
                 role=role,
-                expires_at=timezone.now() + timezone.timedelta(days=7)  # expire after 7 days
+                expires_at=timezone.now() + timezone.timedelta(days=7)
             )
-            # Send email
             try:
                 send_invitation_email(invitation)
                 messages.success(request, f'Invitation sent to {email}.')
@@ -303,8 +298,10 @@ def team_management(request, project_id):
             invitation_id = request.POST.get('invitation_id')
             try:
                 inv = Invitation.objects.get(id=invitation_id, project=project)
+                # FIX: read email BEFORE deleting the object
+                email = inv.email
                 inv.delete()
-                messages.success(request, f'Invitation to {inv.email} cancelled.')
+                messages.success(request, f'Invitation to {email} cancelled.')
             except Invitation.DoesNotExist:
                 messages.error(request, 'Invitation not found.')
 
@@ -367,8 +364,13 @@ def invitation_prompt(request, token):
         return redirect('dashboard')
 
     if request.user.is_authenticated:
-        if request.user.email == invitation.email:
-            # Accept and redirect
+        if request.user.email.lower() == invitation.email.lower():
+            # FIX: guard against duplicate membership before accepting
+            if ProjectMember.objects.filter(project=invitation.project, user=request.user).exists():
+                invitation.accepted_at = timezone.now()
+                invitation.save(update_fields=['accepted_at'])
+                messages.info(request, f'You are already a member of {invitation.project.name}.')
+                return redirect('project_detail', project_id=invitation.project.id)
             invitation.accept(request.user)
             log_activity(invitation.project, request.user, 'member_added',
                          detail=request.user.get_full_name() or request.user.username)
@@ -390,6 +392,7 @@ def invitation_prompt(request, token):
 @login_required
 def accept_invitation(request, token):
     invitation = get_object_or_404(Invitation, token=token)
+
     if invitation.accepted_at:
         messages.info(request, 'Invitation already accepted.')
         return redirect('project_detail', invitation.project.id)
@@ -397,9 +400,23 @@ def accept_invitation(request, token):
         messages.error(request, 'Invitation expired.')
         return redirect('dashboard')
 
-    if request.user.email != invitation.email:
-        messages.error(request, f'This invitation is for {invitation.email}. Please log out and log in with that account.')
+    # FIX: case-insensitive email comparison
+    if request.user.email.lower() != invitation.email.lower():
+        messages.error(
+            request,
+            f'This invitation is for {invitation.email}. '
+            f'You are logged in as {request.user.email}. '
+            'Please log in with the correct account.'
+        )
         return redirect('profile')
+
+    # FIX: guard against duplicate membership (e.g. user was added manually
+    # between invitation being sent and accepted)
+    if ProjectMember.objects.filter(project=invitation.project, user=request.user).exists():
+        invitation.accepted_at = timezone.now()
+        invitation.save(update_fields=['accepted_at'])
+        messages.info(request, f'You are already a member of {invitation.project.name}.')
+        return redirect('project_detail', invitation.project.id)
 
     invitation.accept(request.user)
     log_activity(invitation.project, request.user, 'member_added',
