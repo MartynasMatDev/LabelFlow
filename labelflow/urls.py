@@ -10,6 +10,7 @@ urlpatterns = [
     path('accounts/', include('apps.accounts.urls')),
     path('app/', include('apps.projects.urls')),
     path('app/images/', include('apps.images.urls')),
+    path('invite/', include('apps.projects.invitation_urls')),  # ✅ added
 ]
 
 if settings.DEBUG:

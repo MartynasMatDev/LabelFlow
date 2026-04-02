@@ -6,6 +6,7 @@
 {% block toolbar_actions %}
 <a href="{% url 'project_detail' project.id %}" class="btn btn-ghost btn-sm">← Project</a>
 <button class="btn btn-primary btn-sm" data-open-modal="add-member-modal">+ Add Member</button>
+<button class="btn btn-secondary btn-sm" data-open-modal="invite-modal">✉ Invite</button>
 {% endblock %}
 
 {% block app_content %}
@@ -68,6 +69,45 @@
           <div class="empty-icon">⬔</div>
           <h3>No members</h3>
           <p>Add your first team members</p>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- Pending invitations -->
+    <div class="card card-flat" style="margin-top: 24px;">
+      <div class="section-header" style="padding:18px 22px 0;">
+        <h2>Pending Invitations</h2>
+        <span class="badge badge-muted">{{ pending_invitations|length }}</span>
+      </div>
+      <div style="padding-bottom:8px;">
+        {% for inv in pending_invitations %}
+        <div class="member-row">
+          <div class="avatar avatar-md avatar-c{{ forloop.counter0|add:"0"|divisibleby:5 }}">✉</div>
+          <div class="member-row-info">
+            <div class="member-row-name">{{ inv.email }}</div>
+            <div class="member-row-email">{{ inv.get_role_display }} · sent {{ inv.created_at|timesince }} ago</div>
+          </div>
+          <div class="flex items-center gap-2">
+            <button type="button"
+                    class="btn btn-sm btn-secondary copy-invite-link"
+                    data-url="{% url 'invitation_prompt' inv.token %}"
+                    style="padding: 4px 12px;">
+              📋 Copy link
+            </button>
+            <form method="post" onsubmit="return confirm('Cancel invitation for {{ inv.email }}?');" style="display:inline;">
+              {% csrf_token %}
+              <input type="hidden" name="action" value="cancel_invitation">
+              <input type="hidden" name="invitation_id" value="{{ inv.id }}">
+              <button type="submit" class="btn btn-icon btn-danger btn-sm" title="Cancel">✕</button>
+            </form>
+          </div>
+        </div>
+        {% empty %}
+        <div class="empty-state" style="padding:40px 20px;">
+          <div class="empty-icon">⬔</div>
+          <h3>No pending invitations</h3>
+          <p>Invite new members using the "Invite" button.</p>
         </div>
         {% endfor %}
       </div>
@@ -143,4 +183,68 @@
     </form>
   </div>
 </div>
+
+<div class="modal-overlay" id="invite-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <h2>Invite Team Member</h2>
+      <button class="modal-close">✕</button>
+    </div>
+    <form method="post" action="{% url 'team_management' project.id %}">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="send_invitation">
+      <div class="form-group">
+        <label>Email address</label>
+        <input type="email" name="email" placeholder="e.g., collaborator@example.com" required autofocus>
+        <div class="form-hint">We'll send an invitation email with a link to join this project.</div>
+      </div>
+      <div class="form-group">
+        <label>Role</label>
+        <select name="role">
+          {% for value, label in role_choices %}
+          <option value="{{ value }}" {% if value == 'annotator' %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-ghost modal-close">Cancel</button>
+        <button type="submit" class="btn btn-primary">Send Invitation →</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+  (function() {
+    // Wait for DOM to be fully loaded
+    document.addEventListener('DOMContentLoaded', function() {
+      const copyButtons = document.querySelectorAll('.copy-invite-link');
+      copyButtons.forEach(button => {
+        button.addEventListener('click', function(e) {
+          e.preventDefault();
+          const relativeUrl = this.getAttribute('data-url');
+          if (!relativeUrl) {
+            console.error('No data-url attribute found on button', this);
+            alert('Invitation link is missing. Please try again or contact support.');
+            return;
+          }
+          const absoluteUrl = new URL(relativeUrl, window.location.href).href;
+          console.log('Copying URL:', absoluteUrl);
+          navigator.clipboard.writeText(absoluteUrl).then(() => {
+            const originalText = this.innerText;
+            this.innerText = '✓ Copied!';
+            setTimeout(() => {
+              this.innerText = originalText;
+            }, 2000);
+          }).catch(err => {
+            console.error('Copy failed: ', err);
+            alert('Unable to copy link. Please copy manually: ' + absoluteUrl);
+          });
+        });
+      });
+    });
+  })();
+</script>
 {% endblock %}

@@ -1,3 +1,5 @@
+import re
+
 from django.shortcuts import render, redirect
 from django.contrib.auth import login, update_session_auth_hash
 from django.contrib.auth.decorators import login_required
@@ -9,16 +11,44 @@ from .forms import RegisterForm, ProfileUpdateForm
 def register(request):
     if request.user.is_authenticated:
         return redirect('dashboard')
+
+    # ------------------------------------------------------------------
+    # FIX: If the user arrived via an invitation link, extract the token
+    # from the `next` param and pre-fill the email so the new account
+    # email matches invitation.email (required by accept_invitation).
+    # ------------------------------------------------------------------
+    next_url = request.GET.get('next', '')
+    prefill_email = None
+
+    m = re.search(r'/invite/([^/]+)/accept/', next_url)
+    if m:
+        invite_token = m.group(1)
+        from apps.projects.models import Invitation
+        try:
+            inv = Invitation.objects.get(token=invite_token)
+            if not inv.accepted_at and not inv.is_expired():
+                prefill_email = inv.email
+        except Invitation.DoesNotExist:
+            pass
+
     if request.method == 'POST':
         form = RegisterForm(request.POST)
         if form.is_valid():
             user = form.save()
             login(request, user)
             messages.success(request, f'Hello, {user.first_name}! Your account was successfully created.')
+            if next_url:
+                return redirect(next_url)
             return redirect('dashboard')
     else:
-        form = RegisterForm()
-    return render(request, 'registration/register.html', {'form': form})
+        initial = {'email': prefill_email} if prefill_email else {}
+        form = RegisterForm(initial=initial)
+
+    return render(request, 'registration/register.html', {
+        'form': form,
+        'prefill_email': prefill_email,
+    })
+
 
 @login_required
 def profile(request):
@@ -67,7 +97,7 @@ def profile(request):
         return redirect('profile')
 
     from apps.projects.models import ProjectMember
-    project_count    = ProjectMember.objects.filter(user=user).count()
+    project_count = ProjectMember.objects.filter(user=user).count()
 
     ctx = {
         'active_nav': 'profile',
