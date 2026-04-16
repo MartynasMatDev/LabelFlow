@@ -1,0 +1,92 @@
+{% extends "app/app_base.html" %}
+{% block app_title %}{{ workspace.name }} — Team{% endblock %}
+{% block toolbar_title %}{{ workspace.name }} — Team{% endblock %}
+
+{% block toolbar_actions %}
+<a href="{% url 'workspace_detail' workspace.pk %}" class="btn btn-ghost btn-sm">← Back to workspace</a>
+{% endblock %}
+
+{% block app_content %}
+<div class="page-header">
+  <div class="page-title">
+    <h1>Team</h1>
+    <p>Members of <strong>{{ workspace.name }}</strong>. Anyone here can see every project in this workspace.</p>
+  </div>
+</div>
+
+<div class="card" style="margin-bottom:20px;">
+  <h3 style="font-size:15px;margin-bottom:16px;">Add a member</h3>
+  <form method="post" class="flex gap-2" style="align-items:flex-end;">
+    {% csrf_token %}
+    <input type="hidden" name="action" value="add_member">
+    <div class="form-group" style="flex:1;margin:0;">
+      <label for="username">Username</label>
+      <input type="text" id="username" name="username" placeholder="e.g. jane_doe" required>
+    </div>
+    <div class="form-group" style="margin:0;min-width:160px;">
+      <label for="role">Role</label>
+      <select id="role" name="role">
+        {% for value, label in role_choices %}
+          <option value="{{ value }}">{{ label }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <button type="submit" class="btn btn-primary">Add</button>
+  </form>
+</div>
+
+<div class="card">
+  <h3 style="font-size:15px;margin-bottom:16px;">Current members</h3>
+  <table class="table" style="width:100%;">
+    <thead>
+      <tr>
+        <th>User</th>
+        <th>Role</th>
+        <th>Joined</th>
+        <th style="text-align:right;">Actions</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><strong>{{ workspace.owner.get_full_name|default:workspace.owner.username }}</strong></td>
+        <td><span class="badge">Owner</span></td>
+        <td>—</td>
+        <td></td>
+      </tr>
+      {% for m in members %}
+      <tr>
+        <td>{{ m.user.get_full_name|default:m.user.username }}</td>
+        <td>
+          <form method="post" class="flex gap-2" style="align-items:center;">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="change_role">
+            <input type="hidden" name="member_id" value="{{ m.pk }}">
+            <select name="role" onchange="this.form.submit()">
+              {% for value, label in role_choices %}
+                <option value="{{ value }}" {% if m.role == value %}selected{% endif %}>{{ label }}</option>
+              {% endfor %}
+            </select>
+          </form>
+        </td>
+        <td>{{ m.joined_at|date:"Y-m-d" }}</td>
+        <td style="text-align:right;">
+          <form method="post" style="display:inline;"
+                onsubmit="return confirm('Remove {{ m.user.username }} from workspace?');">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="remove_member">
+            <input type="hidden" name="member_id" value="{{ m.pk }}">
+            <button type="submit" class="btn btn-ghost btn-sm">Remove</button>
+          </form>
+        </td>
+      </tr>
+      {% empty %}
+      <tr>
+        <td colspan="4" style="color:var(--text-muted);text-align:center;padding:16px;">
+          No other members yet. Invite someone above.
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endblock %}
