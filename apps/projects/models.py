@@ -2,6 +2,124 @@ from django.db import models
 from django.contrib.auth.models import User
 import uuid
 from django.utils import timezone
+from django.utils.text import slugify
+
+
+class Workspace(models.Model):
+    """A container for projects. Can be personal (single-user) or an
+    organization shared by a team."""
+
+    KIND_PERSONAL = 'personal'
+    KIND_ORGANIZATION = 'organization'
+    KIND_CHOICES = [
+        (KIND_PERSONAL, 'Personal'),
+        (KIND_ORGANIZATION, 'Organization'),
+    ]
+
+    name       = models.CharField(max_length=200)
+    slug       = models.SlugField(max_length=220, unique=True)
+    kind       = models.CharField(max_length=20, choices=KIND_CHOICES, default=KIND_ORGANIZATION)
+    owner      = models.ForeignKey(User, on_delete=models.CASCADE, related_name='owned_workspaces')
+    emoji      = models.CharField(max_length=4, default='◈')
+    description = models.TextField(blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-kind', 'name']  # personal first is convenient
+        constraints = [
+            # Each user may have at most one personal workspace.
+            models.UniqueConstraint(
+                fields=['owner'],
+                condition=models.Q(kind='personal'),
+                name='unique_personal_workspace_per_owner',
+            ),
+        ]
+
+    def __str__(self):
+        return f'{self.name} ({self.get_kind_display()})'
+
+    @property
+    def is_personal(self):
+        return self.kind == self.KIND_PERSONAL
+
+    @property
+    def is_organization(self):
+        return self.kind == self.KIND_ORGANIZATION
+
+    def user_has_access(self, user):
+        if not user.is_authenticated:
+            return False
+        if self.owner_id == user.id:
+            return True
+        if self.is_personal:
+            return False
+        return self.members.filter(user=user).exists()
+
+    def user_is_admin(self, user):
+        if self.owner_id == user.id:
+            return True
+        if self.is_personal:
+            return False
+        membership = self.members.filter(user=user).first()
+        return bool(membership and membership.role == WorkspaceMember.ROLE_ADMIN)
+
+    def get_user_role(self, user):
+        if self.owner_id == user.id:
+            return WorkspaceMember.ROLE_OWNER
+        membership = self.members.filter(user=user).first()
+        return membership.role if membership else None
+
+    @property
+    def project_count(self):
+        return self.projects.filter(is_archived=False).count()
+
+    @property
+    def member_count(self):
+        # Owner counts as one, plus any WorkspaceMembers.
+        if self.is_personal:
+            return 1
+        return self.members.count() + 1
+
+    @staticmethod
+    def _unique_slug(base):
+        base = slugify(base) or 'workspace'
+        slug = base
+        i = 2
+        while Workspace.objects.filter(slug=slug).exists():
+            slug = f'{base}-{i}'
+            i += 1
+        return slug
+
+    def save(self, *args, **kwargs):
+        if not self.slug:
+            self.slug = self._unique_slug(self.name)
+        super().save(*args, **kwargs)
+
+
+class WorkspaceMember(models.Model):
+    """Membership in an organization workspace. Not used for personal
+    workspaces (the owner is the sole member)."""
+
+    ROLE_OWNER  = 'owner'   # conceptual only — owner is Workspace.owner, not stored here
+    ROLE_ADMIN  = 'admin'
+    ROLE_MEMBER = 'member'
+    ROLE_CHOICES = [
+        (ROLE_ADMIN,  'Administrator'),
+        (ROLE_MEMBER, 'Member'),
+    ]
+
+    workspace = models.ForeignKey(Workspace, on_delete=models.CASCADE, related_name='members')
+    user      = models.ForeignKey(User, on_delete=models.CASCADE, related_name='workspace_memberships')
+    role      = models.CharField(max_length=20, choices=ROLE_CHOICES, default=ROLE_MEMBER)
+    joined_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('workspace', 'user')
+        ordering = ['joined_at']
+
+    def __str__(self):
+        return f'{self.user.username} — {self.workspace.name} ({self.get_role_display()})'
 
 
 class Project(models.Model):
@@ -16,6 +134,13 @@ class Project(models.Model):
     description     = models.TextField(blank=True)
     annotation_type = models.CharField(max_length=20, choices=ANNOTATION_TYPE_CHOICES, default='bbox')
     emoji           = models.CharField(max_length=4, default='◈')
+    workspace       = models.ForeignKey(
+        Workspace,
+        on_delete=models.CASCADE,
+        related_name='projects',
+        null=True,   # temporarily nullable so the data migration can backfill
+        blank=True,
+    )
     created_by      = models.ForeignKey(User, on_delete=models.CASCADE, related_name='owned_projects')
     is_archived     = models.BooleanField(default=False, db_index=True)
     created_at      = models.DateTimeField(auto_now_add=True)
@@ -32,13 +157,25 @@ class Project(models.Model):
         return membership.role if membership else None
 
     def user_has_access(self, user):
-        return self.members.filter(user=user).exists() or self.created_by == user
+        if self.created_by_id == user.id:
+            return True
+        if self.members.filter(user=user).exists():
+            return True
+        # Any member of the containing organization workspace sees the project.
+        if self.workspace_id and self.workspace.is_organization:
+            return self.workspace.user_has_access(user)
+        return False
 
     def user_is_admin(self, user):
-        if self.created_by == user:
+        if self.created_by_id == user.id:
             return True
         membership = self.members.filter(user=user).first()
-        return membership and membership.role == 'admin'
+        if membership and membership.role == 'admin':
+            return True
+        # Workspace owners/admins act as project admins too.
+        if self.workspace_id and self.workspace.user_is_admin(user):
+            return True
+        return False
 
     @property
     def image_count(self):
