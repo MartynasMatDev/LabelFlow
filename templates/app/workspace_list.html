@@ -1,0 +1,65 @@
+{% extends "app/app_base.html" %}
+{% block app_title %}Workspaces{% endblock %}
+{% block toolbar_title %}Workspaces{% endblock %}
+
+{% block toolbar_actions %}
+<a href="{% url 'workspace_create' %}" class="btn btn-primary btn-sm">+ New Workspace</a>
+{% endblock %}
+
+{% block app_content %}
+<div class="page-header">
+  <div class="page-title">
+    <h1>Workspaces</h1>
+    <p>Your personal workspace and any organization workspaces you belong to.</p>
+  </div>
+</div>
+
+<div class="project-grid stagger">
+  {% for ws in workspaces %}
+  <div class="project-card" style="cursor:default;">
+    <div class="project-card-banner">
+      <span style="font-size:32px;">{{ ws.emoji }}</span>
+    </div>
+    <div class="project-card-body">
+      <div class="project-card-name">
+        {{ ws.name }}
+        {% if ws.pk == active_workspace.pk %}
+          <span class="badge badge-muted" style="font-size:10px;margin-left:6px;">active</span>
+        {% endif %}
+      </div>
+      <div class="project-card-desc">
+        {% if ws.is_personal %}
+          <span style="color:var(--text-dim);">Personal workspace — only you</span>
+        {% else %}
+          {% if ws.description %}{{ ws.description|truncatechars:80 }}{% else %}
+            <span style="color:var(--text-dim);">Organization workspace</span>
+          {% endif %}
+        {% endif %}
+      </div>
+      <div class="project-card-footer">
+        <div class="project-stats">
+          <div class="project-stat"><strong>{{ ws.project_count }}</strong> projects</div>
+          {% if ws.is_organization %}
+          <div class="project-stat"><strong>{{ ws.member_count }}</strong> members</div>
+          {% endif %}
+        </div>
+        <span class="badge badge-muted" style="font-size:10px;">{{ ws.get_kind_display }}</span>
+      </div>
+      <div class="flex gap-2" style="margin-top:10px;">
+        <a href="{% url 'workspace_detail' ws.pk %}" class="btn btn-ghost btn-sm">Open</a>
+        {% if ws.pk != active_workspace.pk %}
+          <a href="{% url 'workspace_switch' ws.pk %}" class="btn btn-primary btn-sm">Switch to</a>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  {% empty %}
+  <div class="empty-state">
+    <div class="empty-icon">◈</div>
+    <h3>No workspaces yet</h3>
+    <p>Create an organization workspace to collaborate with a team</p>
+    <a href="{% url 'workspace_create' %}" class="btn btn-primary mt-4">+ Create workspace</a>
+  </div>
+  {% endfor %}
+</div>
+{% endblock %}
