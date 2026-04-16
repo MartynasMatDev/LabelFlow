@@ -1,0 +1,66 @@
+{% extends "app/app_base.html" %}
+{% block app_title %}{{ workspace.name }}{% endblock %}
+{% block toolbar_title %}{{ workspace.name }}{% endblock %}
+
+{% block toolbar_actions %}
+{% if workspace.pk != active_workspace.pk %}
+  <a href="{% url 'workspace_switch' workspace.pk %}" class="btn btn-ghost btn-sm">Switch to this workspace</a>
+{% endif %}
+{% if workspace.is_organization and is_admin %}
+  <a href="{% url 'workspace_team' workspace.pk %}" class="btn btn-ghost btn-sm">Manage team</a>
+{% endif %}
+<a href="{% url 'project_create' %}" class="btn btn-primary btn-sm">+ New Project</a>
+{% endblock %}
+
+{% block app_content %}
+<div class="page-header">
+  <div class="page-title">
+    <h1>{{ workspace.emoji }} {{ workspace.name }}</h1>
+    <p>
+      <span class="badge badge-muted">{{ workspace.get_kind_display }}</span>
+      &middot; {{ projects.count }} project{{ projects.count|pluralize }}
+      {% if workspace.is_organization %}
+      &middot; {{ workspace.member_count }} member{{ workspace.member_count|pluralize }}
+      {% endif %}
+    </p>
+    {% if workspace.description %}<p>{{ workspace.description }}</p>{% endif %}
+  </div>
+</div>
+
+<h3 style="font-size:15px;margin:20px 0 10px;">Projects in this workspace</h3>
+
+{% if projects %}
+<div class="project-grid stagger">
+  {% for project in projects %}
+  <a href="{% url 'project_detail' project.id %}" class="project-card">
+    <div class="project-card-banner">
+      <span style="font-size:32px;">{{ project.emoji }}</span>
+    </div>
+    <div class="project-card-body">
+      <div class="project-card-name">{{ project.name }}</div>
+      <div class="project-card-desc">
+        {% if project.description %}{{ project.description|truncatechars:80 }}
+        {% else %}<span style="color:var(--text-dim);">No description</span>{% endif %}
+      </div>
+      <div class="project-card-footer">
+        <div class="project-stats">
+          <div class="project-stat"><strong>{{ project.image_count }}</strong> images</div>
+          <div class="project-stat"><strong>{{ project.member_count }}</strong> members</div>
+        </div>
+        <span class="badge badge-muted" style="font-size:10px;">
+          {{ project.get_annotation_type_display }}
+        </span>
+      </div>
+    </div>
+  </a>
+  {% endfor %}
+</div>
+{% else %}
+<div class="empty-state">
+  <div class="empty-icon">◉</div>
+  <h3>No projects yet in this workspace</h3>
+  <p>Create one to get started</p>
+  <a href="{% url 'project_create' %}" class="btn btn-primary mt-4">+ New Project</a>
+</div>
+{% endif %}
+{% endblock %}

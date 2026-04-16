@@ -1,0 +1,55 @@
+{% extends "app/app_base.html" %}
+{% block app_title %}New Workspace{% endblock %}
+{% block toolbar_title %}New Workspace{% endblock %}
+
+{% block app_content %}
+<div class="page-header">
+  <div class="page-title">
+    <h1>Create Organization Workspace</h1>
+    <p>An organization workspace is shared — its projects are visible to every member you add.</p>
+  </div>
+</div>
+
+<div style="max-width:600px;">
+  <form method="post">
+    {% csrf_token %}
+
+    <div class="card" style="margin-bottom:16px;">
+      <h3 style="font-size:15px;margin-bottom:20px;">Basic Information</h3>
+
+      <div class="form-group">
+        <label for="name">Workspace Name *</label>
+        <input type="text" id="name" name="name" placeholder="e.g. Acme Research Team"
+               value="{{ request.POST.name|default:'' }}" required autofocus>
+      </div>
+
+      <div class="form-group">
+        <label for="description">Description <span class="text-muted">(optional)</span></label>
+        <textarea id="description" name="description" rows="3"
+                  placeholder="Short description...">{{ request.POST.description|default:'' }}</textarea>
+      </div>
+
+      <div class="form-group" style="max-width:160px;">
+        <label for="emoji">Icon</label>
+        <input type="text" id="emoji" name="emoji" placeholder="◈" maxlength="4"
+               value="{{ request.POST.emoji|default:'◈' }}"
+               style="font-size:20px; text-align:center;">
+        <div class="form-hint">Emoji or symbol</div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:20px;">
+      <h3 style="font-size:15px;margin-bottom:6px;">About workspace types</h3>
+      <p style="font-size:13px;color:var(--text-muted);margin:0;">
+        You already have a <strong>personal</strong> workspace that's private to you.
+        This form creates an <strong>organization</strong> workspace you can invite teammates to.
+      </p>
+    </div>
+
+    <div class="flex gap-2" style="justify-content:flex-end;">
+      <a href="{% url 'workspace_list' %}" class="btn btn-ghost">Cancel</a>
+      <button type="submit" class="btn btn-primary">Create Workspace →</button>
+    </div>
+  </form>
+</div>
+{% endblock %}
