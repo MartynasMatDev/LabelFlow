@@ -359,6 +359,20 @@ kbd {
   font-size: 12px;
 }
 .box-empty-icon { font-size: 28px; margin-bottom: 8px; opacity: .4; }
+
+#poly-ghost-line {
+  fill: rgba(99,102,241,0.08);
+  stroke: #6366f1;
+  stroke-width: 2;
+  stroke-dasharray: 6 3;
+  pointer-events: none;
+}
+#poly-preview-line {
+  stroke: #6366f1;
+  stroke-width: 2;
+  stroke-dasharray: 4 3;
+  pointer-events: none;
+}
 </style>
 {% endblock %}
 
@@ -374,6 +388,9 @@ kbd {
       </button>
       <button class="tool-btn"        id="tool-select" onclick="Annotator.setTool('select')" title="Select (V)">
         <span class="tool-icon">◻</span> Select
+      </button>
+      <button class="tool-btn" id="tool-polygon" onclick="Annotator.setTool('polygon')" title="Draw Polygon (P)">
+        <span class="tool-icon">⬠</span> Polygon
       </button>
     </div>
 
@@ -414,6 +431,11 @@ kbd {
       <svg id="svg-overlay" xmlns="http://www.w3.org/2000/svg">
         <rect id="draw-ghost" x="0" y="0" width="0" height="0" style="display:none;"/>
         <g id="boxes-group"></g>
+        <g id="poly-ghost" style="display:none;pointer-events:none;">
+          <polyline id="poly-ghost-line" fill="rgba(99,102,241,0.08)" points=""/>
+          <line id="poly-preview-line" x1="0" y1="0" x2="0" y2="0"/>
+          <g id="poly-ghost-dots"></g>
+        </g>
       </svg>
     </div>
   </div>
@@ -477,6 +499,8 @@ kbd {
       <span class="key-hint"><kbd>V</kbd> Select</span>
       <span class="key-hint"><kbd>Del</kbd> Delete</span>
       <span class="key-hint"><kbd>Ctrl Z</kbd> Undo</span>
+      <span class="key-hint"><kbd>P</kbd> Polygon</span>
+      <span class="key-hint"><kbd>Esc</kbd> Cancel poly</span>
     </div>
   </aside>
 
@@ -493,6 +517,7 @@ const SAVE_URL        = "{% url 'annotation_save' image.pk %}";
 const DELETE_BOX_URL  = "{% url 'annotation_delete_box' image.pk 0 %}".replace('/0/', '/');
 const CSRF_TOKEN      = '{{ csrf_token }}';
 const INITIAL_BOXES   = {{ boxes_json|safe }};
+const INITIAL_POLYGONS = {{ polygons_json|safe }};
 
 /* ═══════════════════════════════════════════════════════════
    ANNOTATOR
@@ -501,7 +526,9 @@ const Annotator = (() => {
 
   /* ── State ─────────────────────────────────────────────── */
   let boxes       = [];        // { id, label, x, y, width, height } — % coords
+  let polygons    = [];
   let selectedIdx = -1;
+  let selectedPolyIdx = -1;
   let tool        = 'draw';    // 'draw' | 'select'
   let scale       = 1;
   let undoStack   = [];        // snapshots of boxes array
@@ -516,6 +543,9 @@ const Annotator = (() => {
   let resizing    = false;
   let resizeHandle = null;
   let resizeStart  = null;
+
+  let polyDrawing = false;
+  let polyPoints  = [];
 
   /* ── DOM refs ──────────────────────────────────────────── */
   const wrap       = document.getElementById('canvas-wrap');
@@ -533,6 +563,10 @@ const Annotator = (() => {
   const delBtn     = document.getElementById('btn-delete-sel');
   const statusBadge= document.getElementById('status-badge');
   const zoomDisplay= document.getElementById('zoom-display');
+  const polyGhost     = document.getElementById('poly-ghost');
+  const polyGhostLine = document.getElementById('poly-ghost-line');
+  const polyPreview   = document.getElementById('poly-preview-line');
+  const polyGhostDots = document.getElementById('poly-ghost-dots');
 
   /* ── Palette (colours for unlabelled boxes) ─────────────── */
   const PALETTE = ['#6366f1','#f59e0b','#10b981','#ef4444','#3b82f6','#ec4899','#8b5cf6','#14b8a6'];
@@ -562,17 +596,22 @@ const Annotator = (() => {
 
   /* ── Push snapshot for undo ─────────────────────────────── */
   function pushUndo() {
-    undoStack.push(JSON.parse(JSON.stringify(boxes)));
+    undoStack.push({
+      boxes:    JSON.parse(JSON.stringify(boxes)),
+      polygons: JSON.parse(JSON.stringify(polygons)),
+    });
     if (undoStack.length > 50) undoStack.shift();
   }
 
   /* ── Set tool ───────────────────────────────────────────── */
   function setTool(t) {
+    if (polyDrawing) cancelPolygon();
     tool = t;
-    document.getElementById('tool-draw').classList.toggle('active',   t === 'draw');
-    document.getElementById('tool-select').classList.toggle('active', t === 'select');
+    document.getElementById('tool-draw').classList.toggle('active',    t === 'draw');
+    document.getElementById('tool-select').classList.toggle('active',  t === 'select');
+    document.getElementById('tool-polygon').classList.toggle('active', t === 'polygon');
     wrap.className = 'canvas-wrap tool-' + t;
-    if (t === 'draw') { deselectAll(); }
+    if (t === 'draw' || t === 'polygon') { deselectAll(); }
   }
 
   /* ── Zoom ───────────────────────────────────────────────── */
@@ -599,6 +638,7 @@ const Annotator = (() => {
   function render() {
     boxesGroup.innerHTML = '';
     boxes.forEach((b, i) => renderBox(b, i));
+    polygons.forEach((p, i) => renderPolygon(p, i));
     renderSidebarList();
   }
 
@@ -684,12 +724,93 @@ const Annotator = (() => {
     boxesGroup.appendChild(g);
   }
 
+  function renderPolygon(p, i) {
+    const iW    = imgW(), iH = imgH();
+    const color = p.label ? p.label.color : (p._color || '#6366f1');
+    const sel   = (i === selectedPolyIdx);
+    const svgPts = p.points.map(pt => `${pt.x/100*iW},${pt.y/100*iH}`).join(' ');
+
+    const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+
+    const poly = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+    poly.setAttribute('points', svgPts);
+    poly.setAttribute('class',  'poly-shape' + (sel ? ' selected' : ''));
+    poly.setAttribute('stroke', color);
+    poly.setAttribute('fill',   color);
+    poly.addEventListener('mousedown', e => { e.stopPropagation(); selectPolygon(i); render(); });
+    g.appendChild(poly);
+
+    if (p.points.length > 0) {
+      const fp     = p.points[0];
+      const bx     = fp.x / 100 * iW;
+      const by     = Math.max(0, fp.y / 100 * iH - 20);
+      const lText  = p.label ? p.label.name : 'unlabelled';
+      const badgeW = lText.length * 7 + 14;
+
+      const bg = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+      bg.setAttribute('x', bx);  bg.setAttribute('y', by);
+      bg.setAttribute('width', badgeW); bg.setAttribute('height', 18);
+      bg.setAttribute('rx', 4);  bg.setAttribute('fill', color);
+      bg.setAttribute('class', 'bbox-label-bg');
+      bg.style.cursor = 'pointer';
+      bg.addEventListener('mousedown', e => { e.stopPropagation(); selectPolygon(i); render(); });
+      g.appendChild(bg);
+
+      const txt = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+      txt.setAttribute('x', bx + 7); txt.setAttribute('y', by + 9);
+      txt.setAttribute('class', 'bbox-label-text');
+      txt.textContent = lText;
+      g.appendChild(txt);
+    }
+
+    boxesGroup.appendChild(g);
+  }
+
+  function updatePolyGhost(cursorPt) {
+    const iW = imgW(), iH = imgH();
+    const pts = polyPoints.map(p => `${p.x/100*iW},${p.y/100*iH}`).join(' ');
+    polyGhostLine.setAttribute('points', pts);
+
+    if (polyPoints.length > 0) {
+      const last = polyPoints[polyPoints.length - 1];
+      polyPreview.setAttribute('x1', last.x / 100 * iW);
+      polyPreview.setAttribute('y1', last.y / 100 * iH);
+      polyPreview.setAttribute('x2', cursorPt.x / 100 * iW);
+      polyPreview.setAttribute('y2', cursorPt.y / 100 * iH);
+    }
+
+    polyGhostDots.innerHTML = '';
+    polyPoints.forEach((p, idx) => {
+      const c = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+      c.setAttribute('cx', p.x / 100 * iW);
+      c.setAttribute('cy', p.y / 100 * iH);
+      c.setAttribute('r',  idx === 0 ? 6 : 4);
+      c.setAttribute('class', idx === 0 && polyPoints.length >= 3 ? 'poly-close-dot' : 'poly-ghost-dot');
+      polyGhostDots.appendChild(c);
+    });
+  }
+
+  function finishPolygon() {
+    pushUndo();
+    polygons.push({ id: null, label: null, points: [...polyPoints], _color: nextColor() });
+    selectPolygon(polygons.length - 1);
+    cancelPolygon();
+    markDirty();
+    render();
+  }
+
+  function cancelPolygon() {
+    polyDrawing = false;
+    polyPoints  = [];
+    polyGhost.style.display = 'none';
+  }
+
   /* ── Sidebar list ───────────────────────────────────────── */
   function renderSidebarList() {
-    boxCount.textContent = boxes.length;
-    boxEmpty.style.display = boxes.length ? 'none' : 'block';
+    const total = boxes.length + polygons.length;
+    boxCount.textContent    = total;
+    boxEmpty.style.display  = total ? 'none' : 'block';
 
-    // Keep only box items (not the empty state)
     [...boxList.querySelectorAll('.box-item')].forEach(el => el.remove());
 
     boxes.forEach((b, i) => {
@@ -711,9 +832,35 @@ const Annotator = (() => {
 
       const del = document.createElement('button');
       del.className = 'box-del-btn';
-      del.textContent = '✕';
-      del.title = 'Delete';
+      del.textContent = '✕'; del.title = 'Delete';
       del.addEventListener('click', e => { e.stopPropagation(); deleteBox(i); });
+
+      div.append(dot, lbl, coords, del);
+      boxList.appendChild(div);
+    });
+
+    polygons.forEach((p, i) => {
+      const color = p.label ? p.label.color : (p._color || '#6366f1');
+      const div = document.createElement('div');
+      div.className = 'box-item' + (i === selectedPolyIdx ? ' active' : '');
+      div.addEventListener('click', () => { selectPolygon(i); render(); });
+
+      const dot = document.createElement('span');
+      dot.className = 'box-color-dot';
+      dot.style.background = color;
+
+      const lbl = document.createElement('span');
+      lbl.className = 'box-label-text';
+      lbl.textContent = '⬠ ' + (p.label ? p.label.name : 'unlabelled');
+
+      const coords = document.createElement('span');
+      coords.className = 'box-coords';
+      coords.textContent = `${p.points.length}pts`;
+
+      const del = document.createElement('button');
+      del.className = 'box-del-btn';
+      del.textContent = '✕'; del.title = 'Delete';
+      del.addEventListener('click', e => { e.stopPropagation(); deletePolygon(i); });
 
       div.append(dot, lbl, coords, del);
       boxList.appendChild(div);
@@ -724,11 +871,10 @@ const Annotator = (() => {
      SELECTION
   ══════════════════════════════════════════════════════════ */
   function selectBox(i) {
-    selectedIdx = i;
+    selectedIdx     = i;
+    selectedPolyIdx = -1;
     delBtn.style.display = i >= 0 ? '' : 'none';
     labelPicker.classList.toggle('visible', i >= 0);
-
-    // Highlight active chip
     labelGrid.querySelectorAll('.label-chip').forEach(chip => {
       chip.classList.toggle('selected',
         i >= 0 && boxes[i].label && chip.dataset.id == boxes[i].label.id
@@ -736,8 +882,23 @@ const Annotator = (() => {
     });
   }
 
+  function selectPolygon(i) {
+    selectedPolyIdx = i;
+    selectedIdx     = -1;
+    delBtn.style.display = i >= 0 ? '' : 'none';
+    labelPicker.classList.toggle('visible', i >= 0);
+    labelGrid.querySelectorAll('.label-chip').forEach(chip => {
+      chip.classList.toggle('selected',
+        i >= 0 && polygons[i].label && chip.dataset.id == polygons[i].label.id
+      );
+    });
+  }
+
   function deselectAll() {
-    selectBox(-1);
+    selectedIdx     = -1;
+    selectedPolyIdx = -1;
+    delBtn.style.display = 'none';
+    labelPicker.classList.remove('visible');
     render();
   }
 
@@ -745,20 +906,44 @@ const Annotator = (() => {
      DRAWING
   ══════════════════════════════════════════════════════════ */
   function onCanvasMousedown(e) {
-    if (e.target !== svg && e.target !== imgEl && e.target !== ghost && !e.target.closest('#canvas-container')) return;
-    if (tool !== 'draw') return;
+    if (e.target !== svg && e.target !== imgEl && e.target !== ghost &&
+        !e.target.closest('#canvas-container')) return;
     if (e.button !== 0) return;
 
-    drawing  = true;
-    drawStart = clientToPercent(e.clientX, e.clientY);
+    if (tool === 'draw') {
+      drawing   = true;
+      drawStart = clientToPercent(e.clientX, e.clientY);
+      ghost.style.display = '';
+      ghost.setAttribute('x',      drawStart.x / 100 * imgW());
+      ghost.setAttribute('y',      drawStart.y / 100 * imgH());
+      ghost.setAttribute('width',  0);
+      ghost.setAttribute('height', 0);
+      e.preventDefault();
+      return;
+    }
 
-    ghost.style.display = '';
-    ghost.setAttribute('x', drawStart.x / 100 * imgW());
-    ghost.setAttribute('y', drawStart.y / 100 * imgH());
-    ghost.setAttribute('width', 0);
-    ghost.setAttribute('height', 0);
-
-    e.preventDefault();
+    if (tool === 'polygon') {
+      const pt = clientToPercent(e.clientX, e.clientY);
+      if (!polyDrawing) {
+        polyDrawing = true;
+        polyPoints  = [pt];
+        polyGhost.style.display = '';
+        updatePolyGhost(pt);
+        e.preventDefault();
+        return;
+      }
+      const fp = polyPoints[0];
+      const iW = imgW(), iH = imgH();
+      const dx = (pt.x - fp.x) / 100 * iW;
+      const dy = (pt.y - fp.y) / 100 * iH;
+      if (Math.sqrt(dx*dx + dy*dy) < 12 && polyPoints.length >= 3) {
+        finishPolygon();
+      } else {
+        polyPoints.push(pt);
+        updatePolyGhost(pt);
+      }
+      e.preventDefault();
+    }
   }
 
   function onMousemove(e) {
@@ -787,6 +972,9 @@ const Annotator = (() => {
 
     if (resizing && selectedIdx >= 0) {
       onResize(e);
+    }
+    if (tool === 'polygon' && polyDrawing && polyPoints.length > 0) {
+      updatePolyGhost(clientToPercent(e.clientX, e.clientY));
     }
   }
 
@@ -886,16 +1074,14 @@ const Annotator = (() => {
      LABELS
   ══════════════════════════════════════════════════════════ */
   function applyLabel(id, name, color) {
-    if (selectedIdx < 0) return;
+    if (selectedIdx < 0 && selectedPolyIdx < 0) return;
     pushUndo();
-    boxes[selectedIdx].label = { id, name, color };
+    if (selectedIdx >= 0)         { boxes[selectedIdx].label = { id, name, color }; }
+    else if (selectedPolyIdx >= 0){ polygons[selectedPolyIdx].label = { id, name, color }; }
     markDirty();
-
-    // Update chip highlights
     labelGrid.querySelectorAll('.label-chip').forEach(chip => {
       chip.classList.toggle('selected', chip.dataset.id == id);
     });
-
     render();
   }
 
@@ -953,14 +1139,30 @@ const Annotator = (() => {
     render();
   }
 
+  function deletePolygon(i) {
+    pushUndo();
+    polygons.splice(i, 1);
+    if (selectedPolyIdx === i)    { selectPolygon(-1); }
+    else if (selectedPolyIdx > i) { selectedPolyIdx--; }
+    markDirty();
+    render();
+  }
+
   function deleteSelected() {
-    if (selectedIdx >= 0) deleteBox(selectedIdx);
+    if (selectedIdx >= 0)     { deleteBox(selectedIdx); return; }
+    if (selectedPolyIdx >= 0) { deletePolygon(selectedPolyIdx); }
   }
 
   function undo() {
+    if (polyDrawing) { cancelPolygon(); return; }
     if (!undoStack.length) return;
-    boxes = undoStack.pop();
-    selectBox(-1);
+    const snap = undoStack.pop();
+    boxes    = snap.boxes;
+    polygons = snap.polygons;
+    selectedIdx     = -1;
+    selectedPolyIdx = -1;
+    delBtn.style.display = 'none';
+    labelPicker.classList.remove('visible');
     markDirty();
     render();
   }
@@ -981,14 +1183,18 @@ const Annotator = (() => {
     const payload = {
       mark_done: markDone,
       boxes: boxes.map(b => ({
-        id:       b.id || null,
-        label_id: b.label ? (b.label.id || null) : null,
-        label_name:  b.label ? b.label.name  : null,   // for get_or_create on server
+        id:          b.id || null,
+        label_id:    b.label ? (b.label.id || null) : null,
+        label_name:  b.label ? b.label.name  : null,
         label_color: b.label ? b.label.color : null,
-        x:       b.x,
-        y:       b.y,
-        width:   b.width,
-        height:  b.height,
+        x: b.x, y: b.y, width: b.width, height: b.height,
+      })),
+      polygons: polygons.map(p => ({
+        id:          p.id || null,
+        label_id:    p.label ? (p.label.id || null) : null,
+        label_name:  p.label ? p.label.name  : null,
+        label_color: p.label ? p.label.color : null,
+        points:      p.points,
       })),
     };
 
@@ -1006,6 +1212,12 @@ const Annotator = (() => {
           if (boxes[i]) {
             boxes[i].id    = sb.id;
             boxes[i].label = sb.label;
+          }
+        });
+        (data.polygons || []).forEach((sp, i) => {
+          if (polygons[i]) {
+            polygons[i].id    = sp.id;
+            polygons[i].label = sp.label;
           }
         });
         dirty = false;
@@ -1034,10 +1246,11 @@ const Annotator = (() => {
 
     if (e.key === 'b' || e.key === 'B') setTool('draw');
     if (e.key === 'v' || e.key === 'V') setTool('select');
+    if (e.key === 'p' || e.key === 'P') setTool('polygon');
     if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); deleteSelected(); }
     if ((e.ctrlKey || e.metaKey) && (e.key === 'z' || e.key === 'Z')) { e.preventDefault(); undo(); }
     if ((e.ctrlKey || e.metaKey) && (e.key === 's' || e.key === 'S')) { e.preventDefault(); save(false); }
-    if (e.key === 'Escape') deselectAll();
+    if (e.key === 'Escape') { cancelPolygon(); deselectAll(); }
   });
 
   /* ══════════════════════════════════════════════════════════
@@ -1062,7 +1275,8 @@ const Annotator = (() => {
   function init() {
     // Wait for image to load so imgW/imgH are accurate
     function start() {
-      boxes = INITIAL_BOXES.map(b => ({ ...b }));
+      boxes    = INITIAL_BOXES.map(b => ({ ...b }));
+      polygons = INITIAL_POLYGONS.map(p => ({ ...p }));
       render();
       setTool('draw');
     }
