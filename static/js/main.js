@@ -1123,7 +1123,7 @@ window.closeDeleteModal = () => document.getElementById('delete-modal').classLis
             },
             grid: {
               display: true,
-              color: 'rgba(120,120,160,0.15)',   // ✅ visible horizontal lines
+              color: 'rgba(120,120,160,0.15)',
               lineWidth: 1
             }
           }
