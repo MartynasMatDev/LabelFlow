@@ -12,7 +12,7 @@ from django.urls import reverse
 
 from apps.projects.models import Project
 from apps.projects.activity import log_activity
-from .models import Image, Tag, BoundingBox
+from .models import Image, Tag, BoundingBox, Polygon
 
 
 ALLOWED_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.webp', '.bmp', '.gif'}
@@ -242,12 +242,14 @@ def image_detail(request, pk):
     if not image.project.user_has_access(request.user):
         messages.error(request, 'You do not have access to this image.')
         return redirect('image_list')
-    boxes = [b.to_dict() for b in image.bounding_boxes.select_related('label').all()]
+    boxes    = [b.to_dict() for b in image.bounding_boxes.select_related('label').all()]
+    polygons = [p.to_dict() for p in image.polygons.select_related('label').all()]
     return render(request, 'app/image_detail.html', {
-        'image':      image,
-        'active_nav': 'images',
-        'project':    image.project,
-        'boxes_json': json.dumps(boxes),
+        'image':         image,
+        'active_nav':    'images',
+        'project':       image.project,
+        'boxes_json':    json.dumps(boxes),
+        'polygons_json': json.dumps(polygons),
     })
 
 
@@ -260,16 +262,18 @@ def image_annotate(request, pk):
         messages.error(request, 'You do not have access to this image.')
         return redirect('image_list')
 
-    boxes    = [b.to_dict() for b in image.bounding_boxes.select_related('label').all()]
+    boxes = [b.to_dict() for b in image.bounding_boxes.select_related('label').all()]
     all_tags = Tag.objects.all()
+    polygons = [p.to_dict() for p in image.polygons.select_related('label').all()]
 
     ctx = {
         'active_nav': 'images',
-        'project':    image.project,
-        'image':      image,
+        'project': image.project,
+        'image': image,
         'boxes_json': json.dumps(boxes),
-        'all_tags':   all_tags,
-        'user_role':  image.project.get_user_role(request.user) or 'admin',
+        'polygons_json': json.dumps(polygons),
+        'all_tags': all_tags,
+        'user_role': image.project.get_user_role(request.user) or 'admin',
     }
     return render(request, 'app/image_annotate.html', ctx)
 
@@ -333,25 +337,66 @@ def annotation_save(request, pk):
 
     image.bounding_boxes.exclude(pk__in=kept_ids).delete()
 
-    # Update status and log
-    prev_status = image.status
-    if mark_done:
-        image.status = 'done'
-    elif saved:
-        image.status = 'partial'
-    else:
-        image.status = 'pending'
-    image.save(update_fields=['status'])
+    # ── Handle polygons ──────────────────────────────────────
+    incoming_polys = data.get('polygons', [])
+    kept_poly_ids = []
+    saved_polys = []
 
-    # Log the annotation action
-    if mark_done and prev_status != 'done':
-        log_activity(image.project, request.user, 'annotation_done',
-                     detail=image.name, meta={'image_id': image.pk, 'box_count': len(saved)})
-    elif saved:
-        log_activity(image.project, request.user, 'annotation_saved',
-                     detail=image.name, meta={'image_id': image.pk, 'box_count': len(saved)})
+    for p in incoming_polys:
+        poly_id = p.get('id')
+        label_id = p.get('label_id')
+        label = Tag.objects.filter(pk=label_id).first() if label_id else None
+        points = p.get('points', [])
 
-    return JsonResponse({'success': True, 'boxes': saved, 'status': image.status})
+        if not isinstance(points, list) or len(points) < 3:
+            continue
+
+        if not label and p.get('label_name'):
+            label, _ = Tag.objects.get_or_create(
+                name=p['label_name'],
+                defaults={
+                    'color': p.get('label_color', '#6366f1'),
+                    'created_by': request.user,
+                }
+            )
+
+        if poly_id:
+            poly = Polygon.objects.filter(pk=poly_id, image=image).first()
+            if poly:
+                poly.label = label
+                poly.points = points
+                poly.save()
+                kept_poly_ids.append(poly.pk)
+                saved_polys.append(poly.to_dict())
+                continue
+
+        poly = Polygon.objects.create(
+            image=image, label=label, points=points, created_by=request.user
+        )
+        kept_poly_ids.append(poly.pk)
+        saved_polys.append(poly.to_dict())
+
+        image.polygons.exclude(pk__in=kept_poly_ids).delete()
+
+        # Update status
+        prev_status = image.status
+        if mark_done:
+            image.status = 'done'
+        elif saved or saved_polys:
+            image.status = 'partial'
+        else:
+            image.status = 'pending'
+        image.save(update_fields=['status'])
+
+        if mark_done and prev_status != 'done':
+            log_activity(image.project, request.user, 'annotation_done',
+                         detail=image.name, meta={'image_id': image.pk, 'box_count': len(saved) + len(saved_polys)})
+        elif saved or saved_polys:
+            log_activity(image.project, request.user, 'annotation_saved',
+                         detail=image.name, meta={'image_id': image.pk, 'box_count': len(saved) + len(saved_polys)})
+
+        return JsonResponse({'success': True, 'boxes': saved, 'polygons': saved_polys, 'status': image.status})
+
 
 
 @login_required
@@ -415,3 +460,13 @@ def batch_tag(request):
 
     next_url = request.POST.get('next') or request.META.get('HTTP_REFERER', '/')
     return redirect(next_url)
+
+@login_required
+@require_POST
+def polygon_delete(request, pk, poly_pk):
+    image = get_object_or_404(Image, pk=pk)
+    if not image.project.user_has_access(request.user):
+        return JsonResponse({'error': 'Access denied.'}, status=403)
+    poly = get_object_or_404(Polygon, pk=poly_pk, image=image)
+    poly.delete()
+    return JsonResponse({'success': True})
