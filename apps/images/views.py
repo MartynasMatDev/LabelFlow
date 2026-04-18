@@ -376,7 +376,6 @@ def annotation_save(request, pk):
         kept_poly_ids.append(poly.pk)
         saved_polys.append(poly.to_dict())
 
-        # ← nuo čia turi būti vienu lygiu kairiau (už for ciklo ribų):
     image.polygons.exclude(pk__in=kept_poly_ids).delete()
 
     # Update status
