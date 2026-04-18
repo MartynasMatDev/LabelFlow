@@ -376,27 +376,27 @@ def annotation_save(request, pk):
         kept_poly_ids.append(poly.pk)
         saved_polys.append(poly.to_dict())
 
-        image.polygons.exclude(pk__in=kept_poly_ids).delete()
+        # ← nuo čia turi būti vienu lygiu kairiau (už for ciklo ribų):
+    image.polygons.exclude(pk__in=kept_poly_ids).delete()
 
-        # Update status
-        prev_status = image.status
-        if mark_done:
-            image.status = 'done'
-        elif saved or saved_polys:
-            image.status = 'partial'
-        else:
-            image.status = 'pending'
-        image.save(update_fields=['status'])
+    # Update status
+    prev_status = image.status
+    if mark_done:
+        image.status = 'done'
+    elif saved or saved_polys:
+        image.status = 'partial'
+    else:
+        image.status = 'pending'
+    image.save(update_fields=['status'])
 
-        if mark_done and prev_status != 'done':
-            log_activity(image.project, request.user, 'annotation_done',
-                         detail=image.name, meta={'image_id': image.pk, 'box_count': len(saved) + len(saved_polys)})
-        elif saved or saved_polys:
-            log_activity(image.project, request.user, 'annotation_saved',
-                         detail=image.name, meta={'image_id': image.pk, 'box_count': len(saved) + len(saved_polys)})
+    if mark_done and prev_status != 'done':
+        log_activity(image.project, request.user, 'annotation_done',
+                     detail=image.name, meta={'image_id': image.pk, 'box_count': len(saved) + len(saved_polys)})
+    elif saved or saved_polys:
+        log_activity(image.project, request.user, 'annotation_saved',
+                     detail=image.name, meta={'image_id': image.pk, 'box_count': len(saved) + len(saved_polys)})
 
-        return JsonResponse({'success': True, 'boxes': saved, 'polygons': saved_polys, 'status': image.status})
-
+    return JsonResponse({'success': True, 'boxes': saved, 'polygons': saved_polys, 'status': image.status})
 
 
 @login_required
