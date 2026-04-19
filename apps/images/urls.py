@@ -16,7 +16,7 @@ urlpatterns = [
     path('<int:pk>/annotate/',            views.image_annotate,         name='image_annotate'),
     path('<int:pk>/annotate/save/',       views.annotation_save,        name='annotation_save'),
     path('<int:pk>/annotate/box/<int:box_pk>/delete/', views.annotation_delete_box, name='annotation_delete_box'),
-
+    path('<int:pk>/annotate/polygon/<int:poly_pk>/delete/', views.polygon_delete, name='polygon_delete'),
     # Batch actions
     path('batch-tag/',                    views.batch_tag,              name='batch_tag'),
     path('batch-delete/',                 views.batch_delete,           name='batch_delete'),
