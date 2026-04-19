@@ -1226,6 +1226,30 @@ hr, .divider { border: none; border-top: 1px solid var(--border); margin: 22px 0
   .app-content { grid-column: 1; padding: 16px; }
 }
 
+/* ── Polygon tool ──────────────────────────────────────── */
+.canvas-wrap.tool-polygon { cursor: crosshair; }
+
+.poly-shape {
+  fill-opacity: 0.08;
+  stroke-width: 2;
+  cursor: pointer;
+  transition: stroke-width .1s;
+}
+.poly-shape:hover    { stroke-width: 2.5; }
+.poly-shape.selected { stroke-width: 2.5; fill-opacity: 0.18; }
+
+.poly-ghost-dot {
+  fill: #fff;
+  stroke: #6366f1;
+  stroke-width: 2;
+  pointer-events: none;
+}
+.poly-close-dot {
+  fill: #6366f1;
+  stroke: #fff;
+  stroke-width: 2;
+  pointer-events: none;
+}
 /* ════════════════════════════════════════════════════════
    TEAM SECTION (Landing page)
    ADD THIS BLOCK TO style.css before the RESPONSIVE section
