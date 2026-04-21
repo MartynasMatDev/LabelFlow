@@ -152,6 +152,14 @@ window.openDeleteModal = function () {
 
 window.closeDeleteModal = () => document.getElementById('delete-modal').classList.remove('open');
 
+  let editIdx = -1;
+  let editTempDeg = 0;
+  let editTempCrop = null;
+  let editObjectURL = null;
+  let editLoadedImg = null;
+  let cropDragState = null;
+  const unsavedBuf = new Map();
+
 /* ── Upload page IIFE (runs only when drop-zone exists) ──── */
 (function () {
   if (!document.getElementById('drop-zone')) return;   // not on upload page → skip
@@ -163,11 +171,13 @@ window.closeDeleteModal = () => document.getElementById('delete-modal').classLis
   let preSkipped = 0;
   let running    = false;
 
-  const rotations  = new Map();
-  let editIdx       = -1;
-  let editTempDeg   = 0;
-  let editObjectURL = null;
-  const unsavedBuf  = new Map();
+  const rotations = new Map();
+  const crops = new Map();
+
+  const editOverlay  = document.getElementById('edit-modal-overlay');
+  const editCanvas   = document.getElementById('edit-preview-canvas');
+  const editCropBox  = document.getElementById('edit-crop-box');
+  const editCtx      = editCanvas.getContext('2d');
 
   const dropZone    = document.getElementById('drop-zone');
   const inputFiles  = document.getElementById('input-files');
@@ -185,8 +195,6 @@ window.closeDeleteModal = () => document.getElementById('delete-modal').classLis
   const errorList   = document.getElementById('error-list');
   const summary     = document.getElementById('upload-summary');
   const statsCard   = document.getElementById('stats-card');
-  const editOverlay  = document.getElementById('edit-modal-overlay');
-  const editImg      = document.getElementById('edit-preview-img');
   const editFilename = document.getElementById('edit-modal-filename');
   const editNavPrev  = document.getElementById('edit-nav-prev');
   const editNavNext  = document.getElementById('edit-nav-next');
@@ -201,8 +209,13 @@ window.closeDeleteModal = () => document.getElementById('delete-modal').classLis
   }
   function esc(s)  { return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
   function csrf()  { const m = document.cookie.match('(^|;)\\s*csrftoken=([^;]*)'); return m ? decodeURIComponent(m[2]) : ''; }
-  function fileKey(f) { return (f.name + f.size + f.lastModified).replace(/\W/g, '_'); }
+  const fileIds = new WeakMap();
+  let nextFileId = 1;
 
+  function fileKey(f) {
+    if (!fileIds.has(f)) fileIds.set(f, `file_${nextFileId++}`);
+    return fileIds.get(f);
+  }
   function buildThumb(file) {
     const d = document.createElement('div');
     d.className = 'queue-thumb';
@@ -237,6 +250,9 @@ window.closeDeleteModal = () => document.getElementById('delete-modal').classLis
   function buildQueue(files) {
     pending    = [];
     preSkipped = 0;
+    rotations.clear();
+    crops.clear();
+    unsavedBuf.clear();
     queueList.innerHTML = '';
     errorLog.classList.remove('visible');
     errorList.innerHTML = '';
@@ -281,7 +297,7 @@ window.closeDeleteModal = () => document.getElementById('delete-modal').classLis
     editBtn.textContent = '✎';
     editBtn.onclick = () => {
       const idx = pending.indexOf(f);
-      if (idx !== -1) openEditModal(idx);
+      if (idx !== -1) window.openEditModal(idx);
   };
   actions.appendChild(editBtn);
   }
@@ -324,6 +340,7 @@ window.closeDeleteModal = () => document.getElementById('delete-modal').classLis
   window.clearQueue = function () {
     pending = []; preSkipped = 0;
     rotations.clear();
+    crops.clear();
     queueList.innerHTML = '';
     queueWrap.classList.remove('visible');
     progSec.classList.remove('visible');
@@ -463,112 +480,499 @@ window.closeDeleteModal = () => document.getElementById('delete-modal').classLis
     r.innerHTML = `<span class="en">${esc(name)}</span><span class="er">${esc(reason)}</span>`;
     errorList.appendChild(r);
   }
+
   function syncModalUI() {
-  const file = pending[editIdx];
-  editFilename.textContent  = file.name;
-  editNavCtr.textContent    = `${editIdx + 1} / ${pending.length}`;
-  editNavPrev.disabled      = editIdx === 0;
-  editNavNext.disabled      = editIdx === pending.length - 1;
-  editImg.style.transform   = `rotate(${editTempDeg}deg)`;
-  const saved = rotations.get(fileKey(pending[editIdx])) || 0;
-}
+    if (editIdx < 0 || !pending[editIdx]) return;
 
-window.openEditModal = function (idx) {
-  if (idx < 0 || idx >= pending.length) return;
-  unsavedBuf.clear();
-  editIdx     = idx;
-  editTempDeg = rotations.get(fileKey(pending[idx])) || 0;
-  if (editObjectURL) { URL.revokeObjectURL(editObjectURL); editObjectURL = null; }
-  editObjectURL = URL.createObjectURL(pending[idx]);
-  editImg.src   = editObjectURL;
-  syncModalUI();
-  editOverlay.classList.add('open');
-};
+    const file = pending[editIdx];
+    editFilename.textContent = file.name;
+    editNavCtr.textContent   = `${editIdx + 1} / ${pending.length}`;
+    editNavPrev.disabled     = editIdx === 0;
+    editNavNext.disabled     = editIdx === pending.length - 1;
 
-window.editNavigate = function (dir) {
-  if (editIdx < 0) return;
-  const next = editIdx + dir;
-  if (next < 0 || next >= pending.length) return;
-  unsavedBuf.set(fileKey(pending[editIdx]), editTempDeg);
-  editIdx     = next;
-  const fk    = fileKey(pending[editIdx]);
-  editTempDeg = unsavedBuf.has(fk) ? unsavedBuf.get(fk) : (rotations.get(fk) || 0);
-  if (editObjectURL) { URL.revokeObjectURL(editObjectURL); editObjectURL = null; }
-  editObjectURL = URL.createObjectURL(pending[editIdx]);
-  editImg.src   = editObjectURL;
-  syncModalUI();
-};
+    if (!editLoadedImg) return;
 
-window.applyRotation = function (delta) {
-  editTempDeg = (((editTempDeg + delta) % 360) + 360) % 360;
-  syncModalUI();
-};
+    const w = editCanvas.width;
+    const h = editCanvas.height;
+    if (!w || !h) return;
 
-window.resetRotation = function () {
-  editTempDeg = 0;
-  syncModalUI();
-};
+    const c = editTempCrop || fullCrop();
 
-window.saveRotation = function () {
-  if (editIdx < 0 || editIdx >= pending.length) return;
-  const k = fileKey(pending[editIdx]);
-  if (editTempDeg === 0) rotations.delete(k);
-  else                   rotations.set(k, editTempDeg);
-  refreshThumb(pending[editIdx]);
-  closeOverlay();
-};
+    editCropBox.hidden = false;
+    editCropBox.style.left   = `${c.x * w}px`;
+    editCropBox.style.top    = `${c.y * h}px`;
+    editCropBox.style.width  = `${c.w * w}px`;
+    editCropBox.style.height = `${c.h * h}px`;
+  }
+  function clamp(v, min, max) {
+    return Math.max(min, Math.min(max, v));
+  }
 
-window.closeEditModal = function () { closeOverlay(); };
+  function cloneCrop(c) {
+    return c ? { x: c.x, y: c.y, w: c.w, h: c.h } : null;
+  }
 
-function closeOverlay() {
-  editOverlay.classList.remove('open');
-  setTimeout(() => {
-    if (editObjectURL) { URL.revokeObjectURL(editObjectURL); editObjectURL = null; }
-    editImg.src = '';
-    editImg.style.transform = '';
-  }, 220);
-  editIdx = -1; editTempDeg = 0; unsavedBuf.clear();
-}
+  function fullCrop() {
+    return { x: 0, y: 0, w: 1, h: 1 };
+  }
 
-document.addEventListener('keydown', e => {
-  if (!editOverlay || !editOverlay.classList.contains('open')) return;
-  if (e.key === 'Escape')     { closeEditModal();      return; }
-  if (e.key === 'Enter')      { saveRotation();        return; }
-  if (e.key === 'ArrowLeft')  { editNavigate(-1);      return; }
-  if (e.key === 'ArrowRight') { editNavigate(1);       return; }
-  if (e.key === 'ArrowUp')    { e.preventDefault(); applyRotation(-90); }
-  if (e.key === 'ArrowDown')  { e.preventDefault(); applyRotation(90);  }
-});
+  function cropIsFull(c) {
+    return !!c && c.x <= 0.001 && c.y <= 0.001 && c.x + c.w >= 0.999 && c.y + c.h >= 0.999;
+  }
 
-editOverlay.addEventListener('click', e => {
-  if (e.target === editOverlay) closeEditModal();
-});
+  function normalizeCrop(c) {
+    let x = clamp(c.x, 0, 1);
+    let y = clamp(c.y, 0, 1);
+    let w = clamp(c.w, 0.02, 1 - x);
+    let h = clamp(c.h, 0.02, 1 - y);
+    return { x, y, w, h };
+  }
 
-function getRotatedFile(file) {
-  const deg = rotations.get(fileKey(file)) || 0;
-  if (deg === 0) return Promise.resolve(file);
-  return new Promise(resolve => {
-    const img = new Image();
-    const url = URL.createObjectURL(file);
-    img.onload = () => {
-      const swapped = deg === 90 || deg === 270;
-      const canvas  = document.createElement('canvas');
-      canvas.width  = swapped ? img.height : img.width;
-      canvas.height = swapped ? img.width  : img.height;
-      const ctx = canvas.getContext('2d');
-      ctx.translate(canvas.width / 2, canvas.height / 2);
-      ctx.rotate(deg * Math.PI / 180);
-      ctx.drawImage(img, -img.width / 2, -img.height / 2);
-      URL.revokeObjectURL(url);
-      const mime = ['image/png','image/webp','image/gif'].includes(file.type) ? file.type : 'image/jpeg';
-      canvas.toBlob(blob => {
-        resolve(blob ? new File([blob], file.name, { type: mime, lastModified: file.lastModified }) : file);
-      }, mime, 0.95);
+  function transformCrop(rect, delta) {
+    if (!rect) return fullCrop();
+    const step = (((delta % 360) + 360) % 360);
+    if (step === 0) return cloneCrop(rect);
+
+    const pts = [
+      [rect.x, rect.y],
+      [rect.x + rect.w, rect.y],
+      [rect.x, rect.y + rect.h],
+      [rect.x + rect.w, rect.y + rect.h]
+    ];
+
+    const map = step === 90
+        ? ([x, y]) => [1 - y, x]
+        : step === 180
+            ? ([x, y]) => [1 - x, 1 - y]
+            : ([x, y]) => [y, 1 - x]; // 270
+
+    const mapped = pts.map(map);
+    const xs = mapped.map(p => p[0]);
+    const ys = mapped.map(p => p[1]);
+
+    return normalizeCrop({
+      x: Math.min(...xs),
+      y: Math.min(...ys),
+      w: Math.max(...xs) - Math.min(...xs),
+      h: Math.max(...ys) - Math.min(...ys)
+    });
+  }
+
+  function renderEditPreview() {
+
+    if (!editLoadedImg || editIdx < 0) return;
+
+    const rot = ((editTempDeg % 360) + 360) % 360;
+    const baseW = (rot === 90 || rot === 270) ? editLoadedImg.naturalHeight : editLoadedImg.naturalWidth;
+    const baseH = (rot === 90 || rot === 270) ? editLoadedImg.naturalWidth  : editLoadedImg.naturalHeight;
+
+    const maxW = 520;
+    const maxH = 360;
+    const scale = Math.min(maxW / baseW, maxH / baseH, 1);
+
+    const w = Math.max(1, Math.round(baseW * scale));
+    const h = Math.max(1, Math.round(baseH * scale));
+
+    editCanvas.width = w;
+    editCanvas.height = h;
+    editCanvas.style.width = `${w}px`;
+    editCanvas.style.height = `${h}px`;
+
+    editCtx.setTransform(1, 0, 0, 1, 0, 0);
+    editCtx.clearRect(0, 0, w, h);
+
+    const drawW = editLoadedImg.naturalWidth * scale;
+    const drawH = editLoadedImg.naturalHeight * scale;
+
+    editCtx.save();
+    editCtx.translate(w / 2, h / 2);
+    editCtx.rotate(rot * Math.PI / 180);
+    editCtx.drawImage(
+      editLoadedImg,
+      -editLoadedImg.naturalWidth * scale / 2,
+      -editLoadedImg.naturalHeight * scale / 2,
+      editLoadedImg.naturalWidth * scale,
+      editLoadedImg.naturalHeight * scale
+    );
+    editCtx.restore();
+
+    syncModalUI();
+  }
+
+  function startCropDrag(e) {
+    if (!editLoadedImg) return;
+
+    const box = editCanvas.getBoundingClientRect();
+    cropDragState = {
+      mode: e.target.dataset.handle ? 'resize' : 'move',
+      handle: e.target.dataset.handle || null,
+      startX: e.clientX,
+      startY: e.clientY,
+      start: cloneCrop(editTempCrop || fullCrop()),
+      boxW: box.width,
+      boxH: box.height
     };
-    img.onerror = () => { URL.revokeObjectURL(url); resolve(file); };
+
+    e.preventDefault();
+    e.stopPropagation();
+    window.addEventListener('pointermove', onCropDrag);
+    window.addEventListener('pointerup', stopCropDrag, { once: true });
+  }
+
+  function onCropDrag(e) {
+    if (!cropDragState) return;
+
+    const dx = (e.clientX - cropDragState.startX) / cropDragState.boxW;
+    const dy = (e.clientY - cropDragState.startY) / cropDragState.boxH;
+    const minW = Math.max(24 / cropDragState.boxW, 0.02);
+    const minH = Math.max(24 / cropDragState.boxH, 0.02);
+
+    let c = cloneCrop(cropDragState.start);
+
+    if (cropDragState.mode === 'move') {
+      c.x = clamp(cropDragState.start.x + dx, 0, 1 - cropDragState.start.w);
+      c.y = clamp(cropDragState.start.y + dy, 0, 1 - cropDragState.start.h);
+    } else {
+      let x = cropDragState.start.x;
+      let y = cropDragState.start.y;
+      let w = cropDragState.start.w;
+      let h = cropDragState.start.h;
+
+      if (cropDragState.handle.includes('e')) w = clamp(cropDragState.start.w + dx, minW, 1 - x);
+      if (cropDragState.handle.includes('s')) h = clamp(cropDragState.start.h + dy, minH, 1 - y);
+
+      if (cropDragState.handle.includes('w')) {
+        x = clamp(cropDragState.start.x + dx, 0, cropDragState.start.x + cropDragState.start.w - minW);
+        w = clamp(cropDragState.start.x + cropDragState.start.w - x, minW, 1 - x);
+      }
+
+      if (cropDragState.handle.includes('n')) {
+        y = clamp(cropDragState.start.y + dy, 0, cropDragState.start.y + cropDragState.start.h - minH);
+        h = clamp(cropDragState.start.y + cropDragState.start.h - y, minH, 1 - y);
+      }
+
+      c = { x, y, w, h };
+    }
+
+    editTempCrop = normalizeCrop(c);
+    syncModalUI();
+  }
+
+  function stopCropDrag() {
+    window.removeEventListener('pointermove', onCropDrag);
+    cropDragState = null;
+  }
+
+  editCropBox.addEventListener('pointerdown', startCropDrag);
+
+  window.openEditModal = function (idx) {
+    if (idx < 0 || idx >= pending.length) return;
+
+    const fk = fileKey(pending[idx]);
+    const cached = unsavedBuf.get(fk);
+
+    editIdx = idx;
+    editTempDeg = cached ? cached.deg : (rotations.get(fk) || 0);
+    editTempCrop = cached ? cloneCrop(cached.crop) : (crops.get(fk) ? cloneCrop(crops.get(fk)) : fullCrop());
+
+    if (editObjectURL) {
+      URL.revokeObjectURL(editObjectURL);
+      editObjectURL = null;
+    }
+
+    editLoadedImg = null;
+    editCropBox.hidden = true;
+
+    const url = URL.createObjectURL(pending[idx]);
+    editObjectURL = url;
+
+    const img = new Image();
+    img.onload = () => {
+      editLoadedImg = img;
+      editOverlay.classList.add('open');
+      renderEditPreview();
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      alert('Could not load image.');
+    };
     img.src = url;
+  };
+
+  window.editNavigate = function (dir) {
+    if (editIdx < 0) return;
+
+    const next = editIdx + dir;
+    if (next < 0 || next >= pending.length) return;
+
+    unsavedBuf.set(fileKey(pending[editIdx]), {
+      deg: editTempDeg,
+      crop: cloneCrop(editTempCrop)
+    });
+
+    editIdx = next;
+    const fk = fileKey(pending[editIdx]);
+    const cached = unsavedBuf.get(fk);
+
+    editTempDeg = cached ? cached.deg : (rotations.get(fk) || 0);
+    editTempCrop = cached ? cloneCrop(cached.crop) : (crops.get(fk) ? cloneCrop(crops.get(fk)) : fullCrop());
+
+    if (editObjectURL) {
+      URL.revokeObjectURL(editObjectURL);
+      editObjectURL = null;
+    }
+
+    editLoadedImg = null;
+    editCropBox.hidden = true;
+
+    const url = URL.createObjectURL(pending[editIdx]);
+    editObjectURL = url;
+
+    const img = new Image();
+    img.onload = () => {
+      editLoadedImg = img;
+      renderEditPreview();
+    };
+    img.onerror = () => {
+      URL.revokeObjectURL(url);
+      alert('Could not load image.');
+    };
+    img.src = url;
+  };
+
+  window.applyRotation = function (delta) {
+    editTempCrop = transformCrop(editTempCrop || fullCrop(), delta);
+    editTempDeg = (((editTempDeg + delta) % 360) + 360) % 360;
+    renderEditPreview();
+  };
+
+  window.resetRotation = function () {
+    if (!editTempDeg) return;
+    editTempCrop = transformCrop(editTempCrop || fullCrop(), -editTempDeg);
+    editTempDeg = 0;
+    renderEditPreview();
+  };
+
+  window.saveRotation = function () {
+    if (editIdx < 0 || editIdx >= pending.length) return;
+
+    const k = fileKey(pending[editIdx]);
+
+    if (editTempDeg === 0) rotations.delete(k);
+    else rotations.set(k, editTempDeg);
+
+    if (cropIsFull(editTempCrop)) crops.delete(k);
+    else crops.set(k, cloneCrop(editTempCrop));
+
+    unsavedBuf.delete(k);
+    refreshThumb(pending[editIdx]);
+    closeOverlay();
+  };
+
+  window.closeEditModal = function () {
+    closeOverlay();
+  };
+
+  function closeOverlay() {
+    editOverlay.classList.remove('open');
+
+    setTimeout(() => {
+      if (editObjectURL) {
+        URL.revokeObjectURL(editObjectURL);
+        editObjectURL = null;
+      }
+      editLoadedImg = null;
+      editCropBox.hidden = true;
+      editCanvas.width = 1;
+      editCanvas.height = 1;
+      editCanvas.style.width = '';
+      editCanvas.style.height = '';
+      editCtx.clearRect(0, 0, 1, 1);
+    }, 220);
+
+    editIdx = -1;
+    editTempDeg = 0;
+    editTempCrop = null;
+    cropDragState = null;
+    unsavedBuf.clear();
+  }
+
+  document.addEventListener('keydown', e => {
+    if (!editOverlay || !editOverlay.classList.contains('open')) return;
+
+    if (e.key === 'Escape') { window.closeEditModal(); return; }
+    if (e.key === 'Enter')  { window.saveRotation(); return; }
+    if (e.key === 'ArrowLeft')  { window.editNavigate(-1); return; }
+    if (e.key === 'ArrowRight') { window.editNavigate(1); return; }
+    if (e.key === 'ArrowUp')    { e.preventDefault(); window.applyRotation(-90); return; }
+    if (e.key === 'ArrowDown')  { e.preventDefault(); window.applyRotation(90); return; }
   });
-}
+
+  editOverlay.addEventListener('click', e => {
+    if (e.target === editOverlay) window.closeEditModal();
+  });
+
+  function renderThumbUrl(file) {
+    const fk = fileKey(file);
+    const deg = rotations.get(fk) || 0;
+    const crop = crops.get(fk);
+
+    if (!deg && !crop) {
+      return Promise.resolve(URL.createObjectURL(file));
+    }
+
+    return new Promise(resolve => {
+      const img = new Image();
+      const url = URL.createObjectURL(file);
+
+      img.onload = () => {
+        const rot = ((deg % 360) + 360) % 360;
+        const baseW = (rot === 90 || rot === 270) ? img.height : img.width;
+        const baseH = (rot === 90 || rot === 270) ? img.width : img.height;
+
+        const src = document.createElement('canvas');
+        src.width = baseW;
+        src.height = baseH;
+
+        const sctx = src.getContext('2d');
+        sctx.translate(baseW / 2, baseH / 2);
+        sctx.rotate(rot * Math.PI / 180);
+        sctx.drawImage(img, -img.width / 2, -img.height / 2);
+
+        let out = src;
+
+        if (crop) {
+          const x = Math.round(crop.x * baseW);
+          const y = Math.round(crop.y * baseH);
+          const w = Math.max(1, Math.round(crop.w * baseW));
+          const h = Math.max(1, Math.round(crop.h * baseH));
+
+          const max = 120;
+          const scale = Math.min(max / w, max / h, 1);
+          const dst = document.createElement('canvas');
+          dst.width = Math.max(1, Math.round(w * scale));
+          dst.height = Math.max(1, Math.round(h * scale));
+
+          dst.getContext('2d').drawImage(src, x, y, w, h, 0, 0, dst.width, dst.height);
+          out = dst;
+        } else {
+          const max = 120;
+          const scale = Math.min(max / baseW, max / baseH, 1);
+          if (scale < 1) {
+            const dst = document.createElement('canvas');
+            dst.width = Math.max(1, Math.round(baseW * scale));
+            dst.height = Math.max(1, Math.round(baseH * scale));
+            dst.getContext('2d').drawImage(src, 0, 0, dst.width, dst.height);
+            out = dst;
+          }
+        }
+
+        URL.revokeObjectURL(url);
+
+        const mime = ['image/png', 'image/webp'].includes(file.type) ? file.type : 'image/jpeg';
+        out.toBlob(blob => {
+          resolve(blob ? URL.createObjectURL(blob) : URL.createObjectURL(file));
+        }, mime, 0.92);
+      };
+
+      img.onerror = () => {
+        URL.revokeObjectURL(url);
+        resolve(URL.createObjectURL(file));
+      };
+
+      img.src = url;
+    });
+  }
+
+  async function refreshThumb(file) {
+    const k = fileKey(file);
+    const row = queueList.querySelector(`[data-fkey="${CSS.escape(k)}"]`);
+    if (!row) return;
+
+    const img = row.querySelector('.queue-thumb img');
+    if (!img) return;
+
+    const oldSrc = img.src;
+    const url = await renderThumbUrl(file);
+
+    if (!img.isConnected) {
+      URL.revokeObjectURL(url);
+      return;
+    }
+
+    img.src = url;
+    img.style.transform = '';
+    const badge = row.querySelector('.rot-badge');
+    const deg = rotations.get(k) || 0;
+    const crop = crops.get(k);
+
+    if (badge) {
+      if (deg && crop) badge.textContent = `${deg}° + crop`;
+      else if (deg) badge.textContent = `${deg}°`;
+      else if (crop) badge.textContent = 'crop';
+      else badge.remove();
+    }
+
+    if (oldSrc && oldSrc.startsWith('blob:')) URL.revokeObjectURL(oldSrc);
+  }
+
+  function getRotatedFile(file) {
+    const fk = fileKey(file);
+    const deg = rotations.get(fk) || 0;
+    const crop = crops.get(fk);
+
+    if (deg === 0 && !crop) return Promise.resolve(file);
+
+    return new Promise(resolve => {
+      const img = new Image();
+      const url = URL.createObjectURL(file);
+
+      img.onload = () => {
+        const rot = ((deg % 360) + 360) % 360;
+        const baseW = (rot === 90 || rot === 270) ? img.height : img.width;
+        const baseH = (rot === 90 || rot === 270) ? img.width : img.height;
+
+        const src = document.createElement('canvas');
+        src.width = baseW;
+        src.height = baseH;
+
+        const sctx = src.getContext('2d');
+        sctx.translate(baseW / 2, baseH / 2);
+        sctx.rotate(rot * Math.PI / 180);
+        sctx.drawImage(img, -img.width / 2, -img.height / 2);
+
+        let out = src;
+
+        if (crop) {
+          const x = Math.round(crop.x * baseW);
+          const y = Math.round(crop.y * baseH);
+          const w = Math.max(1, Math.round(crop.w * baseW));
+          const h = Math.max(1, Math.round(crop.h * baseH));
+
+          const dst = document.createElement('canvas');
+          dst.width = w;
+          dst.height = h;
+          dst.getContext('2d').drawImage(src, x, y, w, h, 0, 0, w, h);
+          out = dst;
+        }
+
+        URL.revokeObjectURL(url);
+
+        const mime = ['image/png', 'image/webp', 'image/gif'].includes(file.type) ? file.type : 'image/jpeg';
+        out.toBlob(blob => {
+          resolve(blob ? new File([blob], file.name, { type: mime, lastModified: file.lastModified }) : file);
+        }, mime, 0.95);
+      };
+
+      img.onerror = () => {
+        URL.revokeObjectURL(url);
+        resolve(file);
+      };
+
+      img.src = url;
+    });
+  };
+
 })();
 
 /* ── Project Metrics Charts ───────────────────────────── */
@@ -629,8 +1033,6 @@ function getRotatedFile(file) {
           legend: {
             position: 'top'
           },
-
-          // ✅ ADD THIS BLOCK
           title: {
             display: true,
             text: title,
@@ -709,7 +1111,7 @@ function getRotatedFile(file) {
             },
             grid: {
               display: true,
-              color: 'rgba(120,120,160,0.15)',   // ✅ stronger grid
+              color: 'rgba(120,120,160,0.15)',
               lineWidth: 1
             }
           },
@@ -721,7 +1123,7 @@ function getRotatedFile(file) {
             },
             grid: {
               display: true,
-              color: 'rgba(120,120,160,0.15)',   // ✅ visible horizontal lines
+              color: 'rgba(120,120,160,0.15)',
               lineWidth: 1
             }
           }
@@ -729,5 +1131,4 @@ function getRotatedFile(file) {
       }
     });
   }
-
 })();

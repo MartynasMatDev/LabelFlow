@@ -528,7 +528,16 @@
     </div>
     <div class="edit-modal-stage">
       <div class="edit-modal-stage-inner">
-        <img id="edit-preview-img" src="" alt="Preview">
+        <div class="edit-preview-wrap">
+          <canvas id="edit-preview-canvas"></canvas>
+
+          <div id="edit-crop-box" class="edit-crop-box" hidden>
+            <span class="crop-handle nw" data-handle="nw"></span>
+            <span class="crop-handle ne" data-handle="ne"></span>
+            <span class="crop-handle sw" data-handle="sw"></span>
+            <span class="crop-handle se" data-handle="se"></span>
+          </div>
+        </div>
       </div>
     </div>
     <div class="edit-modal-toolbar">
