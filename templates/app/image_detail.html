@@ -78,7 +78,8 @@
   const BOXES = {{ boxes_json|safe }};
   const img   = document.getElementById('preview-img');
   const svg   = document.getElementById('preview-svg');
-  if (!svg || !BOXES.length) return;
+  const POLYS_CHECK = {{ polygons_json|safe }};
+  if (!svg || (!BOXES.length && !POLYS_CHECK.length)) return;
 
   function drawBoxes() {
     svg.innerHTML = '';
@@ -127,6 +128,43 @@
         t.setAttribute('font-size',          '11');
         t.setAttribute('font-weight',        '600');
         t.textContent = text;
+        svg.appendChild(t);
+      }
+    })
+
+    const POLYS = {{ polygons_json|safe }};
+    POLYS.forEach(p => {
+      if (!p.points || p.points.length < 2) return;
+      const color  = p.label ? p.label.color : '#6366f1';
+      const svgPts = p.points.map(pt => `${pt.x/100*iW},${pt.y/100*iH}`).join(' ');
+
+      const poly = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+      poly.setAttribute('points',       svgPts);
+      poly.setAttribute('fill',         color + '22');
+      poly.setAttribute('stroke',       color);
+      poly.setAttribute('stroke-width', '2');
+      svg.appendChild(poly);
+
+      if (p.label && p.points.length > 0) {
+        const fp     = p.points[0];
+        const bx     = fp.x / 100 * iW;
+        const by     = Math.max(0, fp.y / 100 * iH - 18);
+        const badgeW = p.label.name.length * 7 + 14;
+
+        const bg = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+        bg.setAttribute('x', bx);      bg.setAttribute('y', by);
+        bg.setAttribute('width', badgeW); bg.setAttribute('height', 18);
+        bg.setAttribute('rx', 4);      bg.setAttribute('fill', color);
+        svg.appendChild(bg);
+
+        const t = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        t.setAttribute('x', bx + 7);  t.setAttribute('y', by + 9);
+        t.setAttribute('dominant-baseline', 'middle');
+        t.setAttribute('fill', '#fff');
+        t.setAttribute('font-family', 'DM Mono, monospace');
+        t.setAttribute('font-size', '11');
+        t.setAttribute('font-weight', '600');
+        t.textContent = p.label.name;
         svg.appendChild(t);
       }
     });
