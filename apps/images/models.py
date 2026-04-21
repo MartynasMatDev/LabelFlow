@@ -122,3 +122,37 @@ class BoundingBox(models.Model):
             'width':  self.width,
             'height': self.height,
         }
+
+class Polygon(models.Model):
+    """A closed polygon annotation on an image."""
+    image = models.ForeignKey(
+        Image, on_delete=models.CASCADE, related_name='polygons'
+    )
+    label = models.ForeignKey(
+        Tag, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='polygons', help_text='Tag/label for this annotation'
+    )
+    # List of {x, y} dicts, each 0-100 (% of image dimensions)
+    points = models.JSONField(default=list, help_text='List of {x,y} percentage points')
+    created_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, related_name='created_polygons'
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['created_at']
+
+    def __str__(self):
+        label_name = self.label.name if self.label else 'unlabelled'
+        return f'{label_name} polygon on {self.image.name}'
+
+    def to_dict(self):
+        return {
+            'id':     self.pk,
+            'label':  {
+                'id':    self.label.id,
+                'name':  self.label.name,
+                'color': self.label.color,
+            } if self.label else None,
+            'points': self.points,
+        }
