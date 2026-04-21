@@ -12,6 +12,7 @@ from django.urls import reverse
 
 from apps.projects.models import Project
 from apps.projects.activity import log_activity
+from apps.projects.workspace_utils import get_active_workspace
 from .models import Image, Tag, BoundingBox, Polygon
 
 
@@ -19,7 +20,13 @@ ALLOWED_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.webp', '.bmp', '.gif'}
 MAX_FILE_BYTES = 20 * 1024 * 1024  # 20 MB
 
 
-def _user_projects(user):
+def _user_projects(user, workspace=None):
+    """Projects the user can see. When `workspace` is given, restrict
+    to that workspace (honouring its access rules)."""
+    if workspace is not None:
+        if workspace.is_organization:
+            return Project.objects.filter(workspace=workspace)
+        return Project.objects.filter(workspace=workspace, created_by=user)
     return Project.objects.filter(
         Q(members__user=user) | Q(created_by=user)
     ).distinct()
@@ -35,7 +42,11 @@ def image_list(request, project_id=None):
             return redirect('project_list')
         images = Image.objects.filter(project=project)
     else:
-        images = Image.objects.filter(project__in=_user_projects(request.user))
+        # Top-level "Images" nav is scoped to the active workspace.
+        workspace = get_active_workspace(request)
+        images = Image.objects.filter(
+            project__in=_user_projects(request.user, workspace=workspace)
+        )
 
     status_filter = request.GET.get('status', '')
     if status_filter in ('pending', 'partial', 'done'):
@@ -72,10 +83,14 @@ def image_list(request, project_id=None):
 
     all_tags = Tag.objects.all()
 
+    # Project-filter dropdown should list only projects the user can
+    # see in the currently active workspace (unless a specific project
+    # is already selected, in which case we still need its list).
+    workspace_for_dropdown = None if project else get_active_workspace(request)
     ctx = {
         'active_nav': 'images',
         'project': project,
-        'projects': _user_projects(request.user),
+        'projects': _user_projects(request.user, workspace=workspace_for_dropdown),
         'images': images,
         'image_count': images.count(),
         'status_filter': status_filter,
@@ -91,7 +106,7 @@ def image_list(request, project_id=None):
 
 @login_required
 def image_upload(request):
-    projects = _user_projects(request.user)
+    projects = _user_projects(request.user, workspace=get_active_workspace(request))
 
     if request.method == 'POST':
         project_id = request.POST.get('project')
