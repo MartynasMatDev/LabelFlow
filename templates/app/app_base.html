@@ -17,6 +17,30 @@
         <span class="nav-icon">◈</span> Dashboard
       </a>
 
+      {% if active_workspace %}
+      <div class="nav-label">Workspace</div>
+      <div class="workspace-switcher" style="padding:4px 8px;">
+        <form method="get" action="" id="workspace-switch-form">
+          <select id="workspace-select"
+                  style="width:100%;padding:6px 8px;font-size:13px;border-radius:6px;"
+                  onchange="if (this.value) { window.location.href = this.value; }">
+            {% for ws in user_workspaces %}
+              <option value="{% url 'workspace_switch' ws.pk %}"
+                      {% if ws.pk == active_workspace.pk %}selected{% endif %}>
+                {{ ws.emoji }} {{ ws.name|truncatechars:24 }}{% if ws.is_personal %} (personal){% endif %}
+              </option>
+            {% endfor %}
+          </select>
+        </form>
+        <a href="{% url 'workspace_list' %}" class="nav-item {% if active_nav == 'workspaces' %}active{% endif %}" style="margin-top:4px;">
+          <span class="nav-icon">▦</span> All workspaces
+        </a>
+        <a href="{% url 'workspace_create' %}" class="nav-item">
+          <span class="nav-icon">+</span> New workspace
+        </a>
+      </div>
+      {% endif %}
+
       <div class="nav-label">Projects</div>
       <a href="{% url 'project_list' %}" class="nav-item {% if active_nav == 'projects' %}active{% endif %}">
         <span class="nav-icon">◉</span> Projects
@@ -27,6 +51,12 @@
       <a href="{% url 'image_upload' %}" class="nav-item {% if active_nav == 'upload' %}active{% endif %}">
         <span class="nav-icon">⬕</span> Upload
       </a>
+      {% if active_workspace and active_workspace.is_organization %}
+      <a href="{% url 'workspace_team' active_workspace.pk %}" class="nav-item {% if active_nav == 'workspace_team' %}active{% endif %}">
+        <span class="nav-icon">⬔</span> Team
+        <span class="nav-count">{{ active_workspace.member_count }}</span>
+      </a>
+      {% endif %}
 
       {% if project %}
       <div class="nav-label">This project</div>

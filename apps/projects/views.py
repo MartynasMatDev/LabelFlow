@@ -7,17 +7,29 @@ from django.http import JsonResponse
 from django.urls import reverse
 from django.utils import timezone
 
-from .models import Project, ProjectMember, ActivityLog, Invitation
+from .models import Project, ProjectMember, ActivityLog, Invitation, Workspace
 from .email import send_invitation_email
 from .activity import log_activity
+from .workspace_utils import get_active_workspace, workspaces_for
 
 from django.db.models import Count, Avg
 from apps.images.models import Image, BoundingBox
 
-def _user_projects(user, include_archived=False):
-    qs = Project.objects.filter(
-        Q(members__user=user) | Q(created_by=user)
-    ).distinct()
+def _user_projects(user, include_archived=False, workspace=None):
+    """Projects the user can see. If `workspace` is given, limits to that
+    workspace; otherwise spans every workspace the user has access to."""
+    if workspace is not None:
+        if workspace.is_organization:
+            qs = Project.objects.filter(workspace=workspace)
+        else:
+            qs = Project.objects.filter(workspace=workspace, created_by=user)
+    else:
+        ws_ids = workspaces_for(user).values_list('pk', flat=True)
+        qs = Project.objects.filter(
+            Q(workspace_id__in=ws_ids)
+            | Q(members__user=user)
+            | Q(created_by=user)
+        ).distinct()
     if not include_archived:
         qs = qs.filter(is_archived=False)
     return qs
@@ -25,17 +37,19 @@ def _user_projects(user, include_archived=False):
 
 @login_required
 def dashboard(request):
-    projects = _user_projects(request.user).order_by('-updated_at')[:6]
-    total_projects = _user_projects(request.user).count()
+    workspace = get_active_workspace(request)
+    projects_qs = _user_projects(request.user, workspace=workspace)
+    projects = projects_qs.order_by('-updated_at')[:6]
+    total_projects = projects_qs.count()
     from apps.images.models import Image
-    total_images = Image.objects.filter(project__in=_user_projects(request.user)).count()
+    total_images = Image.objects.filter(project__in=projects_qs).count()
     ctx = {
         'active_nav': 'dashboard',
         'projects': projects,
         'total_projects': total_projects,
         'total_images': total_images,
         'total_members': ProjectMember.objects.filter(
-            project__in=_user_projects(request.user)
+            project__in=projects_qs
         ).values('user').distinct().count(),
     }
     return render(request, 'app/dashboard.html', ctx)
@@ -43,7 +57,8 @@ def dashboard(request):
 
 @login_required
 def project_list(request):
-    projects = _user_projects(request.user)
+    workspace = get_active_workspace(request)
+    projects = _user_projects(request.user, workspace=workspace)
     ctx = {
         'active_nav': 'projects',
         'projects': projects,
@@ -53,21 +68,41 @@ def project_list(request):
 
 @login_required
 def project_create(request):
+    active_ws = get_active_workspace(request)
+    all_workspaces = workspaces_for(request.user)
+
     if request.method == 'POST':
         name            = request.POST.get('name', '').strip()
         description     = request.POST.get('description', '').strip()
         annotation_type = request.POST.get('annotation_type', 'bbox')
         emoji           = request.POST.get('emoji', '◈').strip() or '◈'
+        workspace_id    = request.POST.get('workspace_id') or (active_ws.pk if active_ws else None)
+
+        workspace = None
+        if workspace_id:
+            workspace = Workspace.objects.filter(pk=workspace_id).first()
+            if not workspace or not workspace.user_has_access(request.user):
+                messages.error(request, 'Invalid workspace.')
+                return render(request, 'app/project_create.html', {
+                    'active_nav': 'projects',
+                    'workspaces': all_workspaces,
+                    'active_workspace': active_ws,
+                })
 
         if not name:
             messages.error(request, 'Project title is required')
-            return render(request, 'app/project_create.html', {'active_nav': 'projects'})
+            return render(request, 'app/project_create.html', {
+                'active_nav': 'projects',
+                'workspaces': all_workspaces,
+                'active_workspace': active_ws,
+            })
 
         project = Project.objects.create(
             name=name,
             description=description,
             annotation_type=annotation_type,
             emoji=emoji,
+            workspace=workspace,
             created_by=request.user,
         )
         ProjectMember.objects.create(project=project, user=request.user, role='admin')
@@ -75,7 +110,11 @@ def project_create(request):
         messages.success(request, f'Project „{name}" created successfully.')
         return redirect('project_list')
 
-    return render(request, 'app/project_create.html', {'active_nav': 'projects'})
+    return render(request, 'app/project_create.html', {
+        'active_nav': 'projects',
+        'workspaces': all_workspaces,
+        'active_workspace': active_ws,
+    })
 
 def _project_metrics(project):
     images_qs = Image.objects.filter(project=project)

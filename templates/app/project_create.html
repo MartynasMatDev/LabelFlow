@@ -16,6 +16,22 @@
 
     <div class="card" style="margin-bottom:16px;">
       <h3 style="font-size:15px;margin-bottom:20px;">Basic Information</h3>
+      {% if workspaces %}
+      <div class="form-group">
+        <label for="workspace_id">Workspace *</label>
+        <select id="workspace_id" name="workspace_id" required>
+          {% for ws in workspaces %}
+            <option value="{{ ws.pk }}"
+                    {% if ws.pk == active_workspace.pk %}selected{% endif %}>
+              {{ ws.emoji }} {{ ws.name }}{% if ws.is_personal %} (personal){% endif %}
+            </option>
+          {% endfor %}
+        </select>
+        <div class="form-hint">
+          Personal workspace = private to you. Organization workspace = shared with its members.
+        </div>
+      </div>
+      {% endif %}
       <div class="form-group">
         <label for="name">Project Name *</label>
         <input type="text" id="name" name="name" placeholder="e.g. Medical Images 2024"
