@@ -4,6 +4,22 @@
 (function () {
   const saved = localStorage.getItem('lf-theme') || 'dark';
   document.documentElement.setAttribute('data-theme', saved);
+
+  // Landing page theme button (web-theme-btn)
+  document.addEventListener('DOMContentLoaded', () => {
+    const btn = document.getElementById('theme-btn');
+    if (!btn) return;
+    const html = document.documentElement;
+    function applyLanding(theme) {
+      if (theme === 'light') { html.setAttribute('data-theme', 'light'); btn.textContent = '☽'; }
+      else { html.removeAttribute('data-theme'); btn.textContent = '☀'; }
+      localStorage.setItem('lf-theme', theme);
+    }
+    applyLanding(localStorage.getItem('lf-theme') || 'dark');
+    btn.addEventListener('click', () => {
+      applyLanding(html.getAttribute('data-theme') === 'light' ? 'dark' : 'light');
+    });
+  });
 })();
 
 window.toggleTheme = function () {
