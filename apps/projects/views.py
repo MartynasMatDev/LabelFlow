@@ -7,7 +7,7 @@ from django.http import JsonResponse
 from django.urls import reverse
 from django.utils import timezone
 
-from .models import Project, ProjectMember, ActivityLog, Invitation, Workspace
+from .models import Project, ProjectMember, ActivityLog, Invitation, Workspace, WorkspaceMember
 from .email import send_invitation_email
 from .activity import log_activity
 from .workspace_utils import get_active_workspace, workspaces_for
@@ -292,22 +292,17 @@ def team_management(request, project_id):
     if request.method == 'POST':
         action = request.POST.get('action')
 
-        if action == 'add_member':
-            username = request.POST.get('username', '').strip()
-            role     = request.POST.get('role', 'annotator')
-            try:
-                user = User.objects.get(username=username)
-            except User.DoesNotExist:
-                messages.error(request, f'User "{username}" not found.')
-                return redirect('team_management', project_id=project.id)
-
-            if ProjectMember.objects.filter(project=project, user=user).exists():
-                messages.warning(request, f'{user.username} is already a member of this project.')
+        if action == 'assign_member':
+            wm_id = request.POST.get('workspace_member_id')
+            role  = request.POST.get('role', 'annotator')
+            wm = get_object_or_404(WorkspaceMember, pk=wm_id, workspace=project.workspace)
+            if ProjectMember.objects.filter(project=project, user=wm.user).exists():
+                messages.warning(request, f'{wm.user.get_full_name() or wm.user.username} is already on this project.')
             else:
-                ProjectMember.objects.create(project=project, user=user, role=role)
+                ProjectMember.objects.create(project=project, user=wm.user, role=role)
                 log_activity(project, request.user, 'member_added',
-                             detail=user.get_full_name() or user.username)
-                messages.success(request, f'{user.get_full_name() or user.username} added to the team.')
+                             detail=wm.user.get_full_name() or wm.user.username)
+                messages.success(request, f'{wm.user.get_full_name() or wm.user.username} assigned to the project.')
 
         elif action == 'remove_member':
             member_id  = request.POST.get('member_id')
@@ -318,7 +313,7 @@ def team_management(request, project_id):
                 name = membership.user.get_full_name() or membership.user.username
                 membership.delete()
                 log_activity(project, request.user, 'member_removed', detail=name)
-                messages.success(request, f'{name} has been removed from the team.')
+                messages.success(request, f'{name} removed from the project.')
 
         elif action == 'change_role':
             member_id = request.POST.get('member_id')
@@ -331,56 +326,24 @@ def team_management(request, project_id):
                 name = membership.user.get_full_name() or membership.user.username
                 log_activity(project, request.user, 'role_changed',
                              detail=f'{name}: {old_role} → {membership.get_role_display()}')
-                messages.success(request, 'Role updated successfully.')
-
-        elif action == 'send_invitation':
-            email = request.POST.get('email', '').strip()
-            role = request.POST.get('role', 'annotator')
-            if not email:
-                messages.error(request, 'Email address is required.')
-                return redirect('team_management', project_id=project.id)
-            user_exists = User.objects.filter(email=email).first()
-            if user_exists and ProjectMember.objects.filter(project=project, user=user_exists).exists():
-                messages.error(request, f'{email} is already a member of this project.')
-                return redirect('team_management', project_id=project.id)
-            if Invitation.objects.filter(project=project, email=email, accepted_at__isnull=True).exists():
-                messages.warning(request, f'An invitation has already been sent to {email}.')
-                return redirect('team_management', project_id=project.id)
-            invitation = Invitation.objects.create(
-                project=project,
-                email=email,
-                invited_by=request.user,
-                role=role,
-                expires_at=timezone.now() + timezone.timedelta(days=7)
-            )
-            try:
-                send_invitation_email(invitation)
-                messages.success(request, f'Invitation sent to {email}.')
-            except Exception as e:
-                messages.warning(request, f'Invitation created but email could not be sent: {str(e)}')
-            return redirect('team_management', project_id=project.id)
-
-        elif action == 'cancel_invitation':
-            invitation_id = request.POST.get('invitation_id')
-            try:
-                inv = Invitation.objects.get(id=invitation_id, project=project)
-                # FIX: read email BEFORE deleting the object
-                email = inv.email
-                inv.delete()
-                messages.success(request, f'Invitation to {email} cancelled.')
-            except Invitation.DoesNotExist:
-                messages.error(request, 'Invitation not found.')
+                messages.success(request, 'Role updated.')
 
         return redirect('team_management', project_id=project.id)
 
     members = project.members.select_related('user').all()
-    pending_invitations = project.invitations.filter(accepted_at__isnull=True)
+
+    # Workspace members not yet assigned to this project (for the assign dropdown)
+    assignable = []
+    if project.workspace and project.workspace.is_organization:
+        assigned_ids = set(members.values_list('user_id', flat=True))
+        assigned_ids.add(project.created_by_id)
+        assignable = project.workspace.members.select_related('user').exclude(user_id__in=assigned_ids)
 
     ctx = {
         'active_nav': 'team',
         'project': project,
         'members': members,
-        'pending_invitations': pending_invitations,
+        'assignable': assignable,
         'role_choices': ProjectMember.ROLE_CHOICES,
     }
     return render(request, 'app/team_management.html', ctx)

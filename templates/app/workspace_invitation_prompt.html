@@ -1,0 +1,25 @@
+{% extends "app/app_base.html" %}
+{% block app_title %}Workspace Invitation{% endblock %}
+{% block toolbar_title %}Workspace Invitation{% endblock %}
+
+{% block app_content %}
+<div style="max-width:480px;margin:48px auto;">
+  <div class="card">
+    <h2 style="margin-bottom:8px;">You've been invited</h2>
+    <p style="color:var(--text-muted);margin-bottom:24px;">
+      You've been invited to join <strong>{{ invitation.workspace.name }}</strong>
+      as <strong>{{ invitation.get_role_display }}</strong>.
+    </p>
+    <p style="margin-bottom:24px;">
+      Log in or create an account to accept this invitation.
+    </p>
+    <div class="flex gap-2">
+      <a href="{{ login_url }}" class="btn btn-primary">Log in</a>
+      <a href="{{ register_url }}" class="btn btn-secondary">Create account</a>
+    </div>
+    <p style="font-size:12px;color:var(--text-muted);margin-top:20px;">
+      This invitation expires in 7 days and is for {{ invitation.email }}.
+    </p>
+  </div>
+</div>
+{% endblock %}
