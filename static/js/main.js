@@ -54,6 +54,18 @@ document.addEventListener('DOMContentLoaded', () => {
       e.target.classList.remove('open');
   });
 
+  // ── Dropdowns ───────────────────────────────────────────
+  window.toggleDropdown = function (id) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.classList.toggle('open');
+  };
+  document.addEventListener('click', function (e) {
+    document.querySelectorAll('.dropdown.open').forEach(function (dd) {
+      if (!dd.contains(e.target)) dd.classList.remove('open');
+    });
+  });
+
   // ── Tabs ────────────────────────────────────────────────
   window.switchTab = function (tabId) {
     const container = document.querySelector('[data-tabs]') || document;
@@ -155,6 +167,9 @@ window.closeDeleteModal = () => document.getElementById('delete-modal').classLis
   let editIdx = -1;
   let editTempDeg = 0;
   let editTempCrop = null;
+  let editTempResize = 0;
+  let editTempFormat = '';
+  let editTempQuality = 92;
   let editObjectURL = null;
   let editLoadedImg = null;
   let cropDragState = null;
@@ -173,6 +188,9 @@ window.closeDeleteModal = () => document.getElementById('delete-modal').classLis
 
   const rotations = new Map();
   const crops = new Map();
+  const resizes = new Map();
+  const formats = new Map();
+  const qualities = new Map();
 
   const editOverlay  = document.getElementById('edit-modal-overlay');
   const editCanvas   = document.getElementById('edit-preview-canvas');
@@ -195,10 +213,15 @@ window.closeDeleteModal = () => document.getElementById('delete-modal').classLis
   const errorList   = document.getElementById('error-list');
   const summary     = document.getElementById('upload-summary');
   const statsCard   = document.getElementById('stats-card');
-  const editFilename = document.getElementById('edit-modal-filename');
-  const editNavPrev  = document.getElementById('edit-nav-prev');
-  const editNavNext  = document.getElementById('edit-nav-next');
-  const editNavCtr   = document.getElementById('edit-nav-counter');
+  const editFilename    = document.getElementById('edit-modal-filename');
+  const editNavPrev     = document.getElementById('edit-nav-prev');
+  const editNavNext     = document.getElementById('edit-nav-next');
+  const editNavCtr      = document.getElementById('edit-nav-counter');
+  const editFormatSel   = document.getElementById('edit-format-select');
+  const editQualSlider  = document.getElementById('edit-quality-slider');
+  const editQualLabel   = document.getElementById('edit-quality-label');
+  const editOutputBadge = document.getElementById('edit-output-badge');
+  const qualityWrap     = document.getElementById('quality-wrap');
 
 
   function ext(n)  { return n.slice(n.lastIndexOf('.')).toLowerCase(); }
@@ -252,6 +275,9 @@ window.closeDeleteModal = () => document.getElementById('delete-modal').classLis
     preSkipped = 0;
     rotations.clear();
     crops.clear();
+    resizes.clear();
+    formats.clear();
+    qualities.clear();
     unsavedBuf.clear();
     queueList.innerHTML = '';
     errorLog.classList.remove('visible');
@@ -341,6 +367,9 @@ window.closeDeleteModal = () => document.getElementById('delete-modal').classLis
     pending = []; preSkipped = 0;
     rotations.clear();
     crops.clear();
+    resizes.clear();
+    formats.clear();
+    qualities.clear();
     queueList.innerHTML = '';
     queueWrap.classList.remove('visible');
     progSec.classList.remove('visible');
@@ -672,8 +701,11 @@ window.closeDeleteModal = () => document.getElementById('delete-modal').classLis
     const cached = unsavedBuf.get(fk);
 
     editIdx = idx;
-    editTempDeg = cached ? cached.deg : (rotations.get(fk) || 0);
-    editTempCrop = cached ? cloneCrop(cached.crop) : (crops.get(fk) ? cloneCrop(crops.get(fk)) : fullCrop());
+    editTempDeg     = cached ? cached.deg    : (rotations.get(fk) || 0);
+    editTempCrop    = cached ? cloneCrop(cached.crop) : (crops.get(fk) ? cloneCrop(crops.get(fk)) : fullCrop());
+    editTempResize  = cached ? (cached.resize  || 0)   : (resizes.get(fk)  || 0);
+    editTempFormat  = cached ? (cached.format  || '')   : (formats.get(fk)  || '');
+    editTempQuality = cached ? (cached.quality || 92)   : (qualities.get(fk) || 92);
 
     if (editObjectURL) {
       URL.revokeObjectURL(editObjectURL);
@@ -691,6 +723,7 @@ window.closeDeleteModal = () => document.getElementById('delete-modal').classLis
       editLoadedImg = img;
       editOverlay.classList.add('open');
       renderEditPreview();
+      syncConversionUI();
     };
     img.onerror = () => {
       URL.revokeObjectURL(url);
@@ -706,16 +739,19 @@ window.closeDeleteModal = () => document.getElementById('delete-modal').classLis
     if (next < 0 || next >= pending.length) return;
 
     unsavedBuf.set(fileKey(pending[editIdx]), {
-      deg: editTempDeg,
-      crop: cloneCrop(editTempCrop)
+      deg: editTempDeg, crop: cloneCrop(editTempCrop),
+      resize: editTempResize, format: editTempFormat, quality: editTempQuality,
     });
 
     editIdx = next;
     const fk = fileKey(pending[editIdx]);
     const cached = unsavedBuf.get(fk);
 
-    editTempDeg = cached ? cached.deg : (rotations.get(fk) || 0);
-    editTempCrop = cached ? cloneCrop(cached.crop) : (crops.get(fk) ? cloneCrop(crops.get(fk)) : fullCrop());
+    editTempDeg     = cached ? cached.deg    : (rotations.get(fk) || 0);
+    editTempCrop    = cached ? cloneCrop(cached.crop) : (crops.get(fk) ? cloneCrop(crops.get(fk)) : fullCrop());
+    editTempResize  = cached ? (cached.resize  || 0)   : (resizes.get(fk)  || 0);
+    editTempFormat  = cached ? (cached.format  || '')   : (formats.get(fk)  || '');
+    editTempQuality = cached ? (cached.quality || 92)   : (qualities.get(fk) || 92);
 
     if (editObjectURL) {
       URL.revokeObjectURL(editObjectURL);
@@ -732,6 +768,7 @@ window.closeDeleteModal = () => document.getElementById('delete-modal').classLis
     img.onload = () => {
       editLoadedImg = img;
       renderEditPreview();
+      syncConversionUI();
     };
     img.onerror = () => {
       URL.revokeObjectURL(url);
@@ -740,10 +777,74 @@ window.closeDeleteModal = () => document.getElementById('delete-modal').classLis
     img.src = url;
   };
 
+  window.applyResize = function (maxDim) {
+    editTempResize = parseInt(maxDim) || 0;
+    syncConversionUI();
+  };
+
+  window.applyFormat = function (fmt) {
+    editTempFormat = fmt;
+    syncConversionUI();
+  };
+
+  window.applyQuality = function (q) {
+    editTempQuality = parseInt(q);
+    syncConversionUI();
+  };
+
+  function syncConversionUI() {
+    document.querySelectorAll('.resize-btn').forEach(btn => {
+      btn.classList.toggle('active', parseInt(btn.dataset.maxdim) === editTempResize);
+    });
+
+    if (editFormatSel) editFormatSel.value = editTempFormat;
+    if (editQualSlider) editQualSlider.value = editTempQuality;
+    if (editQualLabel)  editQualLabel.textContent = editTempQuality + '%';
+
+    const needsQuality = editTempFormat === 'jpeg' || editTempFormat === 'webp' ||
+      (editTempFormat === '' && editIdx >= 0 && !['image/png'].includes(pending[editIdx]?.type));
+    if (qualityWrap) qualityWrap.style.display = needsQuality ? 'flex' : 'none';
+
+    updateOutputBadge();
+  }
+
+  function updateOutputBadge() {
+    if (!editOutputBadge || !editLoadedImg || editIdx < 0) return;
+
+    const rot = ((editTempDeg % 360) + 360) % 360;
+    let baseW = (rot === 90 || rot === 270) ? editLoadedImg.naturalHeight : editLoadedImg.naturalWidth;
+    let baseH = (rot === 90 || rot === 270) ? editLoadedImg.naturalWidth  : editLoadedImg.naturalHeight;
+
+    const c = editTempCrop;
+    if (c && !cropIsFull(c)) {
+      baseW = Math.max(1, Math.round(c.w * baseW));
+      baseH = Math.max(1, Math.round(c.h * baseH));
+    }
+
+    let outW = baseW, outH = baseH;
+    if (editTempResize > 0 && (baseW > editTempResize || baseH > editTempResize)) {
+      const scale = editTempResize / Math.max(baseW, baseH);
+      outW = Math.max(1, Math.round(baseW * scale));
+      outH = Math.max(1, Math.round(baseH * scale));
+    }
+
+    const file = pending[editIdx];
+    const autoFmt = ['image/png', 'image/webp'].includes(file?.type) ? file.type.split('/')[1] : 'jpeg';
+    const outFmt  = editTempFormat || autoFmt;
+    const showQ   = outFmt === 'jpeg' || outFmt === 'webp';
+    const changed = !!(editTempResize || editTempFormat);
+
+    editOutputBadge.textContent =
+      `${outW} × ${outH} px  ${outFmt.toUpperCase()}${showQ ? '  ' + editTempQuality + '%' : ''}`;
+    editOutputBadge.style.display = '';
+    editOutputBadge.classList.toggle('changed', changed);
+  }
+
   window.applyRotation = function (delta) {
     editTempCrop = transformCrop(editTempCrop || fullCrop(), delta);
     editTempDeg = (((editTempDeg + delta) % 360) + 360) % 360;
     renderEditPreview();
+    updateOutputBadge();
   };
 
   window.resetRotation = function () {
@@ -751,6 +852,7 @@ window.closeDeleteModal = () => document.getElementById('delete-modal').classLis
     editTempCrop = transformCrop(editTempCrop || fullCrop(), -editTempDeg);
     editTempDeg = 0;
     renderEditPreview();
+    updateOutputBadge();
   };
 
   window.saveRotation = function () {
@@ -763,6 +865,14 @@ window.closeDeleteModal = () => document.getElementById('delete-modal').classLis
 
     if (cropIsFull(editTempCrop)) crops.delete(k);
     else crops.set(k, cloneCrop(editTempCrop));
+
+    if (editTempResize) resizes.set(k, editTempResize);
+    else resizes.delete(k);
+
+    if (editTempFormat) formats.set(k, editTempFormat);
+    else formats.delete(k);
+
+    qualities.set(k, editTempQuality);
 
     unsavedBuf.delete(k);
     refreshThumb(pending[editIdx]);
@@ -793,6 +903,9 @@ window.closeDeleteModal = () => document.getElementById('delete-modal').classLis
     editIdx = -1;
     editTempDeg = 0;
     editTempCrop = null;
+    editTempResize = 0;
+    editTempFormat = '';
+    editTempQuality = 92;
     cropDragState = null;
     unsavedBuf.clear();
   }
@@ -917,11 +1030,14 @@ window.closeDeleteModal = () => document.getElementById('delete-modal').classLis
   }
 
   function getRotatedFile(file) {
-    const fk = fileKey(file);
-    const deg = rotations.get(fk) || 0;
-    const crop = crops.get(fk);
+    const fk     = fileKey(file);
+    const deg    = rotations.get(fk)  || 0;
+    const crop   = crops.get(fk)      || null;
+    const resize = resizes.get(fk)    || 0;
+    const fmt    = formats.get(fk)    || '';
+    const quality = qualities.get(fk) || 92;
 
-    if (deg === 0 && !crop) return Promise.resolve(file);
+    if (deg === 0 && !crop && !resize && !fmt) return Promise.resolve(file);
 
     return new Promise(resolve => {
       const img = new Image();
@@ -956,12 +1072,31 @@ window.closeDeleteModal = () => document.getElementById('delete-modal').classLis
           out = dst;
         }
 
+        // Apply resize
+        if (resize > 0 && (out.width > resize || out.height > resize)) {
+          const scale = resize / Math.max(out.width, out.height);
+          const rs = document.createElement('canvas');
+          rs.width  = Math.max(1, Math.round(out.width  * scale));
+          rs.height = Math.max(1, Math.round(out.height * scale));
+          rs.getContext('2d').drawImage(out, 0, 0, rs.width, rs.height);
+          out = rs;
+        }
+
         URL.revokeObjectURL(url);
 
-        const mime = ['image/png', 'image/webp', 'image/gif'].includes(file.type) ? file.type : 'image/jpeg';
+        const fmtMap  = { jpeg: 'image/jpeg', png: 'image/png', webp: 'image/webp' };
+        const autoMime = ['image/png', 'image/webp'].includes(file.type) ? file.type : 'image/jpeg';
+        const mime     = (fmt && fmtMap[fmt]) || autoMime;
+        const q        = (mime === 'image/jpeg' || mime === 'image/webp') ? quality / 100 : undefined;
+
+        const extMap = { 'image/jpeg': '.jpg', 'image/png': '.png', 'image/webp': '.webp' };
+        const outName = (fmt && mime !== autoMime)
+          ? file.name.replace(/\.[^.]+$/, extMap[mime] || '')
+          : file.name;
+
         out.toBlob(blob => {
-          resolve(blob ? new File([blob], file.name, { type: mime, lastModified: file.lastModified }) : file);
-        }, mime, 0.95);
+          resolve(blob ? new File([blob], outName, { type: mime, lastModified: file.lastModified }) : file);
+        }, mime, q);
       };
 
       img.onerror = () => {

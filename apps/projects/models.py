@@ -162,9 +162,9 @@ class Project(models.Model):
             return True
         if self.members.filter(user=user).exists():
             return True
-        # Any member of the containing organization workspace sees the project.
-        if self.workspace_id and self.workspace.is_organization:
-            return self.workspace.user_has_access(user)
+        # Only workspace admins/owners see all projects; regular members only see assigned projects.
+        if self.workspace_id and self.workspace.user_is_admin(user):
+            return True
         return False
 
     def user_is_admin(self, user):
@@ -255,6 +255,8 @@ class ActivityLog(models.Model):
         ('project_created',   'Created project'),
         ('project_archived',  'Archived project'),
         ('project_restored',  'Restored project'),
+        # Export
+        ('export_yolo',       'Exported YOLO'),
     ]
 
     project    = models.ForeignKey(Project, on_delete=models.CASCADE, related_name='activity_logs')
@@ -354,4 +356,35 @@ class Invitation(models.Model):
             project=self.project,
             user=user,
             defaults={'role': self.role}
+        )
+
+
+class WorkspaceInvitation(models.Model):
+    """Invitation to join a workspace via email."""
+    workspace  = models.ForeignKey(Workspace, on_delete=models.CASCADE, related_name='invitations')
+    email      = models.EmailField()
+    invited_by = models.ForeignKey(User, on_delete=models.CASCADE, related_name='sent_workspace_invitations')
+    role       = models.CharField(max_length=20, choices=WorkspaceMember.ROLE_CHOICES, default=WorkspaceMember.ROLE_MEMBER)
+    token      = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField(null=True, blank=True)
+    accepted_at = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        unique_together = ('workspace', 'email')
+        ordering = ['-created_at']
+
+    def __str__(self):
+        return f"Invite for {self.email} to {self.workspace.name}"
+
+    def is_expired(self):
+        return bool(self.expires_at and timezone.now() > self.expires_at)
+
+    def accept(self, user):
+        self.accepted_at = timezone.now()
+        self.save(update_fields=['accepted_at'])
+        WorkspaceMember.objects.get_or_create(
+            workspace=self.workspace,
+            user=user,
+            defaults={'role': self.role},
         )
