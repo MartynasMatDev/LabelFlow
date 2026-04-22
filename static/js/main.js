@@ -1100,8 +1100,22 @@ window.closeDeleteModal = () => document.getElementById('delete-modal').classLis
           axis: 'x'
         },
         plugins: {
+          title: {
+            display: true,
+            text: 'Uploads Timeline',
+            color: getComputedStyle(document.documentElement).getPropertyValue('--text-muted'),
+            font: {
+              size: 12,
+              weight: '600'
+            },
+            padding: {
+              bottom: 8
+            }
+          },
           legend: {
-            labels: { color: getComputedStyle(document.documentElement).getPropertyValue('--text') }
+            labels: {
+              color: getComputedStyle(document.documentElement).getPropertyValue('--text')
+            }
           }
         },
         scales: {
