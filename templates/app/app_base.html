@@ -14,7 +14,7 @@
     <nav class="nav-section">
       <div class="nav-label">Main</div>
       <a href="{% url 'dashboard' %}" class="nav-item {% if active_nav == 'dashboard' %}active{% endif %}">
-        <span class="nav-icon">◈</span> Dashboard
+        <span class="nav-icon"><i class="fa-solid fa-gauge"></i></span> Dashboard
       </a>
 
       {% if active_workspace %}
@@ -33,27 +33,27 @@
           </select>
         </form>
         <a href="{% url 'workspace_list' %}" class="nav-item {% if active_nav == 'workspaces' %}active{% endif %}" style="margin-top:4px;">
-          <span class="nav-icon">▦</span> All workspaces
+          <span class="nav-icon"><i class="fa-solid fa-layer-group"></i></span> All workspaces
         </a>
         <a href="{% url 'workspace_create' %}" class="nav-item">
-          <span class="nav-icon">+</span> New workspace
+          <span class="nav-icon"><i class="fa-solid fa-plus"></i></span> New workspace
         </a>
       </div>
       {% endif %}
 
       <div class="nav-label">Projects</div>
       <a href="{% url 'project_list' %}" class="nav-item {% if active_nav == 'projects' %}active{% endif %}">
-        <span class="nav-icon">◉</span> Projects
+        <span class="nav-icon"><i class="fa-solid fa-folder"></i></span> Projects
       </a>
       <a href="{% url 'image_list' %}" class="nav-item {% if active_nav == 'images' %}active{% endif %}">
-        <span class="nav-icon">⬡</span> Images
+        <span class="nav-icon"><i class="fa-solid fa-image"></i></span> Images
       </a>
       <a href="{% url 'image_upload' %}" class="nav-item {% if active_nav == 'upload' %}active{% endif %}">
-        <span class="nav-icon">⬕</span> Upload
+        <span class="nav-icon"><i class="fa-solid fa-upload"></i></span> Upload
       </a>
       {% if active_workspace and active_workspace.is_organization %}
       <a href="{% url 'workspace_team' active_workspace.pk %}" class="nav-item {% if active_nav == 'workspace_team' %}active{% endif %}">
-        <span class="nav-icon">⬔</span> Team
+        <span class="nav-icon"><i class="fa-solid fa-users"></i></span> Team
         <span class="nav-count">{{ active_workspace.member_count }}</span>
       </a>
       {% endif %}
@@ -64,11 +64,11 @@
         <span class="nav-icon">{{ project.emoji }}</span> {{ project.name|truncatechars:18 }}
       </a>
       <a href="{% url 'project_images' project.id %}" class="nav-item {% if active_nav == 'project_images' %}active{% endif %}">
-        <span class="nav-icon">⬡</span> Images
+        <span class="nav-icon"><i class="fa-solid fa-images"></i></span> Images
         <span class="nav-count">{{ project.image_count }}</span>
       </a>
       <a href="{% url 'team_management' project.id %}" class="nav-item {% if active_nav == 'team' %}active{% endif %}">
-        <span class="nav-icon">⬔</span> Team
+        <span class="nav-icon"><i class="fa-solid fa-user-group"></i></span> Team
         <span class="nav-count">{{ project.member_count }}</span>
       </a>
       {% endif %}
@@ -82,7 +82,9 @@
         onclick="toggleTheme()"
         title="Toggle light/dark mode"
       >
-        <span class="theme-icon" id="theme-icon">☀️</span>
+        <span class="theme-icon" id="theme-icon">
+          <i class="fa-solid fa-sun"></i>
+        </span>
         <span class="theme-label" id="theme-label">Light mode</span>
       </button>
 
@@ -102,7 +104,7 @@
         <button type="submit"
                 class="nav-item"
                 style="width:100%;background:none;border:none;cursor:pointer;text-align:left;">
-          <span class="nav-icon">→</span> Log out
+          <span class="nav-icon"><i class="fa-solid fa-right-from-bracket"></i></span> Log out
         </button>
       </form>
     </div>
@@ -113,7 +115,9 @@
     <span class="toolbar-title">{% block toolbar_title %}{% endblock %}</span>
 
     <div class="toolbar-search">
-      <span class="toolbar-search-icon">⌕</span>
+      <span class="toolbar-search-icon">
+          <i class="fa-solid fa-magnifying-glass"></i>
+      </span>
       <input type="search" placeholder="Search..." id="global-search" autocomplete="off">
     </div>
 

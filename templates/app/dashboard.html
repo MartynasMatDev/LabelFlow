@@ -54,8 +54,10 @@
           <div class="project-row-meta">{{ project.image_count }} img · {{ project.member_count }} members · {{ project.get_annotation_type_display }}</div>
         </div>
         <div class="progress-wrap">
-          <div class="progress-bar"><div class="progress-fill" style="width:0%"></div></div>
-          <div class="progress-lbl">0% annotated</div>
+          <div class="progress-bar">
+            <div class="progress-fill" style="width: {{ project.progress }}%"></div>
+          </div>
+          <div class="progress-lbl">{{ project.progress }}% annotated</div>
         </div>
       </a>
       {% endfor %}

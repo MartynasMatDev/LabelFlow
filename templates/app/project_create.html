@@ -53,13 +53,37 @@
           </select>
         </div>
         <div class="form-group">
-          <label for="emoji">Project Icon</label>
-          <input type="text" id="emoji" name="emoji" placeholder="◈" maxlength="4"
-                 value="{{ request.POST.emoji|default:'◈' }}"
-                 style="font-size:20px; text-align:center;">
-          <div class="form-hint">Emoji or symbol</div>
+          <label for="icon">Project Icon</label>
+          <div style="display:flex;align-items:center;gap:10px;">
+            <i id="icon-preview" class="fa-solid fa-diagram-project" style="font-size:18px;"></i>
+            <select id="icon" name="icon">
+              <option value="fa-diagram-project">Project</option>
+              <option value="fa-database">Dataset</option>
+              <option value="fa-image">Images</option>
+              <option value="fa-tags">Labels</option>
+              <option value="fa-flask">Experiment</option>
+              <option value="fa-brain">AI / ML</option>
+            </select>
+          </div>
+          <div class="form-hint">Font Awesome icon</div>
         </div>
       </div>
+
+    <div class="form-group">
+      <label for="planned_image_count">
+        Planned Images <span class="text-muted">(optional)</span>
+      </label>
+      <input type="number"
+             id="planned_image_count"
+             name="planned_image_count"
+             min="0"
+             placeholder="e.g. 1000"
+             value="{{ request.POST.planned_image_count|default:'' }}">
+      <div class="form-hint">
+        Used for progress tracking
+      </div>
+    </div>
+
     </div>
 
     <div class="card" style="margin-bottom:20px;">
@@ -77,7 +101,7 @@
 
     <div class="flex gap-2" style="justify-content:flex-end;">
       <a href="{% url 'project_list' %}" class="btn btn-ghost">Cancel</a>
-      <button type="submit" class="btn btn-primary">Create Project →</button>
+      <button type="submit" class="btn btn-primary"><i class="fa-solid fa-plus"></i> Create Project</button>
     </div>
   </form>
 </div>

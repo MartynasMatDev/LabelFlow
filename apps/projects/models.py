@@ -21,6 +21,7 @@ class Workspace(models.Model):
     kind       = models.CharField(max_length=20, choices=KIND_CHOICES, default=KIND_ORGANIZATION)
     owner      = models.ForeignKey(User, on_delete=models.CASCADE, related_name='owned_workspaces')
     emoji      = models.CharField(max_length=4, default='◈')
+    planned_image_count = models.PositiveIntegerField(default=0, help_text="Expected total number of images for this project")
     description = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -134,6 +135,7 @@ class Project(models.Model):
     description     = models.TextField(blank=True)
     annotation_type = models.CharField(max_length=20, choices=ANNOTATION_TYPE_CHOICES, default='bbox')
     emoji           = models.CharField(max_length=4, default='◈')
+    planned_image_count = models.PositiveIntegerField(default=0)
     workspace       = models.ForeignKey(
         Workspace,
         on_delete=models.CASCADE,
@@ -180,6 +182,21 @@ class Project(models.Model):
     @property
     def image_count(self):
         return self.images.count()
+
+    @property
+    def completed_images(self):
+        return self.images.filter(status='done').count()
+
+    @property
+    def progress_percent(self):
+        if self.planned_image_count > 0:
+            return round((self.completed_images / self.planned_image_count) * 100, 2)
+
+        total = self.image_count
+        if total == 0:
+            return 0
+
+        return round((self.completed_images / total) * 100, 2)
 
     @property
     def member_count(self):
@@ -239,6 +256,8 @@ class ActivityLog(models.Model):
         ('project_created',   'Created project'),
         ('project_archived',  'Archived project'),
         ('project_restored',  'Restored project'),
+        # Export
+        ('export_yolo',       'Exported YOLO'),
     ]
 
     project    = models.ForeignKey(Project, on_delete=models.CASCADE, related_name='activity_logs')
