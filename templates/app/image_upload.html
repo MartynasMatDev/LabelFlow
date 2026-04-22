@@ -272,6 +272,41 @@
   border-top: 1px solid var(--border); flex-shrink: 0;
 }
 
+/* ── Resize / format conversion controls ──────────────── */
+.edit-modal-toolbar-row {
+  display: flex; align-items: center; gap: 8px;
+  padding: 10px 20px;
+  border-top: 1px solid var(--border);
+  background: var(--surface2); flex-shrink: 0; flex-wrap: wrap;
+}
+.resize-btn {
+  background: var(--surface3); border: 1px solid var(--border-hover);
+  border-radius: 6px; color: var(--text); cursor: pointer;
+  font-size: 11px; padding: 5px 11px;
+  font-family: var(--font-mono); font-weight: 600;
+  transition: all .12s; line-height: 1;
+}
+.resize-btn:hover { border-color: var(--accent); background: var(--accent-glow); color: var(--accent-bright); }
+.resize-btn.active { background: var(--accent-glow); border-color: var(--accent); color: var(--accent-bright); }
+.edit-format-select {
+  background: var(--surface3); border: 1px solid var(--border-hover);
+  border-radius: 6px; color: var(--text); cursor: pointer;
+  font-size: 12px; padding: 5px 10px;
+  font-family: var(--font-mono); font-weight: 600;
+  transition: all .12s; outline: none; width: auto;
+}
+.edit-format-select:focus { border-color: var(--accent); }
+.quality-slider { accent-color: var(--accent); width: 80px; cursor: pointer; }
+.quality-lbl { font-size: 11px; color: var(--text-muted); font-family: var(--font-mono); min-width: 34px; }
+.edit-output-badge {
+  position: absolute; bottom: 10px; left: 12px;
+  background: rgba(0,0,0,.6); backdrop-filter: blur(4px);
+  border: 1px solid var(--border-hover); border-radius: 6px;
+  padding: 3px 9px; font-family: var(--font-mono); font-size: 11px;
+  color: var(--text-muted); pointer-events: none;
+}
+.edit-output-badge.changed { color: var(--accent-bright); }
+
 .queue-name {
   flex: 1; min-width: 0;
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
@@ -537,6 +572,7 @@
             <span class="crop-handle sw" data-handle="sw"></span>
             <span class="crop-handle se" data-handle="se"></span>
           </div>
+          <div id="edit-output-badge" class="edit-output-badge" style="display:none;"></div>
         </div>
       </div>
     </div>
@@ -546,6 +582,29 @@
       <button class="edit-rot-btn" onclick="applyRotation(90)"><span class="icon"><i class="fa-solid fa-rotate-right"></i></span> +90°</button>
       <button class="edit-rot-btn" onclick="applyRotation(180)">↕ 180°</button>
       <button class="edit-rot-btn" onclick="resetRotation()" style="color:var(--text-muted);"><i class="fa-solid fa-rotate"></i> Reset</button>
+    </div>
+    <div class="edit-modal-toolbar-row">
+      <span class="edit-toolbar-label">Resize</span>
+      <button class="resize-btn active" data-maxdim="0"    onclick="applyResize(0)">Original</button>
+      <button class="resize-btn"        data-maxdim="2048" onclick="applyResize(2048)">2048 px</button>
+      <button class="resize-btn"        data-maxdim="1024" onclick="applyResize(1024)">1024 px</button>
+      <button class="resize-btn"        data-maxdim="640"  onclick="applyResize(640)">640 px</button>
+      <button class="resize-btn"        data-maxdim="320"  onclick="applyResize(320)">320 px</button>
+    </div>
+    <div class="edit-modal-toolbar-row">
+      <span class="edit-toolbar-label">Format</span>
+      <select class="edit-format-select" id="edit-format-select" onchange="applyFormat(this.value)">
+        <option value="">Auto</option>
+        <option value="jpeg">JPEG</option>
+        <option value="png">PNG</option>
+        <option value="webp">WebP</option>
+      </select>
+      <span id="quality-wrap" style="display:flex;align-items:center;gap:6px;margin-left:8px;">
+        <span class="edit-toolbar-label" style="margin:0;">Quality</span>
+        <input type="range" class="quality-slider" id="edit-quality-slider" min="60" max="100" value="92"
+               oninput="applyQuality(this.value)">
+        <span class="quality-lbl" id="edit-quality-label">92%</span>
+      </span>
     </div>
     <div class="edit-modal-footer">
       <button type="button" class="btn btn-ghost btn-sm" onclick="closeEditModal()">Cancel</button>

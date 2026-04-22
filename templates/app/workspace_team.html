@@ -3,90 +3,209 @@
 {% block toolbar_title %}{{ workspace.name }} — Team{% endblock %}
 
 {% block toolbar_actions %}
-<a href="{% url 'workspace_detail' workspace.pk %}" class="btn btn-ghost btn-sm">← Back to workspace</a>
+<a href="{% url 'workspace_detail' workspace.pk %}" class="btn btn-ghost btn-sm"><i class="fa-solid fa-arrow-left"></i> Workspace</a>
+<button class="btn btn-primary btn-sm" data-open-modal="invite-modal"><i class="fa-solid fa-user-plus"></i> Add member</button>
 {% endblock %}
 
 {% block app_content %}
 <div class="page-header">
   <div class="page-title">
     <h1>Team</h1>
-    <p>Members of <strong>{{ workspace.name }}</strong>. Anyone here can see every project in this workspace.</p>
+    <p>Manage who has access to <strong>{{ workspace.name }}</strong>. Admins see all projects; members only see projects they're assigned to.</p>
   </div>
 </div>
 
-<div class="card" style="margin-bottom:20px;">
-  <h3 style="font-size:15px;margin-bottom:16px;">Add a member</h3>
-  <form method="post" class="flex gap-2" style="align-items:flex-end;">
-    {% csrf_token %}
-    <input type="hidden" name="action" value="add_member">
-    <div class="form-group" style="flex:1;margin:0;">
-      <label for="username">Username</label>
-      <input type="text" id="username" name="username" placeholder="e.g. jane_doe" required>
-    </div>
-    <div class="form-group" style="margin:0;min-width:160px;">
-      <label for="role">Role</label>
-      <select id="role" name="role">
-        {% for value, label in role_choices %}
-          <option value="{{ value }}">{{ label }}</option>
-        {% endfor %}
-      </select>
-    </div>
-    <button type="submit" class="btn btn-primary">Add</button>
-  </form>
-</div>
+<div class="team-layout">
+  <!-- Left column: members + invitations -->
+  <div>
 
-<div class="card">
-  <h3 style="font-size:15px;margin-bottom:16px;">Current members</h3>
-  <table class="table" style="width:100%;">
-    <thead>
-      <tr>
-        <th>User</th>
-        <th>Role</th>
-        <th>Joined</th>
-        <th style="text-align:right;">Actions</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr>
-        <td><strong>{{ workspace.owner.get_full_name|default:workspace.owner.username }}</strong></td>
-        <td><span class="badge">Owner</span></td>
-        <td>—</td>
-        <td></td>
-      </tr>
-      {% for m in members %}
-      <tr>
-        <td>{{ m.user.get_full_name|default:m.user.username }}</td>
-        <td>
-          <form method="post" class="flex gap-2" style="align-items:center;">
-            {% csrf_token %}
-            <input type="hidden" name="action" value="change_role">
-            <input type="hidden" name="member_id" value="{{ m.pk }}">
-            <select name="role" onchange="this.form.submit()">
-              {% for value, label in role_choices %}
+    <!-- Members -->
+    <div class="card card-flat" style="margin-bottom:24px;">
+      <div class="section-header" style="padding:18px 22px 0;">
+        <h2>Members</h2>
+        <span class="badge badge-muted">{{ members.count|add:1 }}</span>
+      </div>
+      <div style="padding-bottom:8px;">
+
+        <!-- Owner row -->
+        <div class="member-row">
+          <div class="avatar avatar-md avatar-c0">{{ workspace.owner.get_full_name|default:workspace.owner.username|slice:":2"|upper }}</div>
+          <div class="member-row-info">
+            <div class="member-row-name">
+              {{ workspace.owner.get_full_name|default:workspace.owner.username }}
+              {% if workspace.owner == request.user %}<span class="badge badge-accent" style="font-size:10px;margin-left:6px;">You</span>{% endif %}
+            </div>
+            <div class="member-row-email">{{ workspace.owner.email }}</div>
+          </div>
+          <div class="flex items-center gap-2">
+            <span class="badge badge-muted">Owner</span>
+          </div>
+        </div>
+
+        {% for m in members %}
+        <div class="member-row">
+          <div class="avatar avatar-md avatar-c{{ forloop.counter|add:"1" }}">{{ m.user.get_full_name|default:m.user.username|slice:":2"|upper }}</div>
+          <div class="member-row-info">
+            <div class="member-row-name">
+              {{ m.user.get_full_name|default:m.user.username }}
+              {% if m.user == request.user %}<span class="badge badge-accent" style="font-size:10px;margin-left:6px;">You</span>{% endif %}
+            </div>
+            <div class="member-row-email">{{ m.user.email }}</div>
+          </div>
+          <div class="flex items-center gap-2">
+            <form method="post" style="display:inline;">
+              {% csrf_token %}
+              <input type="hidden" name="action" value="change_role">
+              <input type="hidden" name="member_id" value="{{ m.pk }}">
+              <select class="role-select" name="role" onchange="this.form.submit()">
+                {% for value, label in role_choices %}
                 <option value="{{ value }}" {% if m.role == value %}selected{% endif %}>{{ label }}</option>
-              {% endfor %}
-            </select>
-          </form>
-        </td>
-        <td>{{ m.joined_at|date:"Y-m-d" }}</td>
-        <td style="text-align:right;">
-          <form method="post" style="display:inline;"
-                onsubmit="return confirm('Remove {{ m.user.username }} from workspace?');">
-            {% csrf_token %}
-            <input type="hidden" name="action" value="remove_member">
-            <input type="hidden" name="member_id" value="{{ m.pk }}">
-            <button type="submit" class="btn btn-ghost btn-sm">Remove</button>
-          </form>
-        </td>
-      </tr>
-      {% empty %}
-      <tr>
-        <td colspan="4" style="color:var(--text-muted);text-align:center;padding:16px;">
-          No other members yet. Invite someone above.
-        </td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
+                {% endfor %}
+              </select>
+            </form>
+            <form method="post" style="display:inline;"
+                  onsubmit="return confirm('Remove {{ m.user.get_full_name|default:m.user.username }} from the workspace?');">
+              {% csrf_token %}
+              <input type="hidden" name="action" value="remove_member">
+              <input type="hidden" name="member_id" value="{{ m.pk }}">
+              <button type="submit" class="btn btn-icon btn-danger btn-sm" title="Remove"><i class="fa-solid fa-xmark"></i></button>
+            </form>
+          </div>
+        </div>
+        {% empty %}
+        <div class="empty-state" style="padding:32px 20px;">
+          <div class="empty-icon"><i class="fa-solid fa-users"></i></div>
+          <h3>No other members</h3>
+          <p>Use the "Add member" button to invite someone.</p>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- Pending invitations -->
+    {% if pending_invitations %}
+    <div class="card card-flat" style="margin-bottom:24px;">
+      <div class="section-header" style="padding:18px 22px 0;">
+        <h2>Pending Invitations</h2>
+        <span class="badge badge-warning">{{ pending_invitations|length }}</span>
+      </div>
+      <div style="padding-bottom:8px;">
+        {% for inv in pending_invitations %}
+        <div class="member-row">
+          <div class="avatar avatar-md" style="background:var(--surface3);color:var(--text-muted);"><i class="fa-solid fa-envelope"></i></div>
+          <div class="member-row-info">
+            <div class="member-row-name">{{ inv.email }}</div>
+            <div class="member-row-email">{{ inv.get_role_display }} · sent {{ inv.created_at|timesince }} ago</div>
+          </div>
+          <div class="flex items-center gap-2">
+            <button type="button" class="btn btn-sm btn-secondary copy-invite-link"
+                    data-url="{% url 'workspace_invitation_prompt' inv.token %}">
+              <i class="fa-solid fa-copy"></i> Copy link
+            </button>
+            <form method="post" style="display:inline;"
+                  onsubmit="return confirm('Cancel invitation for {{ inv.email }}?');">
+              {% csrf_token %}
+              <input type="hidden" name="action" value="cancel_invitation">
+              <input type="hidden" name="invitation_id" value="{{ inv.pk }}">
+              <button type="submit" class="btn btn-icon btn-danger btn-sm" title="Cancel"><i class="fa-solid fa-xmark"></i></button>
+            </form>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Projects quick-links -->
+    {% if projects %}
+    <div class="card card-flat">
+      <div class="section-header" style="padding:18px 22px 0;">
+        <h2>Projects</h2>
+        <span class="badge badge-muted">{{ projects|length }}</span>
+      </div>
+      <div style="padding:8px 0 8px;">
+        {% for project in projects %}
+        <div class="member-row" style="justify-content:space-between;">
+          <div class="member-row-info">
+            <div class="member-row-name">{{ project.emoji }} {{ project.name }}</div>
+            <div class="member-row-email">{{ project.member_count }} assigned member(s) · {{ project.image_count }} images</div>
+          </div>
+          <a href="{% url 'team_management' project.id %}" class="btn btn-ghost btn-sm">
+            <i class="fa-solid fa-users-gear"></i> Assign members
+          </a>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+  </div>
+
+  <!-- Right column: role info -->
+  <div>
+    <div class="card">
+      <h3 style="font-size:13px;margin-bottom:14px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;font-family:'DM Mono',monospace;">Workspace Roles</h3>
+      <div class="role-info-card">
+        <h4><span class="badge badge-accent" style="font-size:10px;">Admin</span> Administrator</h4>
+        <p>Sees all projects, manages team members, and can assign anyone to any project.</p>
+      </div>
+      <div class="role-info-card" style="margin-bottom:0;">
+        <h4><span class="badge badge-muted" style="font-size:10px;">Member</span> Member</h4>
+        <p>Only sees projects they have been explicitly assigned to.</p>
+      </div>
+    </div>
+  </div>
 </div>
+{% endblock %}
+
+{% block modals %}
+<div class="modal-overlay" id="invite-modal">
+  <div class="modal">
+    <div class="modal-header">
+      <h2>Add member</h2>
+      <button class="modal-close"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <form method="post" action="{% url 'workspace_team' workspace.pk %}">
+      {% csrf_token %}
+      <input type="hidden" name="action" value="add_member">
+      <div class="form-group">
+        <label for="invite-email">Email address</label>
+        <input type="email" id="invite-email" name="email" placeholder="colleague@example.com" required autofocus>
+        <div class="form-hint">
+          If they already have an account they'll be added immediately.
+          Otherwise an invitation email will be sent.
+        </div>
+      </div>
+      <div class="form-group">
+        <label for="invite-role">Role</label>
+        <select id="invite-role" name="role">
+          {% for value, label in role_choices %}
+          <option value="{{ value }}">{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-ghost modal-close">Cancel</button>
+        <button type="submit" class="btn btn-primary"><i class="fa-solid fa-paper-plane"></i> Add / Invite</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  document.querySelectorAll('.copy-invite-link').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+      const url = new URL(this.getAttribute('data-url'), window.location.href).href;
+      navigator.clipboard.writeText(url).then(() => {
+        const orig = this.innerHTML;
+        this.innerHTML = '✓ Copied!';
+        setTimeout(() => { this.innerHTML = orig; }, 2000);
+      });
+    });
+  });
+});
+</script>
 {% endblock %}
