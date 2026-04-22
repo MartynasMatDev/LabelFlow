@@ -488,6 +488,9 @@ hr, .divider { border: none; border-top: 1px solid var(--border); margin: 22px 0
   min-height: 100vh;
 }
 
+/* Backdrop is desktop-invisible; only shown on mobile via media query */
+.sidebar-backdrop { display: none; }
+
 /* ── Sidebar ────────────────────────────────────────────── */
 .sidebar {
   grid-row: 1 / -1;
