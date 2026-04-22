@@ -1,8 +1,10 @@
+import io
 import os
 import json
+import zipfile
 from datetime import datetime
 
-from django.http import JsonResponse
+from django.http import HttpResponse, JsonResponse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
@@ -484,3 +486,83 @@ def polygon_delete(request, pk, poly_pk):
     poly = get_object_or_404(Polygon, pk=poly_pk, image=image)
     poly.delete()
     return JsonResponse({'success': True})
+
+
+@login_required
+def export_yolo(request, project_id):
+    project = get_object_or_404(Project, id=project_id)
+    if not project.user_has_access(request.user):
+        messages.error(request, 'You do not have access to this project.')
+        return redirect('project_list')
+
+    status_filter = request.GET.get('status', '')
+    images_qs = Image.objects.filter(project=project).prefetch_related(
+        'bounding_boxes__label', 'polygons__label'
+    )
+    if status_filter in ('pending', 'partial', 'done'):
+        images_qs = images_qs.filter(status=status_filter)
+
+    # Collect all unique labels across images in a stable order
+    label_set = {}
+    for image in images_qs:
+        for box in image.bounding_boxes.all():
+            if box.label and box.label.id not in label_set:
+                label_set[box.label.id] = box.label.name
+        for poly in image.polygons.all():
+            if poly.label and poly.label.id not in label_set:
+                label_set[poly.label.id] = poly.label.name
+    label_index = {lid: idx for idx, lid in enumerate(label_set)}
+    class_names = [label_set[lid] for lid in label_set]
+
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, 'w', zipfile.ZIP_DEFLATED) as zf:
+        for image in images_qs:
+            stem = os.path.splitext(image.name)[0]
+
+            # Write image file
+            if image.image_file and os.path.exists(image.image_file.path):
+                ext = os.path.splitext(image.image_file.name)[1]
+                zf.write(image.image_file.path, f'images/{stem}{ext}')
+
+            # Build annotation lines
+            lines = []
+            for box in image.bounding_boxes.all():
+                if box.label is None:
+                    continue
+                cls = label_index[box.label.id]
+                x_c = (box.x + box.width / 2) / 100
+                y_c = (box.y + box.height / 2) / 100
+                w = box.width / 100
+                h = box.height / 100
+                lines.append(f'{cls} {x_c:.6f} {y_c:.6f} {w:.6f} {h:.6f}')
+            for poly in image.polygons.all():
+                if poly.label is None:
+                    continue
+                cls = label_index[poly.label.id]
+                coords = ' '.join(
+                    f'{p["x"] / 100:.6f} {p["y"] / 100:.6f}'
+                    for p in poly.points
+                )
+                lines.append(f'{cls} {coords}')
+
+            zf.writestr(f'labels/{stem}.txt', '\n'.join(lines))
+
+        zf.writestr('classes.txt', '\n'.join(class_names))
+
+        yaml_lines = [
+            f'path: .',
+            f'train: images',
+            f'val: images',
+            f'',
+            f'nc: {len(class_names)}',
+            f'names: {json.dumps(class_names)}',
+        ]
+        zf.writestr('data.yaml', '\n'.join(yaml_lines))
+
+    log_activity(project, request.user, 'export_yolo', detail=f'{images_qs.count()} images')
+
+    buf.seek(0)
+    slug = project.name.lower().replace(' ', '_')
+    response = HttpResponse(buf.read(), content_type='application/zip')
+    response['Content-Disposition'] = f'attachment; filename="{slug}_yolo.zip"'
+    return response
