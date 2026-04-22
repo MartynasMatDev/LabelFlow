@@ -5,15 +5,19 @@
 
 {% block toolbar_actions %}
 <a href="{% url 'project_detail' project.id %}" class="btn btn-ghost btn-sm"><i class="fa-solid fa-arrow-left"></i> Project</a>
-<button class="btn btn-primary btn-sm" data-open-modal="add-member-modal"><i class="fa-solid fa-user-plus"></i> Add Member</button>
-<button class="btn btn-secondary btn-sm" data-open-modal="invite-modal"><i class="fa-solid fa-envelope"></i> Invite</button>
+{% if assignable %}
+<button class="btn btn-primary btn-sm" data-open-modal="assign-modal"><i class="fa-solid fa-user-plus"></i> Assign member</button>
+{% endif %}
+{% if project.workspace %}
+<a href="{% url 'workspace_team' project.workspace.pk %}" class="btn btn-secondary btn-sm"><i class="fa-solid fa-users"></i> Workspace team</a>
+{% endif %}
 {% endblock %}
 
 {% block app_content %}
 <div class="page-header">
   <div class="page-title">
-    <h1>Team Management</h1>
-    <p>{{ project.name }} · {{ members.count }} member(s)</p>
+    <h1>Project Team</h1>
+    <p>{{ project.name }} · {{ members.count }} assigned member(s)</p>
   </div>
 </div>
 
@@ -22,13 +26,13 @@
   <div>
     <div class="card card-flat">
       <div class="section-header" style="padding:18px 22px 0;">
-        <h2>Team Members</h2>
-        <span class="badge badge-muted">{{ members.count }} / ∞</span>
+        <h2>Assigned Members</h2>
+        <span class="badge badge-muted">{{ members.count }}</span>
       </div>
       <div style="padding-bottom:8px;">
         {% for member in members %}
         <div class="member-row">
-          <div class="avatar avatar-md avatar-c{{ forloop.counter0|add:"0"|divisibleby:5 }}">{{ member.get_initials }}</div>
+          <div class="avatar avatar-md avatar-c{{ forloop.counter0|add:"0" }}">{{ member.get_initials }}</div>
           <div class="member-row-info">
             <div class="member-row-name">
               {{ member.user.get_full_name|default:member.user.username }}
@@ -37,7 +41,6 @@
             </div>
             <div class="member-row-email">{{ member.user.email }}</div>
           </div>
-
           <div class="flex items-center gap-2">
             {% if member.user != project.created_by %}
             <form method="post" style="display:inline;">
@@ -58,69 +61,34 @@
               <button type="submit" class="btn btn-icon btn-danger btn-sm" title="Remove"><i class="fa-solid fa-xmark"></i></button>
             </form>
             {% else %}
-            <select class="role-select" disabled>
-              <option>Administrator</option>
-            </select>
+            <select class="role-select" disabled><option>Administrator</option></select>
             {% endif %}
           </div>
         </div>
         {% empty %}
         <div class="empty-state" style="padding:40px 20px;">
           <div class="empty-icon"><i class="fa-solid fa-users"></i></div>
-          <h3>No members</h3>
-          <p>Add your first team members</p>
-        </div>
-        {% endfor %}
-      </div>
-    </div>
-
-    <!-- Pending invitations -->
-    <div class="card card-flat" style="margin-top: 24px;">
-      <div class="section-header" style="padding:18px 22px 0;">
-        <h2>Pending Invitations</h2>
-        <span class="badge badge-muted">{{ pending_invitations|length }}</span>
-      </div>
-      <div style="padding-bottom:8px;">
-        {% for inv in pending_invitations %}
-        <div class="member-row">
-          <div class="avatar avatar-md avatar-c{{ forloop.counter0|add:"0"|divisibleby:5 }}"><i class="fa-solid fa-envelope"></i></div>
-          <div class="member-row-info">
-            <div class="member-row-name">{{ inv.email }}</div>
-            <div class="member-row-email">{{ inv.get_role_display }} · sent {{ inv.created_at|timesince }} ago</div>
-          </div>
-          <div class="flex items-center gap-2">
-            <button type="button"
-                    class="btn btn-sm btn-secondary copy-invite-link"
-                    data-url="{% url 'invitation_prompt' inv.token %}"
-                    style="padding: 4px 12px;">
-              <i class="fa-solid fa-copy"></i> Copy link
-            </button>
-            <form method="post" onsubmit="return confirm('Cancel invitation for {{ inv.email }}?');" style="display:inline;">
-              {% csrf_token %}
-              <input type="hidden" name="action" value="cancel_invitation">
-              <input type="hidden" name="invitation_id" value="{{ inv.id }}">
-              <button type="submit" class="btn btn-icon btn-danger btn-sm" title="Cancel"><i class="fa-solid fa-xmark"></i></button>
-            </form>
-          </div>
-        </div>
-        {% empty %}
-        <div class="empty-state" style="padding:40px 20px;">
-          <div class="empty-icon"><i class="fa-solid fa-envelope-open"></i></div>
-          <h3>No pending invitations</h3>
-          <p>Invite new members using the "Invite" button.</p>
+          <h3>No members assigned</h3>
+          {% if assignable %}
+          <p>Use "Assign member" to add workspace members to this project.</p>
+          {% elif project.workspace %}
+          <p>Add members to the workspace first, then assign them here.</p>
+          {% else %}
+          <p>This project has no workspace team to draw from.</p>
+          {% endif %}
         </div>
         {% endfor %}
       </div>
     </div>
   </div>
 
-  <!-- Sidebar info -->
+  <!-- Sidebar -->
   <div>
     <div class="card" style="margin-bottom:16px;">
       <h3 style="font-size:13px;margin-bottom:14px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;font-family:'DM Mono',monospace;">Roles</h3>
       <div class="role-info-card">
         <h4><span class="badge badge-accent" style="font-size:10px;">Admin</span> Administrator</h4>
-        <p>Full access: project settings, member management, data deletion, export.</p>
+        <p>Full access: settings, member management, deletion, export.</p>
       </div>
       <div class="role-info-card">
         <h4><span class="badge badge-success" style="font-size:10px;">Ann</span> Annotator</h4>
@@ -140,6 +108,10 @@
           <span>{{ project.name|truncatechars:20 }}</span>
         </div>
         <div class="flex justify-between">
+          <span class="text-muted">Workspace</span>
+          <span>{{ project.workspace.name|default:"—"|truncatechars:20 }}</span>
+        </div>
+        <div class="flex justify-between">
           <span class="text-muted">Members</span>
           <span class="font-mono">{{ members.count }}</span>
         </div>
@@ -154,53 +126,31 @@
 {% endblock %}
 
 {% block modals %}
-<div class="modal-overlay" id="add-member-modal">
+{% if assignable %}
+<div class="modal-overlay" id="assign-modal">
   <div class="modal">
     <div class="modal-header">
-      <h2>Add Team Member</h2>
-      <button class="modal-close">✕</button>
-    </div>
-    <form method="post" action="{% url 'team_management' project.id %}">
-      {% csrf_token %}
-      <input type="hidden" name="action" value="add_member">
-      <div class="form-group">
-        <label>Username</label>
-        <input type="text" name="username" placeholder="e.g. john123" required autofocus>
-        <div class="form-hint">User must have an account in LabelFlow.</div>
-      </div>
-      <div class="form-group">
-        <label>Role</label>
-        <select name="role">
-          {% for value, label in role_choices %}
-          <option value="{{ value }}" {% if value == 'annotator' %}selected{% endif %}>{{ label }}</option>
-          {% endfor %}
-        </select>
-      </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-ghost modal-close">Cancel</button>
-        <button type="submit" class="btn btn-primary"><i class="fa-solid fa-user-plus"></i> Add Member</button>
-      </div>
-    </form>
-  </div>
-</div>
-
-<div class="modal-overlay" id="invite-modal">
-  <div class="modal">
-    <div class="modal-header">
-      <h2>Invite Team Member</h2>
+      <h2>Assign workspace member</h2>
       <button class="modal-close"><i class="fa-solid fa-xmark"></i></button>
     </div>
     <form method="post" action="{% url 'team_management' project.id %}">
       {% csrf_token %}
-      <input type="hidden" name="action" value="send_invitation">
+      <input type="hidden" name="action" value="assign_member">
       <div class="form-group">
-        <label>Email address</label>
-        <input type="email" name="email" placeholder="e.g., collaborator@example.com" required autofocus>
-        <div class="form-hint">We'll send an invitation email with a link to join this project.</div>
+        <label for="workspace-member">Workspace member</label>
+        <select id="workspace-member" name="workspace_member_id" required>
+          <option value="">— select a member —</option>
+          {% for wm in assignable %}
+          <option value="{{ wm.pk }}">
+            {{ wm.user.get_full_name|default:wm.user.username }} ({{ wm.user.email }})
+          </option>
+          {% endfor %}
+        </select>
+        <div class="form-hint">Only workspace members not already on this project are listed.</div>
       </div>
       <div class="form-group">
-        <label>Role</label>
-        <select name="role">
+        <label for="assign-role">Role</label>
+        <select id="assign-role" name="role">
           {% for value, label in role_choices %}
           <option value="{{ value }}" {% if value == 'annotator' %}selected{% endif %}>{{ label }}</option>
           {% endfor %}
@@ -208,43 +158,10 @@
       </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-ghost modal-close">Cancel</button>
-        <button type="submit" class="btn btn-primary"><i class="fa-solid fa-paper-plane"></i> Send Invitation</button>
+        <button type="submit" class="btn btn-primary"><i class="fa-solid fa-user-plus"></i> Assign</button>
       </div>
     </form>
   </div>
 </div>
-{% endblock %}
-
-{% block extra_js %}
-<script>
-  (function() {
-    // Wait for DOM to be fully loaded
-    document.addEventListener('DOMContentLoaded', function() {
-      const copyButtons = document.querySelectorAll('.copy-invite-link');
-      copyButtons.forEach(button => {
-        button.addEventListener('click', function(e) {
-          e.preventDefault();
-          const relativeUrl = this.getAttribute('data-url');
-          if (!relativeUrl) {
-            console.error('No data-url attribute found on button', this);
-            alert('Invitation link is missing. Please try again or contact support.');
-            return;
-          }
-          const absoluteUrl = new URL(relativeUrl, window.location.href).href;
-          console.log('Copying URL:', absoluteUrl);
-          navigator.clipboard.writeText(absoluteUrl).then(() => {
-            const originalText = this.innerText;
-            this.innerText = '✓ Copied!';
-            setTimeout(() => {
-              this.innerText = originalText;
-            }, 2000);
-          }).catch(err => {
-            console.error('Copy failed: ', err);
-            alert('Unable to copy link. Please copy manually: ' + absoluteUrl);
-          });
-        });
-      });
-    });
-  })();
-</script>
+{% endif %}
 {% endblock %}
