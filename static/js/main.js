@@ -54,6 +54,18 @@ document.addEventListener('DOMContentLoaded', () => {
       e.target.classList.remove('open');
   });
 
+  // ── Dropdowns ───────────────────────────────────────────
+  window.toggleDropdown = function (id) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.classList.toggle('open');
+  };
+  document.addEventListener('click', function (e) {
+    document.querySelectorAll('.dropdown.open').forEach(function (dd) {
+      if (!dd.contains(e.target)) dd.classList.remove('open');
+    });
+  });
+
   // ── Tabs ────────────────────────────────────────────────
   window.switchTab = function (tabId) {
     const container = document.querySelector('[data-tabs]') || document;
@@ -1100,8 +1112,22 @@ window.closeDeleteModal = () => document.getElementById('delete-modal').classLis
           axis: 'x'
         },
         plugins: {
+          title: {
+            display: true,
+            text: 'Uploads Timeline',
+            color: getComputedStyle(document.documentElement).getPropertyValue('--text-muted'),
+            font: {
+              size: 12,
+              weight: '600'
+            },
+            padding: {
+              bottom: 8
+            }
+          },
           legend: {
-            labels: { color: getComputedStyle(document.documentElement).getPropertyValue('--text') }
+            labels: {
+              color: getComputedStyle(document.documentElement).getPropertyValue('--text')
+            }
           }
         },
         scales: {

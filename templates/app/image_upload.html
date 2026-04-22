@@ -413,7 +413,7 @@
 
     <!-- Drop zone -->
     <div class="drop-zone" id="drop-zone">
-      <span class="drop-zone-icon">⬕</span>
+      <span class="drop-zone-icon"><i class="fa-regular fa-image"></i></span>
       <div class="drop-zone-title">Drop images or a folder here</div>
       <div class="drop-zone-sub">
         or choose with the buttons below<br>
@@ -422,11 +422,11 @@
       <div class="drop-zone-btns">
         <button type="button" class="btn btn-secondary btn-sm"
                 onclick="document.getElementById('input-files').click()">
-          ⬕ Select files
+          <i class="fa-solid fa-file-arrow-up"></i> Select files
         </button>
         <button type="button" class="btn btn-secondary btn-sm"
                 onclick="document.getElementById('input-folder').click()">
-          ⬡ Select folder
+          <i class="fa-solid fa-folder-open"></i> Select folder
         </button>
       </div>
     </div>
@@ -447,7 +447,7 @@
         <button type="button" class="btn btn-ghost btn-sm"
                 onclick="clearQueue()"
                 onmouseenter="this.style.color='var(--danger)'"
-                onmouseleave="this.style.color=''">✕ Clear all</button>
+                onmouseleave="this.style.color=''"><i class="fa-solid fa-trash"></i> Clear all</button>
       </div>
 
       <div class="queue-list" id="queue-list"></div>
@@ -481,9 +481,9 @@
       <div class="upload-actions">
         <button type="button" class="btn btn-primary" id="btn-upload"
                 disabled onclick="startUpload()"
-                data-upload-url="{% url 'image_upload_ajax' %}">↑ Upload</button>
+                data-upload-url="{% url 'image_upload_ajax' %}"><i class="fa-solid fa-upload"></i> Upload</button>
         <a href="#" class="btn btn-secondary" id="btn-view" style="display:none;">
-          → View project
+          <i class="fa-solid fa-arrow-right"></i> View project
         </a>
       </div>
     </div>
@@ -520,9 +520,9 @@
     <div class="edit-modal-header">
       <span class="edit-modal-title" id="edit-modal-filename">image.jpg</span>
       <div class="edit-modal-nav">
-        <button class="edit-nav-btn" id="edit-nav-prev" title="Previous (←)" onclick="editNavigate(-1)">←</button>
+        <button class="edit-nav-btn" id="edit-nav-prev" title="Previous (←)" onclick="editNavigate(-1)"><i class="fa-solid fa-arrow-left"></i></button>
         <span class="edit-nav-counter" id="edit-nav-counter">1 / 1</span>
-        <button class="edit-nav-btn" id="edit-nav-next" title="Next (→)" onclick="editNavigate(1)">→</button>
+        <button class="edit-nav-btn" id="edit-nav-next" title="Next (→)" onclick="editNavigate(1)"><i class="fa-solid fa-arrow-right"></i></button>
       </div>
       <button class="edit-modal-close" onclick="closeEditModal()" title="Cancel (Esc)">✕</button>
     </div>
@@ -542,14 +542,14 @@
     </div>
     <div class="edit-modal-toolbar">
       <span class="edit-toolbar-label">Rotate</span>
-      <button class="edit-rot-btn" onclick="applyRotation(-90)"><span class="icon">↺</span> −90°</button>
-      <button class="edit-rot-btn" onclick="applyRotation(90)"><span class="icon">↻</span> +90°</button>
+      <button class="edit-rot-btn" onclick="applyRotation(-90)"><span class="icon"><i class="fa-solid fa-rotate-left"></i></span> −90°</button>
+      <button class="edit-rot-btn" onclick="applyRotation(90)"><span class="icon"><i class="fa-solid fa-rotate-right"></i></span> +90°</button>
       <button class="edit-rot-btn" onclick="applyRotation(180)">↕ 180°</button>
-      <button class="edit-rot-btn" onclick="resetRotation()" style="color:var(--text-muted);">⊙ Reset</button>
+      <button class="edit-rot-btn" onclick="resetRotation()" style="color:var(--text-muted);"><i class="fa-solid fa-rotate"></i> Reset</button>
     </div>
     <div class="edit-modal-footer">
       <button type="button" class="btn btn-ghost btn-sm" onclick="closeEditModal()">Cancel</button>
-      <button type="button" class="btn btn-primary btn-sm" onclick="saveRotation()">✓ Apply</button>
+      <button type="button" class="btn btn-primary btn-sm" onclick="saveRotation()"><i class="fa-solid fa-check"></i> Apply</button>
     </div>
   </div>
 </div>

@@ -384,39 +384,39 @@ kbd {
     <!-- Tools -->
     <div class="tool-group">
       <button class="tool-btn" id="tool-select" onclick="Annotator.setTool('select')" title="Select (V)">
-        <span class="tool-icon">🖢</span>
+        <span class="tool-icon"><i class="fa-solid fa-arrow-pointer"></i></span>
       </button>
       <button class="tool-btn active" id="tool-draw" onclick="Annotator.setTool('draw')"   title="Draw (B)">
-        <span class="tool-icon">⧠</span> Rectangle
+        <span class="tool-icon"><i class="fa-regular fa-square"></i></span> Rectangle
       </button>
       <button class="tool-btn" id="tool-polygon" onclick="Annotator.setTool('polygon')" title="Draw Polygon (P)">
-        <span class="tool-icon">⭔</span> Polygon
+        <span class="tool-icon"><i class="fa-solid fa-draw-polygon"></i></span> Polygon
       </button>
     </div>
 
     <div style="width:1px;height:22px;background:var(--border);flex-shrink:0;"></div>
 
     <!-- Undo / delete -->
-    <button class="tool-btn" onclick="Annotator.undo()" title="Undo (Ctrl+Z)">↩ Undo</button>
+    <button class="tool-btn" onclick="Annotator.undo()" title="Undo (Ctrl+Z)"> <i class="fa-solid fa-rotate-left"></i> Undo</button>
     <button class="tool-btn" id="btn-delete-sel" onclick="Annotator.deleteSelected()" style="display:none;" title="Delete (Del)">
-      ✕ Delete
+      <i class="fa-solid fa-trash"></i> Delete
     </button>
 
     <div style="width:1px;height:22px;background:var(--border);flex-shrink:0;"></div>
 
     <!-- Zoom -->
-    <button class="tool-btn" onclick="Annotator.zoom(-0.1)" title="Zoom out">−</button>
+    <button class="tool-btn" onclick="Annotator.zoom(-0.1)" title="Zoom out"><i class="fa-solid fa-magnifying-glass-minus"></i></button>
     <span class="zoom-display" id="zoom-display">100%</span>
-    <button class="tool-btn" onclick="Annotator.zoom(+0.1)" title="Zoom in">+</button>
+    <button class="tool-btn" onclick="Annotator.zoom(+0.1)" title="Zoom in"><i class="fa-solid fa-magnifying-glass-plus"></i></button>
     <button class="tool-btn" onclick="Annotator.resetZoom()" title="Fit">Fit</button>
 
     <div style="flex:1;"></div>
 
     <!-- Image status -->
     <span class="status-badge {{ image.status }}" id="status-badge">
-      {% if image.status == 'pending' %}⏳ Pending
-      {% elif image.status == 'partial' %}◑ Partial
-      {% else %}✓ Done{% endif %}
+      {% if image.status == 'pending' %}<i class="fa-regular fa-clock"></i> Pending
+      {% elif image.status == 'partial' %}<i class="fa-solid fa-spinner"></i> Partial
+      {% else %}<i class="fa-solid fa-circle-check"></i> Done{% endif %}
     </span>
 
     <span style="font-size:12px;color:var(--text-muted);font-family:'DM Mono',monospace;max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
@@ -478,7 +478,9 @@ kbd {
 
     <div class="box-list" id="box-list">
       <div class="box-empty" id="box-empty">
-        <div class="box-empty-icon">⬕</div>
+        <div class="box-empty-icon">
+          <i class="fa-regular fa-square-plus"></i>
+        </div>
         <div>No boxes yet</div>
         <div style="margin-top:4px;font-size:11px;">Select the Draw tool and drag on the image</div>
       </div>
