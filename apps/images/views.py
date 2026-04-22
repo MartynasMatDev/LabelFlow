@@ -215,6 +215,7 @@ def image_delete(request, image_id):
         name = image.name
         image.image_file.delete(save=False)
         image.delete()
+        _cleanup_orphan_tags()
         log_activity(project, request.user, 'image_deleted', detail=name)
         messages.success(request, f'Image "{name}" has been deleted.')
     next_url = request.POST.get('next') or request.META.get('HTTP_REFERER')
@@ -240,6 +241,7 @@ def batch_delete(request):
             project = image.project
             image.image_file.delete(save=False)
             image.delete()
+            _cleanup_orphan_tags()
             log_activity(project, request.user, 'image_deleted', detail=name)
             deleted_count += 1
         else:
@@ -487,6 +489,12 @@ def polygon_delete(request, pk, poly_pk):
     poly.delete()
     return JsonResponse({'success': True})
 
+def _cleanup_orphan_tags():
+    Tag.objects.filter(
+        images__isnull=True,
+        bounding_boxes__isnull=True,
+        polygons__isnull=True,
+    ).delete()
 
 @login_required
 def export_yolo(request, project_id):
