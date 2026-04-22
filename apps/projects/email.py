@@ -3,6 +3,7 @@ from django.template.loader import render_to_string
 from django.conf import settings
 from django.utils.html import strip_tags
 
+
 def send_invitation_email(invitation):
     subject = f"Invitation to join project {invitation.project.name}"
     context = {
@@ -13,5 +14,17 @@ def send_invitation_email(invitation):
     }
     html_message = render_to_string('email/invitation.html', context)
     plain_message = strip_tags(html_message)
-    from_email = settings.DEFAULT_FROM_EMAIL
-    send_mail(subject, plain_message, from_email, [invitation.email], html_message=html_message)
+    send_mail(subject, plain_message, settings.DEFAULT_FROM_EMAIL, [invitation.email], html_message=html_message)
+
+
+def send_workspace_invitation_email(invitation):
+    subject = f"Invitation to join {invitation.workspace.name}"
+    context = {
+        'invitation': invitation,
+        'accept_url': settings.SITE_URL + f'/invite/workspace/{invitation.token}/accept/',
+        'workspace_name': invitation.workspace.name,
+        'inviter': invitation.invited_by.get_full_name() or invitation.invited_by.username,
+    }
+    html_message = render_to_string('email/workspace_invitation.html', context)
+    plain_message = strip_tags(html_message)
+    send_mail(subject, plain_message, settings.DEFAULT_FROM_EMAIL, [invitation.email], html_message=html_message)
