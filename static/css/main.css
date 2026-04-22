@@ -1349,13 +1349,26 @@ hr, .divider { border: none; border-top: 1px solid var(--border); margin: 22px 0
 }
 .metrics-grid {
   display: grid;
-  grid-template-columns: repeat(3, 1fr); /* 2 per row */
+  grid-template-columns: repeat(3, 1fr);
   gap: 12px;
+  align-items: stretch;
 }
+
 .metric-card {
-  height: 300px;   /* 👈 control chart height here */
-  padding: 0px;
-  margin-top: 12px;
+  height: 300px;
+  padding: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.metric-card canvas {
+  max-height: 260px;
+  width: 100% !important;
+}
+
+.metric-card--wide {
+  grid-column: span 2;
 }
 
 /* ── Crop preview layer ─────────────────────────────── */
