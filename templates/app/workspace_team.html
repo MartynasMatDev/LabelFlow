@@ -15,6 +15,28 @@
   </div>
 </div>
 
+{% if new_invite and new_invite_url %}
+<div class="card" style="margin-bottom:20px;border-color:var(--border-accent);background:var(--accent-glow);">
+  <div class="flex items-center gap-3" style="margin-bottom:10px;">
+    <span style="font-size:18px;color:var(--accent-bright);"><i class="fa-solid fa-link"></i></span>
+    <div style="flex:1;">
+      <div style="font-weight:600;color:var(--text);">Invitation link for {{ new_invite.email }}</div>
+      <div class="text-sm text-muted">Share this link so they can join as {{ new_invite.get_role_display }}. The email has also been sent.</div>
+    </div>
+  </div>
+  <div class="flex gap-2 items-center">
+    <input type="text" id="new-invite-url-input" readonly
+           value="{{ new_invite_url }}"
+           onclick="this.select();"
+           style="flex:1;font-family:'DM Mono',monospace;font-size:12px;">
+    <button type="button" class="btn btn-primary btn-sm copy-invite-link"
+            data-url="{{ new_invite_url }}">
+      <i class="fa-solid fa-copy"></i> Copy link
+    </button>
+  </div>
+</div>
+{% endif %}
+
 <div class="team-layout">
   <!-- Left column: members + invitations -->
   <div>
@@ -91,7 +113,7 @@
       </div>
       <div style="padding-bottom:8px;">
         {% for inv in pending_invitations %}
-        <div class="member-row">
+        <div class="member-row" style="flex-wrap:wrap;row-gap:8px;">
           <div class="avatar avatar-md" style="background:var(--surface3);color:var(--text-muted);"><i class="fa-solid fa-envelope"></i></div>
           <div class="member-row-info">
             <div class="member-row-name">{{ inv.email }}</div>
@@ -110,6 +132,10 @@
               <button type="submit" class="btn btn-icon btn-danger btn-sm" title="Cancel"><i class="fa-solid fa-xmark"></i></button>
             </form>
           </div>
+          <input type="text" readonly
+                 value="{{ request.scheme }}://{{ request.get_host }}{% url 'workspace_invitation_prompt' inv.token %}"
+                 onclick="this.select();"
+                 style="flex-basis:100%;font-family:'DM Mono',monospace;font-size:12px;padding:6px 10px;">
         </div>
         {% endfor %}
       </div>
@@ -199,10 +225,16 @@ document.addEventListener('DOMContentLoaded', function () {
   document.querySelectorAll('.copy-invite-link').forEach(function (btn) {
     btn.addEventListener('click', function () {
       const url = new URL(this.getAttribute('data-url'), window.location.href).href;
-      navigator.clipboard.writeText(url).then(() => {
-        const orig = this.innerHTML;
-        this.innerHTML = '✓ Copied!';
-        setTimeout(() => { this.innerHTML = orig; }, 2000);
+      const self = this;
+      window.copyTextToClipboard(url).then(function () {
+        window.showToast('Invitation link copied to clipboard', 'success');
+        const orig = self.innerHTML;
+        self.innerHTML = '<i class="fa-solid fa-check"></i> Copied!';
+        setTimeout(function () { self.innerHTML = orig; }, 2000);
+      }).catch(function (err) {
+        console.error('Copy failed:', err);
+        window.showToast('Could not copy — link shown in prompt', 'error');
+        window.prompt('Copy this link:', url);
       });
     });
   });
