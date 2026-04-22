@@ -12,6 +12,9 @@
   </div>
 </nav>
 
+<!-- ══════════════════════════════════════════════
+     HERO
+══════════════════════════════════════════════ -->
 <section class="hero">
   <div class="hero-grid-bg"></div>
   <div class="hero-glow"></div>
@@ -34,6 +37,174 @@
   <div class="stat-item"><span class="stat-num">&infin;</span><span class="stat-lbl">projects</span></div>
 </div>
 
+<!-- ══════════════════════════════════════════════
+     HOW IT WORKS  ← NEW
+══════════════════════════════════════════════ -->
+<section class="how-section">
+  <div class="how-header">
+    <div class="hero-tag" style="margin:0 auto 18px;">&#x25B6; Three steps to a trained model</div>
+    <h2>From raw images to<br><em>export-ready dataset</em></h2>
+    <p>No setup marathons. No specialist knowledge required. Just a clean workflow that gets out of your way.</p>
+  </div>
+
+  <div class="how-steps">
+
+    <div class="how-step">
+      <div class="how-step-num">01</div>
+      <div class="how-step-icon">&#x2191;</div>
+      <h3>Upload your images</h3>
+      <p>Drag in a folder, bulk-paste URLs, or use the REST API. Any format, any size. Images land in your project instantly.</p>
+      <div class="how-step-detail">
+        <span class="how-chip">JPG</span>
+        <span class="how-chip">PNG</span>
+        <span class="how-chip">WebP</span>
+        <span class="how-chip">Bulk upload</span>
+      </div>
+    </div>
+
+    <div class="how-step-arrow">&#x2192;</div>
+
+    <div class="how-step">
+      <div class="how-step-num">02</div>
+      <div class="how-step-icon">&#x270F;</div>
+      <h3>Annotate with your team</h3>
+      <p>Assign roles, draw bounding boxes or polygons, add classification labels. Reviewers check, annotators fix. No chaos.</p>
+      <div class="how-step-detail">
+        <span class="how-chip">BBox</span>
+        <span class="how-chip">Polygon</span>
+        <span class="how-chip">Classification</span>
+        <span class="how-chip">Multi-user</span>
+      </div>
+    </div>
+
+    <div class="how-step-arrow">&#x2192;</div>
+
+    <div class="how-step">
+      <div class="how-step-num">03</div>
+      <div class="how-step-icon">&#x2193;</div>
+      <h3>Export &amp; train</h3>
+      <p>One click. Pick your format — COCO, YOLO, VOC, CSV — and download a dataset your training script can consume immediately.</p>
+      <div class="how-step-detail">
+        <span class="how-chip">COCO JSON</span>
+        <span class="how-chip">YOLO TXT</span>
+        <span class="how-chip">Pascal VOC</span>
+        <span class="how-chip">CSV</span>
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════
+     UI SHOWCASE  ← NEW
+══════════════════════════════════════════════ -->
+<section class="showcase-section">
+  <div class="showcase-label">&#9670; THE WORKSPACE</div>
+  <h2>A focused annotation canvas.<br><em>No clutter. No learning curve.</em></h2>
+  <p class="showcase-sub">Everything your annotators need is one click away. Everything they don&rsquo;t need is hidden.</p>
+
+  <div class="showcase-frame">
+    <!-- Simulated app UI using pure CSS/SVG -->
+    <div class="mock-app">
+
+      <!-- Mock sidebar -->
+      <div class="mock-sidebar">
+        <div class="mock-logo">LF</div>
+        <div class="mock-nav-items">
+          <div class="mock-nav-item mock-nav-active">&#x25A3;</div>
+          <div class="mock-nav-item">&#x25A1;</div>
+          <div class="mock-nav-item">&#x25C8;</div>
+          <div class="mock-nav-item">&#x2191;</div>
+        </div>
+      </div>
+
+      <!-- Mock canvas area -->
+      <div class="mock-canvas-wrap">
+        <div class="mock-toolbar-strip">
+          <span class="mock-tool mock-tool-active" title="Bounding box">&#x2B21;</span>
+          <span class="mock-tool" title="Polygon">&#x2B14;</span>
+          <span class="mock-tool" title="Select">&#x2736;</span>
+          <div style="flex:1;"></div>
+          <span style="font-size:10px;opacity:.5;font-family:monospace;">dog_025.jpg</span>
+          <div style="flex:1;"></div>
+          <span class="mock-tool" title="Zoom in">+</span>
+          <span class="mock-tool" title="Zoom out">−</span>
+        </div>
+        <div class="mock-canvas">
+          <!-- Fake image content — abstract noise pattern -->
+          <div class="mock-img-bg"></div>
+
+          <!-- Bounding box annotations -->
+          <div class="mock-bbox mock-bbox-1">
+            <span class="mock-bbox-label">dog · 0.97</span>
+          </div>
+          <div class="mock-bbox mock-bbox-2">
+            <span class="mock-bbox-label">leash · 0.84</span>
+          </div>
+
+          <!-- SVG polygon annotation -->
+          <svg class="mock-poly-svg" viewBox="0 0 600 380" preserveAspectRatio="none">
+            <polygon points="340,60 410,45 440,130 390,175 330,155" fill="rgba(251,191,36,.12)" stroke="#fbbf24" stroke-width="1.5"/>
+            <circle cx="340" cy="60" r="4" fill="#fbbf24"/>
+            <circle cx="410" cy="45" r="4" fill="#fbbf24"/>
+            <circle cx="440" cy="130" r="4" fill="#fbbf24"/>
+            <circle cx="390" cy="175" r="4" fill="#fbbf24"/>
+            <circle cx="330" cy="155" r="4" fill="#fbbf24"/>
+          </svg>
+          <div class="mock-poly-label">ball · 0.91</div>
+
+          <!-- Crosshair cursor hint -->
+          <div class="mock-cursor"></div>
+        </div>
+      </div>
+
+      <!-- Mock right panel -->
+      <div class="mock-panel">
+        <div class="mock-panel-section">
+          <div class="mock-panel-title">LABELS</div>
+          <div class="mock-label-item mock-label-active">
+            <span class="mock-label-dot" style="background:#6366f1;"></span>dog
+            <span class="mock-label-conf">0.97</span>
+          </div>
+          <div class="mock-label-item">
+            <span class="mock-label-dot" style="background:#34d399;"></span>leash
+            <span class="mock-label-conf">0.84</span>
+          </div>
+          <div class="mock-label-item">
+            <span class="mock-label-dot" style="background:#fbbf24;"></span>ball
+            <span class="mock-label-conf">0.91</span>
+          </div>
+        </div>
+        <div class="mock-panel-section" style="margin-top:auto;">
+          <div class="mock-panel-title">PROGRESS</div>
+          <div class="mock-progress-row"><span>Annotated</span><span style="color:#34d399;">47 / 60</span></div>
+          <div class="mock-progress-bar-wrap"><div class="mock-progress-fill" style="width:78%;"></div></div>
+          <div class="mock-progress-row" style="margin-top:8px;"><span>Reviewed</span><span style="color:#fbbf24;">31 / 47</span></div>
+          <div class="mock-progress-bar-wrap"><div class="mock-progress-fill" style="width:66%;background:#fbbf24;"></div></div>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Floating callout badges -->
+    <div class="showcase-callout showcase-callout-1">
+      <span class="showcase-callout-icon">&#x26A1;</span>
+      Keyboard shortcuts for every tool
+    </div>
+    <div class="showcase-callout showcase-callout-2">
+      <span class="showcase-callout-icon">&#x1F465;</span>
+      Live team progress tracking
+    </div>
+    <div class="showcase-callout showcase-callout-3">
+      <span class="showcase-callout-icon">&#x25CE;</span>
+      Polygon &amp; bbox in one canvas
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════
+     FEATURES (unchanged)
+══════════════════════════════════════════════ -->
 <section class="features-section">
   <div class="features-header">
     <h2>Built for the whole pipeline</h2>
@@ -49,6 +220,58 @@
   </div>
 </section>
 
+<!-- ══════════════════════════════════════════════
+     WHO IS THIS FOR  ← NEW
+══════════════════════════════════════════════ -->
+<section class="usecases-section">
+  <div class="usecases-header">
+    <div class="hero-tag" style="margin:0 auto 18px;">&#9670; Use cases</div>
+    <h2>Built for people who<br><em>actually ship models</em></h2>
+    <p>Whether you&rsquo;re a solo researcher or coordinating a 20-person annotation team.</p>
+  </div>
+
+  <div class="usecases-grid">
+
+    <div class="usecase-card">
+      <div class="usecase-icon" style="--uc-color:#6366f1;">&#x1F9EA;</div>
+      <h3>ML Researchers</h3>
+      <p>Build clean, reproducible training datasets fast. Version your label sets, export in any format, and spend less time on tooling.</p>
+      <ul class="usecase-list">
+        <li>&#x2713; Polygon &amp; bbox annotation</li>
+        <li>&#x2713; COCO / YOLO / VOC export</li>
+        <li>&#x2713; REST API for automation</li>
+      </ul>
+    </div>
+
+    <div class="usecase-card usecase-card--featured">
+      <div class="usecase-badge">Most common</div>
+      <div class="usecase-icon" style="--uc-color:#34d399;">&#x1F465;</div>
+      <h3>Annotation Teams</h3>
+      <p>Coordinate dozens of annotators across multiple projects without the spreadsheet chaos. Roles, reviews, and progress in one place.</p>
+      <ul class="usecase-list">
+        <li>&#x2713; Admin / Annotator / Reviewer roles</li>
+        <li>&#x2713; Per-project access control</li>
+        <li>&#x2713; Real-time progress tracking</li>
+      </ul>
+    </div>
+
+    <div class="usecase-card">
+      <div class="usecase-icon" style="--uc-color:#f59e0b;">&#x1F680;</div>
+      <h3>Startups &amp; Indie Builders</h3>
+      <p>Free, self-hosted, no vendor lock-in. Your data stays yours. Start annotating in minutes, scale when you need to.</p>
+      <ul class="usecase-list">
+        <li>&#x2713; Unlimited projects, free</li>
+        <li>&#x2713; No credit card required</li>
+        <li>&#x2713; Own your data completely</li>
+      </ul>
+    </div>
+
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════
+     FORMATS (unchanged)
+══════════════════════════════════════════════ -->
 <section class="formats-section">
   <h2>Works with your stack</h2>
   <p>All major ML training formats &mdash; out of the box</p>
@@ -61,7 +284,9 @@
   </div>
 </section>
 
-<!-- ── TEAM SECTION ──────────────────────────────────────── -->
+<!-- ══════════════════════════════════════════════
+     TEAM (unchanged)
+══════════════════════════════════════════════ -->
 <section class="team-section">
   <div class="team-header">
     <h2>Who built this</h2>
@@ -69,7 +294,6 @@
   </div>
   <div class="team-grid stagger">
 
-    <!-- Martynas Matutis -->
     <div class="team-card" style="--tc-gradient: linear-gradient(90deg,#6366f1,#818cf8);">
       <div class="team-avatar" style="background:linear-gradient(135deg,#6366f1,#818cf8);">
         <div class="team-avatar-fallback" id="fb-mm">MM</div>
@@ -82,7 +306,6 @@
       <div class="team-bio">Full&#8209;stack architect with deep expertise in Django and real&#8209;time systems. Built the core annotation engine and leads technical direction.</div>
     </div>
 
-    <!-- Vilt&#279; Gluoksnyt&#279; -->
     <div class="team-card" style="--tc-gradient: linear-gradient(90deg,#34d399,#059669);">
       <div class="team-avatar" style="background:linear-gradient(135deg,#34d399,#059669);">
         <div class="team-avatar-fallback" id="fb-vg">VG</div>
@@ -95,7 +318,6 @@
       <div class="team-bio">Ensures smooth delivery through agile practices and rigorous testing. Manages the backlog and keeps the team aligned on quality.</div>
     </div>
 
-    <!-- Deimant&#279; Mi&#353;eikyt&#279; -->
     <div class="team-card" style="--tc-gradient: linear-gradient(90deg,#f59e0b,#d97706);">
       <div class="team-avatar" style="background:linear-gradient(135deg,#f59e0b,#d97706);">
         <div class="team-avatar-fallback" id="fb-dm">DM</div>
@@ -108,7 +330,6 @@
       <div class="team-bio">Specialises in backend APIs, database optimisation, and frontend integration. Crafts robust, scalable features that power the platform.</div>
     </div>
 
-    <!-- Erika Demenyt&#279; -->
     <div class="team-card" style="--tc-gradient: linear-gradient(90deg,#a78bfa,#7c3aed);">
       <div class="team-avatar" style="background:linear-gradient(135deg,#a78bfa,#7c3aed);">
         <div class="team-avatar-fallback" id="fb-ed">ED</div>
@@ -124,6 +345,9 @@
   </div>
 </section>
 
+<!-- ══════════════════════════════════════════════
+     CTA (unchanged)
+══════════════════════════════════════════════ -->
 <section class="cta-section">
   <h2>Ready when you are</h2>
   <p>Free account, unlimited projects. No credit card. No nonsense.</p>
@@ -135,6 +359,9 @@
   <span>&copy; 2026 LabelFlow &middot; built by Team404 | KTU</span>
 </footer>
 
+<!-- ══════════════════════════════════════════════
+     NEW SECTION STYLES (add to style.css or keep here)
+══════════════════════════════════════════════ -->
 <style>
 /* ── Light theme navbar ── */
 [data-theme="light"] .web-nav {
@@ -145,33 +372,512 @@
 [data-theme="light"] .web-nav .btn-ghost { color: rgba(255,255,255,.85); }
 [data-theme="light"] .web-nav .btn-ghost:hover { color:#fff; background:rgba(255,255,255,.15); }
 
-/* ── Theme toggle button (landing nav) ── */
+/* ── Theme toggle ── */
 .web-theme-btn {
-  width: 40px; height: 40px;
-  border-radius: 10px;
-  border: 1.5px solid var(--border-hover);
-  background: var(--surface2);
-  color: var(--text);
-  font-size: 19px;
-  cursor: pointer;
-  display: flex; align-items: center; justify-content: center;
-  transition: all .15s;
-  line-height: 1;
+  width:40px;height:40px;border-radius:10px;
+  border:1.5px solid var(--border-hover);background:var(--surface2);
+  color:var(--text);font-size:19px;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  transition:all .15s;line-height:1;
 }
-.web-theme-btn:hover {
-  background: var(--accent-glow);
-  border-color: var(--accent);
+.web-theme-btn:hover { background:var(--accent-glow);border-color:var(--accent);color:var(--accent-bright);transform:scale(1.07); }
+[data-theme="light"] .web-theme-btn { background:rgba(255,255,255,.2);border-color:rgba(255,255,255,.35);color:#fff; }
+[data-theme="light"] .web-theme-btn:hover { background:rgba(255,255,255,.35);border-color:rgba(255,255,255,.6); }
+
+
+/* ════════════════════
+   HOW IT WORKS
+════════════════════ */
+.how-section {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 60px 56px 100px;
+}
+.how-header {
+  text-align: center;
+  margin-bottom: 64px;
+}
+.how-header h2 {
+  font-size: clamp(28px, 3.5vw, 42px);
+  margin-bottom: 14px;
+  line-height: 1.15;
+}
+.how-header h2 em { font-style:italic; color:var(--accent-bright); }
+.how-header p { color:var(--text-muted); font-size:16px; max-width:480px; margin:0 auto; }
+
+.how-steps {
+  display: flex;
+  align-items: flex-start;
+  gap: 0;
+}
+.how-step {
+  flex: 1;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 32px 28px 28px;
+  position: relative;
+  transition: all .2s;
+}
+.how-step:hover {
+  border-color: var(--border-accent);
+  transform: translateY(-3px);
+  box-shadow: var(--shadow);
+}
+.how-step-num {
+  position: absolute;
+  top: -14px; left: 24px;
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .1em;
   color: var(--accent-bright);
-  transform: scale(1.07);
+  background: var(--surface);
+  border: 1px solid var(--border-accent);
+  padding: 2px 10px;
+  border-radius: 20px;
 }
-[data-theme="light"] .web-theme-btn {
-  background: rgba(255,255,255,.2);
-  border-color: rgba(255,255,255,.35);
+.how-step-icon {
+  font-size: 30px;
+  margin-bottom: 16px;
+  display: block;
+  color: var(--accent-bright);
+  opacity: .8;
+}
+.how-step h3 {
+  font-size: 17px;
+  margin-bottom: 10px;
+}
+.how-step p {
+  font-size: 14px;
+  color: var(--text-muted);
+  line-height: 1.7;
+  margin-bottom: 18px;
+}
+.how-step-detail {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.how-chip {
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: .04em;
+  padding: 3px 9px;
+  border-radius: 20px;
+  background: var(--accent-glow);
+  border: 1px solid var(--border-accent);
+  color: var(--accent-bright);
+}
+.how-step-arrow {
+  flex-shrink: 0;
+  width: 48px;
+  text-align: center;
+  font-size: 22px;
+  color: var(--text-dim);
+  padding-top: 56px;
+  align-self: flex-start;
+}
+@media (max-width: 860px) {
+  .how-steps { flex-direction: column; gap: 32px; }
+  .how-step-arrow { width: auto; padding: 0 0 0 24px; transform: rotate(90deg); }
+}
+
+
+/* ════════════════════
+   UI SHOWCASE
+════════════════════ */
+.showcase-section {
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  padding: 80px 56px 100px;
+  text-align: center;
+  overflow: hidden;
+}
+.showcase-label {
+  font-family: 'DM Mono', monospace;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .1em;
+  color: var(--accent-bright);
+  margin-bottom: 18px;
+  opacity: .7;
+}
+.showcase-section h2 {
+  font-size: clamp(26px, 3.5vw, 42px);
+  margin-bottom: 14px;
+  line-height: 1.15;
+}
+.showcase-section h2 em { font-style:italic; color:var(--accent-bright); }
+.showcase-sub {
+  color: var(--text-muted);
+  font-size: 16px;
+  max-width: 460px;
+  margin: 0 auto 52px;
+}
+
+.showcase-frame {
+  position: relative;
+  max-width: 900px;
+  margin: 0 auto;
+  border-radius: var(--radius-xl);
+  overflow: visible;
+}
+
+/* ── Mock app chrome ── */
+.mock-app {
+  display: flex;
+  background: var(--bg);
+  border: 1px solid var(--border-hover);
+  border-radius: var(--radius-xl);
+  overflow: hidden;
+  box-shadow: 0 32px 80px rgba(0,0,0,.6), 0 0 0 1px rgba(255,255,255,.04);
+  height: 380px;
+}
+
+/* sidebar */
+.mock-sidebar {
+  width: 52px;
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 14px 0;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.mock-logo {
+  width: 30px;
+  height: 30px;
+  background: var(--accent);
+  border-radius: 7px;
+  font-family: 'Syne', sans-serif;
+  font-weight: 900;
+  font-size: 10px;
   color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 10px;
 }
-[data-theme="light"] .web-theme-btn:hover {
-  background: rgba(255,255,255,.35);
-  border-color: rgba(255,255,255,.6);
+.mock-nav-items { display:flex; flex-direction:column; gap:4px; width:100%; padding: 0 6px; }
+.mock-nav-item {
+  height: 32px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  color: var(--text-dim);
+  cursor: default;
+}
+.mock-nav-active { background: var(--accent-glow); color: var(--accent-bright); }
+
+/* canvas area */
+.mock-canvas-wrap {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.mock-toolbar-strip {
+  height: 38px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  padding: 0 12px;
+  gap: 4px;
+  flex-shrink: 0;
+}
+.mock-tool {
+  width: 28px; height: 28px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 14px;
+  color: var(--text-muted);
+  cursor: default;
+}
+.mock-tool-active { background: var(--accent-glow); color: var(--accent-bright); border: 1px solid var(--border-accent); }
+
+.mock-canvas {
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+  background: #0c0c16;
+}
+.mock-img-bg {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 60% 50% at 35% 55%, rgba(45,45,90,.8) 0%, transparent 70%),
+    radial-gradient(ellipse 40% 60% at 70% 40%, rgba(30,60,40,.5) 0%, transparent 70%),
+    repeating-linear-gradient(
+      45deg,
+      transparent,
+      transparent 18px,
+      rgba(255,255,255,.012) 18px,
+      rgba(255,255,255,.012) 19px
+    );
+}
+
+/* bbox annotations */
+.mock-bbox {
+  position: absolute;
+  border: 2px solid;
+  border-radius: 2px;
+  cursor: default;
+}
+.mock-bbox-1 {
+  top: 25%; left: 12%; width: 38%; height: 52%;
+  border-color: #6366f1;
+  background: rgba(99,102,241,.06);
+}
+.mock-bbox-2 {
+  top: 60%; left: 28%; width: 12%; height: 22%;
+  border-color: #34d399;
+  background: rgba(52,211,153,.06);
+}
+.mock-bbox-label {
+  position: absolute;
+  top: -20px; left: -1px;
+  font-family: 'DM Mono', monospace;
+  font-size: 9px;
+  font-weight: 700;
+  padding: 2px 6px;
+  border-radius: 3px 3px 0 0;
+  letter-spacing: .04em;
+  white-space: nowrap;
+}
+.mock-bbox-1 .mock-bbox-label { background: #6366f1; color:#fff; }
+.mock-bbox-2 .mock-bbox-label { background: #34d399; color:#000; }
+
+/* svg polygon overlay */
+.mock-poly-svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+.mock-poly-label {
+  position: absolute;
+  top: 8%; left: 55%;
+  font-family: 'DM Mono', monospace;
+  font-size: 9px;
+  font-weight: 700;
+  padding: 2px 6px;
+  background: #fbbf24;
+  color: #000;
+  border-radius: 3px;
+}
+
+/* ghost cursor */
+.mock-cursor {
+  position: absolute;
+  top: 52%; left: 62%;
+  width: 14px; height: 14px;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  box-shadow: 0 0 8px rgba(255,255,255,.4);
+  pointer-events: none;
+  animation: cursorPulse 2s ease-in-out infinite;
+}
+@keyframes cursorPulse {
+  0%,100% { opacity: .8; transform: scale(1); }
+  50% { opacity: .4; transform: scale(.8); }
+}
+
+/* right panel */
+.mock-panel {
+  width: 170px;
+  background: var(--surface);
+  border-left: 1px solid var(--border);
+  padding: 14px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+.mock-panel-section { display:flex; flex-direction:column; gap:6px; }
+.mock-panel-title {
+  font-family: 'DM Mono', monospace;
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: .1em;
+  color: var(--text-dim);
+  margin-bottom: 4px;
+}
+.mock-label-item {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 11px;
+  font-family: 'DM Mono', monospace;
+  color: var(--text-muted);
+  padding: 5px 8px;
+  border-radius: 5px;
+}
+.mock-label-active { background: var(--surface2); color: var(--text); }
+.mock-label-dot { width:8px;height:8px;border-radius:50%;flex-shrink:0; }
+.mock-label-conf { margin-left:auto; font-size:9px; opacity:.6; }
+.mock-progress-row {
+  display: flex;
+  justify-content: space-between;
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  color: var(--text-muted);
+  margin-bottom: 5px;
+}
+.mock-progress-bar-wrap {
+  height: 4px;
+  background: var(--surface2);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.mock-progress-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 2px;
+}
+
+/* callout badges */
+.showcase-callout {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  background: var(--surface);
+  border: 1px solid var(--border-accent);
+  border-radius: 20px;
+  padding: 7px 14px 7px 10px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+  box-shadow: var(--shadow);
+  white-space: nowrap;
+  pointer-events: none;
+}
+.showcase-callout-icon { font-size: 15px; }
+.showcase-callout-1 { bottom: -18px; left: -20px; }
+.showcase-callout-2 { bottom: -18px; right: -20px; }
+.showcase-callout-3 { top: -18px; right: 80px; }
+
+@media (max-width: 700px) {
+  .showcase-callout { display:none; }
+  .mock-panel { display:none; }
+  .mock-sidebar { display:none; }
+}
+[data-theme="light"] .mock-app { box-shadow: 0 32px 80px rgba(0,0,0,.2); }
+[data-theme="light"] .mock-canvas { background: #e8e8f4; }
+[data-theme="light"] .mock-img-bg {
+  background:
+    radial-gradient(ellipse 60% 50% at 35% 55%, rgba(180,180,220,.6) 0%, transparent 70%),
+    radial-gradient(ellipse 40% 60% at 70% 40%, rgba(150,200,160,.4) 0%, transparent 70%);
+}
+
+
+/* ════════════════════
+   WHO IS THIS FOR
+════════════════════ */
+.usecases-section {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 80px 56px 100px;
+}
+.usecases-header {
+  text-align: center;
+  margin-bottom: 56px;
+}
+.usecases-header h2 {
+  font-size: clamp(28px, 3.5vw, 42px);
+  margin-bottom: 14px;
+  line-height: 1.15;
+}
+.usecases-header h2 em { font-style:italic; color:var(--accent-bright); }
+.usecases-header p { color:var(--text-muted); font-size:16px; max-width:440px; margin:0 auto; }
+
+.usecases-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+  align-items: start;
+}
+@media (max-width: 860px) { .usecases-grid { grid-template-columns: 1fr; } }
+
+.usecase-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 32px 26px 28px;
+  transition: all .2s;
+  position: relative;
+}
+.usecase-card:hover {
+  border-color: var(--border-accent);
+  transform: translateY(-3px);
+  box-shadow: var(--shadow);
+}
+.usecase-card--featured {
+  border-color: var(--border-accent);
+  background: linear-gradient(160deg, var(--surface) 60%, rgba(99,102,241,.04));
+}
+.usecase-badge {
+  position: absolute;
+  top: -12px; left: 50%; transform: translateX(-50%);
+  font-family: 'DM Mono', monospace;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .06em;
+  padding: 3px 12px;
+  background: var(--accent);
+  color: #fff;
+  border-radius: 20px;
+  white-space: nowrap;
+}
+.usecase-icon {
+  font-size: 32px;
+  margin-bottom: 18px;
+  display: block;
+  /* coloured tint ring */
+  width: 58px; height: 58px;
+  background: rgba(from var(--uc-color, #6366f1) r g b / .1);
+  border-radius: 14px;
+  display: flex; align-items: center; justify-content: center;
+  border: 1px solid rgba(from var(--uc-color, #6366f1) r g b / .25);
+}
+.usecase-card h3 {
+  font-size: 18px;
+  margin-bottom: 10px;
+}
+.usecase-card p {
+  font-size: 14px;
+  color: var(--text-muted);
+  line-height: 1.7;
+  margin-bottom: 20px;
+}
+.usecase-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+}
+.usecase-list li {
+  font-size: 13px;
+  color: var(--text-muted);
+  font-family: 'DM Mono', monospace;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.usecase-list li::first-letter {
+  color: var(--success);
+  font-weight: 700;
 }
 </style>
 
@@ -179,22 +885,14 @@
 (function () {
   var btn  = document.getElementById('theme-btn');
   var html = document.documentElement;
-
   function apply(theme) {
-    if (theme === 'light') {
-      html.setAttribute('data-theme', 'light');
-      btn.textContent = '☽';
-    } else {
-      html.removeAttribute('data-theme');
-      btn.textContent = '☀';
-    }
+    if (theme === 'light') { html.setAttribute('data-theme','light'); btn.textContent='☽'; }
+    else { html.removeAttribute('data-theme'); btn.textContent='☀'; }
     localStorage.setItem('lf-theme', theme);
   }
-
   apply(localStorage.getItem('lf-theme') || 'dark');
-
   btn.addEventListener('click', function () {
-    apply(html.getAttribute('data-theme') === 'light' ? 'dark' : 'light');
+    apply(html.getAttribute('data-theme')==='light' ? 'dark' : 'light');
   });
 })();
 </script>
