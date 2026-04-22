@@ -43,6 +43,20 @@ def dashboard(request):
     total_projects = projects_qs.count()
     from apps.images.models import Image
     total_images = Image.objects.filter(project__in=projects_qs).count()
+
+    project_list = []
+    for project in projects:
+        total = Image.objects.filter(project=project).count()
+
+        annotated = Image.objects.filter(
+            project=project,
+            status='done'
+        ).count()
+
+        project.progress = int((annotated / total) * 100) if total > 0 else 0
+        project.total_images = total
+        project.annotated_count = annotated
+
     ctx = {
         'active_nav': 'dashboard',
         'projects': projects,
@@ -77,6 +91,7 @@ def project_create(request):
         annotation_type = request.POST.get('annotation_type', 'bbox')
         emoji           = request.POST.get('emoji', '◈').strip() or '◈'
         workspace_id    = request.POST.get('workspace_id') or (active_ws.pk if active_ws else None)
+        planned_image_count = int(request.POST.get('planned_image_count') or 0)
 
         workspace = None
         if workspace_id:
@@ -102,6 +117,7 @@ def project_create(request):
             description=description,
             annotation_type=annotation_type,
             emoji=emoji,
+            planned_image_count=planned_image_count,
             workspace=workspace,
             created_by=request.user,
         )
@@ -132,14 +148,25 @@ def _project_metrics(project):
 
     total_tags = project.images.values('tags').distinct().count()
 
+    completed = status_map.get('done', 0)
+
+    if total_images > 0:
+        progress = (completed / total_images) * 100
+    else:
+        progress = 0
+
     return {
         'total_images': total_images,
         'pending': status_map.get('pending', 0),
         'partial': status_map.get('partial', 0),
-        'done': status_map.get('done', 0),
+        'done': completed,
         'total_boxes': total_boxes,
         'avg_boxes': round(avg_boxes, 2),
         'total_tags': total_tags,
+        'progress_percent': round(progress, 2),
+        'completed_images': completed,
+        'remaining_images': max(project.planned_image_count - completed, 0)
+        if project.planned_image_count else None,
     }
 
 @login_required
