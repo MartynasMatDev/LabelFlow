@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="UTF-8"></head>
+<body style="font-family:sans-serif;background:#f4f4f8;padding:32px;">
+  <div style="max-width:480px;margin:0 auto;background:#fff;border-radius:12px;padding:32px;">
+    <h2 style="margin-top:0;">You've been invited</h2>
+    <p>
+      <strong>{{ inviter }}</strong> has invited you to join the workspace
+      <strong>{{ workspace_name }}</strong> on LabelFlow.
+    </p>
+    <p style="margin:24px 0;">
+      <a href="{{ accept_url }}"
+         style="background:#6366f1;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;font-weight:600;">
+        Accept invitation
+      </a>
+    </p>
+    <p style="color:#888;font-size:13px;">
+      Or copy this link: <a href="{{ accept_url }}">{{ accept_url }}</a>
+    </p>
+    <p style="color:#aaa;font-size:12px;margin-top:24px;">
+      This invitation expires in 7 days. If you did not expect this email, you can ignore it.
+    </p>
+  </div>
+</body>
+</html>
