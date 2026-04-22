@@ -1,9 +1,14 @@
 {% extends "app/app_base.html" %}
+{% load static %}
 {% block app_title %}Images{% endblock %}
 {% block toolbar_title %}{% if project %}{{ project.name }} — Images{% else %}All images{% endif %}{% endblock %}
 
 {% block toolbar_actions %}
 <a href="{% url 'image_upload' %}{% if project %}?project={{ project.id }}{% endif %}" class="btn btn-primary btn-sm"><i class="fa-solid fa-upload"></i> Upload</a>
+{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{% static 'css/image_list.css' %}">
 {% endblock %}
 
 {% block app_content %}
@@ -44,7 +49,7 @@
   <input type="date" name="start_date" value="{{ start_date }}" onchange="this.form.submit()">
   <input type="date" name="end_date"   value="{{ end_date }}"   onchange="this.form.submit()">
 
-  <span style="flex:1;"></span>
+  <span class="flex-spacer"></span>
   <div class="view-toggle">
     <button type="button" class="view-btn active" id="btn-grid" onclick="setView('grid')" title="Grid">⊞</button>
     <button type="button" class="view-btn"        id="btn-list" onclick="setView('list')" title="List">≡</button>
@@ -124,21 +129,20 @@
 <div class="image-list-view" id="image-list-view">
   <div class="card card-flat">
     <!-- Header row -->
-    <div style="display:flex;padding:9px 18px;border-bottom:1px solid var(--border);background:var(--surface2);">
-      <div style="width:36px;flex-shrink:0;"></div>
-      <div style="width:52px;flex-shrink:0;"></div>
-      <div style="flex:1;font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;">Name</div>
-      <div style="width:160px;font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;">Tags</div>
-      <div style="width:110px;font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;">Status</div>
-      <div style="width:120px;text-align:right;font-size:11px;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.05em;">Uploaded</div>
-      <div style="width:116px;"></div>
+    <div class="list-header-row">
+      <div class="list-header-spacer-check"></div>
+      <div class="list-header-spacer-thumb"></div>
+      <div class="list-header-name">Name</div>
+      <div class="list-header-tags">Tags</div>
+      <div class="list-header-status">Status</div>
+      <div class="list-header-date">Uploaded</div>
+      <div class="list-header-actions"></div>
     </div>
 
     {% for image in images %}
     <div class="image-list-row">
-      <div style="width:36px;flex-shrink:0;display:flex;align-items:center;">
-        <input type="checkbox" class="img-checkbox" value="{{ image.id }}" onchange="onCheckChange()"
-               style="width:16px;height:16px;accent-color:var(--accent);cursor:pointer;">
+      <div class="list-row-check">
+        <input type="checkbox" class="img-checkbox" value="{{ image.id }}" onchange="onCheckChange()">
       </div>
       <div class="image-list-thumb">
         {% if image.image_file %}
@@ -148,7 +152,7 @@
       <div class="image-list-name truncate">
         <a href="{% url 'image_detail' image.id %}" style="color:inherit;">{{ image.name }}</a>
       </div>
-      <div style="width:160px;display:flex;flex-wrap:wrap;gap:3px;align-items:center;">
+      <div class="list-row-tags">
         {% for tag in image.tags.all %}
         <span class="tag-chip" style="--tc: {{ tag.color }}">{{ tag.name }}</span>
         {% endfor %}
@@ -159,12 +163,11 @@
       </div>
       <div class="image-list-date">{{ image.uploaded_at|date:"Y-m-d" }}</div>
       <!-- Preview + Annotate + Delete actions -->
-      <div style="width:116px;text-align:right;display:flex;gap:5px;justify-content:flex-end;align-items:center;">
+      <div class="list-row-actions">
         {% if image.image_file %}
         <button type="button"
-                class="btn btn-icon btn-ghost btn-sm"
+                class="btn btn-icon btn-ghost btn-sm list-row-preview-btn"
                 title="Preview"
-                style="color:var(--text-muted);font-size:14px;"
                 data-preview-url="{{ image.image_file.url|escapejs }}"
                 data-preview-name="{{ image.name|escapejs }}"
                 data-preview-boxes="{{ image.preview_boxes_json|escapejs }}"
@@ -176,8 +179,7 @@
            title="Annotate"><i class="fa-solid fa-pen-to-square"></i></a>
         <form method="post"
               action="{% url 'image_delete' image.id %}"
-              style="display:inline;"
-              onsubmit="return confirm('Delete &quot;{{ image.name }}&quot;?')">
+              style="display:inline;"              onsubmit="return confirm('Delete &quot;{{ image.name }}&quot;?')">
           {% csrf_token %}
           <input type="hidden" name="next" value="{{ request.get_full_path }}">
           <button type="submit" class="btn btn-icon btn-danger btn-sm" title="Delete"><i class="fa-solid fa-trash"></i></button>
@@ -204,16 +206,16 @@
   <span class="batch-count"><span id="batch-count-num">0</span> selected</span>
   <button type="button" class="btn btn-secondary btn-sm" onclick="selectAll(true)">All</button>
   <button type="button" class="btn btn-ghost btn-sm"     onclick="selectAll(false)">None</button>
-  <div style="width:1px;height:22px;background:var(--border);"></div>
+  <div class="batch-sep"></div>
   <button type="button" class="btn btn-primary btn-sm"   onclick="openTagModal('add')">＋ Tag</button>
   <button type="button" class="btn btn-danger btn-sm"    onclick="openTagModal('remove')">− Tag</button>
-  <div style="width:1px;height:22px;background:var(--border);"></div>
+  <div class="batch-sep"></div>
   <button type="button" class="btn btn-danger btn-sm"    onclick="openDeleteModal()"><i class="fa-solid fa-trash"></i> Delete</button>
 </div>
 
 <!-- ── TAG MODAL ─────────────────────────────────────────── -->
 <div class="modal-overlay" id="tag-modal">
-  <div class="modal" style="max-width:420px;">
+  <div class="modal modal-sm">
     <div class="modal-header">
       <h2 id="tag-modal-title">Add tag</h2>
       <button class="modal-close" onclick="closeTagModal()">✕</button>
@@ -258,7 +260,7 @@
 
 <!-- ── BATCH DELETE MODAL ─────────────────────────────────── -->
 <div class="modal-overlay" id="delete-modal">
-  <div class="modal" style="max-width:400px;border-color:rgba(248,113,113,0.25);">
+  <div class="modal modal-danger">
     <div class="modal-header">
       <h2>Delete images</h2>
       <button class="modal-close" onclick="closeDeleteModal()"><i class="fa-solid fa-trash"></i></button>
@@ -318,144 +320,10 @@
   </div>
 </div>
 
-<!-- ── GRID CARD BUTTON STACK STYLES ─────────────────────── -->
-<style>
-.img-btn-stack {
-  position: absolute;
-  top: 8px; right: 8px;
-  z-index: 3;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  opacity: 0;
-  transition: opacity .12s;
-}
-.image-grid-card:hover .img-btn-stack { opacity: 1; }
-
-.img-stack-btn {
-  width: 28px; height: 28px;
-  border-radius: 7px;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 13px; line-height: 1;
-  cursor: pointer; border: none;
-  backdrop-filter: blur(6px);
-  transition: all .12s;
-  text-decoration: none;
-}
-.img-stack-preview {
-  background: rgba(15,15,23,.72);
-  color: #fff;
-  border: 1px solid rgba(255,255,255,.12);
-}
-.img-stack-preview:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
-
-.img-stack-annotate {
-  background: rgba(99,102,241,.8);
-  color: #fff;
-  border: 1px solid rgba(99,102,241,.5);
-}
-.img-stack-annotate:hover { background: var(--accent); border-color: var(--accent-bright); color: #fff; }
-
-.img-stack-delete {
-  background: rgba(15,15,23,.72);
-  color: var(--danger);
-  border: 1px solid rgba(248,113,113,.3);
-  padding: 0;
-}
-.img-stack-delete:hover { background: rgba(248,113,113,.25); border-color: var(--danger); }
-
-/* Preview modal uses .open class (not .active) to match existing modal-overlay CSS */
-#preview-modal.open { opacity: 1; pointer-events: all; }
-</style>
+<!-- ── GRID CARD BUTTON STACK STYLES loaded from image_list.css ── -->
 
 <!-- ── PREVIEW LIGHTBOX JS ────────────────────────────────── -->
-<script>
-(function () {
-  function drawBoxes(img, svg, boxes) {
-    svg.innerHTML = '';
-    if (!boxes || !boxes.length) return;
-    var iW = img.offsetWidth, iH = img.offsetHeight;
-    boxes.forEach(function (b) {
-      var color = (b.label && b.label.color) ? b.label.color : '#6366f1';
-      var px = b.x / 100 * iW, py = b.y / 100 * iH;
-      var pw = b.width / 100 * iW, ph = b.height / 100 * iH;
-
-      var rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-      rect.setAttribute('x', px); rect.setAttribute('y', py);
-      rect.setAttribute('width', pw); rect.setAttribute('height', ph);
-      rect.setAttribute('fill', 'none');
-      rect.setAttribute('stroke', color); rect.setAttribute('stroke-width', '2');
-      rect.setAttribute('rx', '2');
-      svg.appendChild(rect);
-
-      if (b.label && b.label.name) {
-        var text = b.label.name, badgeH = 18, badgeW = text.length * 7 + 14;
-        var badgeY = Math.max(0, py - badgeH);
-        var bg = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-        bg.setAttribute('x', px); bg.setAttribute('y', badgeY);
-        bg.setAttribute('width', badgeW); bg.setAttribute('height', badgeH);
-        bg.setAttribute('rx', '4'); bg.setAttribute('fill', color);
-        svg.appendChild(bg);
-        var t = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-        t.setAttribute('x', px + 7); t.setAttribute('y', badgeY + 9);
-        t.setAttribute('dominant-baseline', 'middle');
-        t.setAttribute('fill', '#fff');
-        t.setAttribute('font-family', 'DM Mono, monospace');
-        t.setAttribute('font-size', '11'); t.setAttribute('font-weight', '600');
-        t.textContent = text;
-        svg.appendChild(t);
-      }
-    });
-  }
-
-  var _boxes = [];
-  var modal   = document.getElementById('preview-modal');
-  var img     = document.getElementById('preview-modal-img');
-  var svg     = document.getElementById('preview-modal-svg');
-  var nameEl  = document.getElementById('preview-modal-name');
-  var linkEl  = document.getElementById('preview-annotate-link');
-  var badgeEl = document.getElementById('preview-box-badge');
-
-  // Called from data-attributes — safe from quote/JSON injection in onclick
-  window.openPreviewFromBtn = function (btn) {
-    var url         = btn.getAttribute('data-preview-url');
-    var name        = btn.getAttribute('data-preview-name');
-    var boxesJson   = btn.getAttribute('data-preview-boxes');
-    var annotateUrl = btn.getAttribute('data-preview-annotate');
-    var boxes = [];
-    try { boxes = JSON.parse(boxesJson || '[]'); } catch(e) { boxes = []; }
-    openPreview(url, name, boxes, annotateUrl);
-  };
-
-  window.openPreview = function (url, name, boxes, annotateUrl) {
-    _boxes = boxes || [];
-    img.src = ''; img.alt = name;
-    nameEl.textContent = name;
-    linkEl.href = annotateUrl;
-    svg.innerHTML = '';
-    badgeEl.textContent = _boxes.length
-      ? _boxes.length + ' box' + (_boxes.length !== 1 ? 'es' : '')
-      : 'No annotations';
-    modal.classList.add('open');
-    document.body.style.overflow = 'hidden';
-    img.onload = function () { drawBoxes(img, svg, _boxes); };
-    img.src = url;
-  };
-
-  window.closePreview = function () {
-    modal.classList.remove('open');
-    document.body.style.overflow = '';
-    img.src = ''; svg.innerHTML = '';
-  };
-
-  window.addEventListener('resize', function () {
-    if (modal.classList.contains('open') && img.complete && img.naturalWidth)
-      drawBoxes(img, svg, _boxes);
-  });
-
-  document.addEventListener('keydown', function (e) {
-    if (e.key === 'Escape' && modal.classList.contains('open')) closePreview();
-  });
-})();
-</script>
+{% block extra_scripts %}
+<script src="{% static 'js/preview_lightbox.js' %}" defer></script>
+{% endblock %}
 {% endblock %}
