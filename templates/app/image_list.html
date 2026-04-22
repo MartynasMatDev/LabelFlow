@@ -3,7 +3,7 @@
 {% block toolbar_title %}{% if project %}{{ project.name }} — Images{% else %}All images{% endif %}{% endblock %}
 
 {% block toolbar_actions %}
-<a href="{% url 'image_upload' %}{% if project %}?project={{ project.id }}{% endif %}" class="btn btn-primary btn-sm">↑ Upload</a>
+<a href="{% url 'image_upload' %}{% if project %}?project={{ project.id }}{% endif %}" class="btn btn-primary btn-sm"><i class="fa-solid fa-upload"></i> Upload</a>
 {% endblock %}
 
 {% block app_content %}
@@ -16,7 +16,7 @@
 
 <form method="get" class="filters-bar">
   <div class="search-wrap">
-    <span class="search-icon">⌕</span>
+    <span class="search-icon"><i class="fa-solid fa-magnifying-glass"></i></span>
     <input type="search" name="q" value="{{ q }}" placeholder="Search by name…">
   </div>
 
@@ -74,17 +74,17 @@
               data-preview-name="{{ image.name|escapejs }}"
               data-preview-boxes="{{ image.preview_boxes_json|escapejs }}"
               data-preview-annotate="{% url 'image_annotate' image.id %}"
-              onclick="openPreviewFromBtn(this)">⤢</button>
+              onclick="openPreviewFromBtn(this)"><i class="fa-solid fa-up-right-and-down-left-from-center"></i></button>
       {% endif %}
       <a href="{% url 'image_annotate' image.id %}"
          class="img-stack-btn img-stack-annotate"
-         title="Annotate">⬕</a>
+         title="Annotate"><i class="fa-solid fa-pen-to-square"></i></a>
       <form method="post"
             action="{% url 'image_delete' image.id %}"
             onsubmit="return confirm('Delete &quot;{{ image.name }}&quot;?')">
         {% csrf_token %}
         <input type="hidden" name="next" value="{{ request.get_full_path }}">
-        <button type="submit" class="img-stack-btn img-stack-delete" title="Delete">✕</button>
+        <button type="submit" class="img-stack-btn img-stack-delete" title="Delete"><i class="fa-solid fa-trash"></i></button>
       </form>
     </div>
 
@@ -95,7 +95,7 @@
         {% if image.image_file %}
           <img src="{{ image.image_file.url }}" alt="{{ image.name }}" loading="lazy">
         {% else %}
-          <span class="image-thumb-ph">⬡</span>
+          <span class="image-thumb-ph"><i class="fa-regular fa-image"></i></span>
         {% endif %}
         <span class="image-status-dot {{ image.status }}"></span>
       </div>
@@ -169,18 +169,18 @@
                 data-preview-name="{{ image.name|escapejs }}"
                 data-preview-boxes="{{ image.preview_boxes_json|escapejs }}"
                 data-preview-annotate="{% url 'image_annotate' image.id %}"
-                onclick="openPreviewFromBtn(this)">⤢</button>
+                onclick="openPreviewFromBtn(this)"><i class="fa-solid fa-up-right-and-down-left-from-center"></i></button>
         {% endif %}
         <a href="{% url 'image_annotate' image.id %}"
            class="btn btn-icon btn-secondary btn-sm"
-           title="Annotate">⬕</a>
+           title="Annotate"><i class="fa-solid fa-pen-to-square"></i></a>
         <form method="post"
               action="{% url 'image_delete' image.id %}"
               style="display:inline;"
               onsubmit="return confirm('Delete &quot;{{ image.name }}&quot;?')">
           {% csrf_token %}
           <input type="hidden" name="next" value="{{ request.get_full_path }}">
-          <button type="submit" class="btn btn-icon btn-danger btn-sm" title="Delete">✕</button>
+          <button type="submit" class="btn btn-icon btn-danger btn-sm" title="Delete"><i class="fa-solid fa-trash"></i></button>
         </form>
       </div>
     </div>
@@ -190,11 +190,11 @@
 
 {% else %}
 <div class="empty-state">
-  <div class="empty-icon">⬡</div>
+  <div class="empty-icon"><i class="fa-regular fa-image"></i></div>
   <h3>{% if q or status_filter %}No images found{% else %}No images yet{% endif %}</h3>
   <p>{% if q or status_filter %}Try adjusting your filters{% else %}Upload images to start annotating{% endif %}</p>
   {% if not q and not status_filter %}
-  <a href="{% url 'image_upload' %}{% if project %}?project={{ project.id }}{% endif %}" class="btn btn-primary mt-4">↑ Upload images</a>
+  <a href="{% url 'image_upload' %}{% if project %}?project={{ project.id }}{% endif %}" class="btn btn-primary mt-4"><i class="fa-solid fa-upload"></i> Upload images</a>
   {% endif %}
 </div>
 {% endif %}
@@ -208,7 +208,7 @@
   <button type="button" class="btn btn-primary btn-sm"   onclick="openTagModal('add')">＋ Tag</button>
   <button type="button" class="btn btn-danger btn-sm"    onclick="openTagModal('remove')">− Tag</button>
   <div style="width:1px;height:22px;background:var(--border);"></div>
-  <button type="button" class="btn btn-danger btn-sm"    onclick="openDeleteModal()">✕ Delete</button>
+  <button type="button" class="btn btn-danger btn-sm"    onclick="openDeleteModal()"><i class="fa-solid fa-trash"></i> Delete</button>
 </div>
 
 <!-- ── TAG MODAL ─────────────────────────────────────────── -->
@@ -261,7 +261,7 @@
   <div class="modal" style="max-width:400px;border-color:rgba(248,113,113,0.25);">
     <div class="modal-header">
       <h2>Delete images</h2>
-      <button class="modal-close" onclick="closeDeleteModal()">✕</button>
+      <button class="modal-close" onclick="closeDeleteModal()"><i class="fa-solid fa-trash"></i></button>
     </div>
     <p style="font-size:14px;color:var(--text-muted);margin-bottom:8px;">
       You are about to permanently delete
@@ -274,7 +274,7 @@
       <div id="delete-image-inputs"></div>
       <div class="modal-footer">
         <button type="button" class="btn btn-ghost" onclick="closeDeleteModal()">Cancel</button>
-        <button type="submit" class="btn btn-danger">✕ Delete permanently</button>
+        <button type="submit" class="btn btn-danger"><i class="fa-solid fa-trash"></i> Delete permanently</button>
       </div>
     </form>
   </div>
@@ -295,7 +295,7 @@
         <span id="preview-box-badge"
               style="font-size:11px;font-family:'DM Mono',monospace;color:var(--text-muted);padding:3px 9px;
                      background:var(--surface2);border:1px solid var(--border);border-radius:20px;"></span>
-        <a id="preview-annotate-link" href="#" class="btn btn-primary btn-sm">⬕ Annotate</a>
+        <a id="preview-annotate-link" href="#" class="btn btn-primary btn-sm"><i class="fa-solid fa-pen-to-square"></i> Annotate</a>
         <button onclick="closePreview()"
                 style="background:none;border:none;color:var(--text-muted);font-size:20px;
                        cursor:pointer;padding:4px 6px;border-radius:6px;line-height:1;transition:all .15s;"

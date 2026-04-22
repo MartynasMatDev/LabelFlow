@@ -4,7 +4,7 @@
 {% block toolbar_title %}{{ image.name }}{% endblock %}
 
 {% block toolbar_actions %}
-<a href="{% url 'image_annotate' image.pk %}" class="btn btn-primary btn-sm">⬕ Annotate</a>
+<a href="{% url 'image_annotate' image.pk %}" class="btn btn-primary btn-sm"><i class="fa-solid fa-draw-polygon"></i> Annotate</a>
 {% endblock %}
 
 {% block app_content %}
@@ -18,8 +18,8 @@
     </p>
   </div>
   <div class="page-actions">
-    <a href="{% url 'image_annotate' image.pk %}" class="btn btn-primary btn-sm">⬕ Open annotation</a>
-    <a href="{% url 'project_images' image.project.id %}" class="btn btn-ghost btn-sm">← Back</a>
+    <a href="{% url 'image_annotate' image.pk %}" class="btn btn-primary btn-sm"><i class="fa-solid fa-pen-to-square"></i> Open annotation</a>
+    <a href="{% url 'project_images' image.project.id %}" class="btn btn-ghost btn-sm"><i class="fa-solid fa-arrow-left"></i> Back</a>
   </div>
 </div>
 
@@ -36,7 +36,7 @@
   </div>
   {% else %}
     <div style="padding:60px;text-align:center;color:var(--text-muted);">
-      <div style="font-size:48px;opacity:.3;">⬡</div>
+      <div style="font-size:48px;opacity:.3;"><i class="fa-regular fa-image"></i></div>
       <p style="margin-top:12px;">No image file</p>
     </div>
   {% endif %}
