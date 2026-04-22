@@ -132,6 +132,9 @@ def workspace_team(request, workspace_id):
                             messages.success(request, f'Invitation sent to {email}.')
                         except Exception as e:
                             messages.warning(request, f'Invitation created but email could not be sent: {e}')
+                        # Redirect with the new invite token so the page can show the link + copy button
+                        url = reverse('workspace_team', args=[workspace.pk])
+                        return redirect(f'{url}?new_invite={invitation.token}')
 
         elif action == 'cancel_invitation':
             inv_id = request.POST.get('invitation_id')
@@ -164,6 +167,19 @@ def workspace_team(request, workspace_id):
     projects = workspace.projects.filter(is_archived=False).order_by('name')
     pending_invitations = workspace.invitations.filter(accepted_at__isnull=True)
 
+    # Show a just-created invitation banner when redirected with ?new_invite=<token>
+    new_invite = None
+    new_invite_url = None
+    new_invite_token = request.GET.get('new_invite')
+    if new_invite_token:
+        new_invite = WorkspaceInvitation.objects.filter(
+            workspace=workspace, token=new_invite_token
+        ).first()
+        if new_invite:
+            new_invite_url = request.build_absolute_uri(
+                reverse('workspace_invitation_prompt', args=[new_invite.token])
+            )
+
     ctx = {
         'active_nav': 'workspace_team',
         'workspace':  workspace,
@@ -171,6 +187,8 @@ def workspace_team(request, workspace_id):
         'role_choices': WorkspaceMember.ROLE_CHOICES,
         'pending_invitations': pending_invitations,
         'projects': projects,
+        'new_invite': new_invite,
+        'new_invite_url': new_invite_url,
     }
     return render(request, 'app/workspace_team.html', ctx)
 

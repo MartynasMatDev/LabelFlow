@@ -134,7 +134,6 @@ class Project(models.Model):
     name            = models.CharField(max_length=200)
     description     = models.TextField(blank=True)
     annotation_type = models.CharField(max_length=20, choices=ANNOTATION_TYPE_CHOICES, default='bbox')
-    emoji           = models.CharField(max_length=4, default='◈')
     planned_image_count = models.PositiveIntegerField(default=0)
     workspace       = models.ForeignKey(
         Workspace,
