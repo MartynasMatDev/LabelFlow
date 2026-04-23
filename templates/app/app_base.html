@@ -19,10 +19,9 @@
 
       {% if active_workspace %}
       <div class="nav-label">Workspace</div>
-      <div class="workspace-switcher" style="padding:4px 8px;">
+      <div class="workspace-switcher">
         <form method="get" action="" id="workspace-switch-form">
-          <select id="workspace-select"
-                  style="width:100%;padding:6px 8px;font-size:13px;border-radius:6px;"
+          <select id="workspace-select" class="workspace-select"
                   onchange="if (this.value) { window.location.href = this.value; }">
             {% for ws in user_workspaces %}
               <option value="{% url 'workspace_switch' ws.pk %}"
@@ -32,7 +31,7 @@
             {% endfor %}
           </select>
         </form>
-        <a href="{% url 'workspace_list' %}" class="nav-item {% if active_nav == 'workspaces' %}active{% endif %}" style="margin-top:4px;">
+        <a href="{% url 'workspace_list' %}" class="nav-item {% if active_nav == 'workspaces' %}active{% endif %}">
           <span class="nav-icon"><i class="fa-solid fa-layer-group"></i></span> All workspaces
         </a>
         <a href="{% url 'workspace_create' %}" class="nav-item">
@@ -98,20 +97,23 @@
         </div>
       </a>
 
-      <!-- Logout — must be POST to avoid 405 -->
-      <form method="post" action="{% url 'logout' %}" style="margin:4px 8px 0;">
+      <form method="post" action="{% url 'logout' %}" class="logout-form">
         {% csrf_token %}
-        <button type="submit"
-                class="nav-item"
-                style="width:100%;background:none;border:none;cursor:pointer;text-align:left;">
+        <button type="submit" class="nav-item nav-item-btn">
           <span class="nav-icon"><i class="fa-solid fa-right-from-bracket"></i></span> Log out
         </button>
       </form>
     </div>
   </aside>
 
+  <!-- ── SIDEBAR BACKDROP (mobile) ───────────────────────── -->
+  <div class="sidebar-backdrop" id="sidebar-backdrop" onclick="closeMobileMenu()"></div>
+
   <!-- ── TOOLBAR ────────────────────────────────────────── -->
   <header class="toolbar">
+    <button class="mobile-menu-btn" onclick="openMobileMenu()" aria-label="Open menu">
+      <i class="fa-solid fa-bars"></i>
+    </button>
     <span class="toolbar-title">{% block toolbar_title %}{% endblock %}</span>
 
     <div class="toolbar-search">
@@ -144,4 +146,31 @@
 </div>
 
 {% block modals %}{% endblock %}
+
+<style>
+@media (max-width: 768px) {
+  .mobile-menu-btn { display: flex !important; }
+}
+</style>
+
+<script>
+function openMobileMenu() {
+  document.querySelector('.sidebar').classList.add('mobile-open');
+  document.getElementById('sidebar-backdrop').classList.add('visible');
+  document.body.style.overflow = 'hidden';
+}
+function closeMobileMenu() {
+  document.querySelector('.sidebar').classList.remove('mobile-open');
+  document.getElementById('sidebar-backdrop').classList.remove('visible');
+  document.body.style.overflow = '';
+}
+// Close sidebar when any nav link is tapped on mobile
+document.addEventListener('DOMContentLoaded', function () {
+  document.querySelectorAll('.sidebar .nav-item').forEach(function (el) {
+    el.addEventListener('click', function () {
+      if (window.innerWidth <= 768) closeMobileMenu();
+    });
+  });
+});
+</script>
 {% endblock %}
