@@ -1,9 +1,83 @@
 /* LabelFlow – main.js */
 
+/* ── Toast notifications ─────────────────────────────────── */
+window.showToast = function (message, type, duration) {
+  type     = type     || 'success';       // 'success' | 'error' | 'info'
+  duration = duration || 2600;            // ms
+
+  let container = document.getElementById('toast-container');
+  if (!container) {
+    container = document.createElement('div');
+    container.id = 'toast-container';
+    container.className = 'toast-container';
+    document.body.appendChild(container);
+  }
+
+  const icons = { success: '\u2713', error: '\u2715', info: 'i' };
+  const toast = document.createElement('div');
+  toast.className = 'toast toast-' + type;
+  toast.innerHTML =
+    '<span class="toast-icon">' + (icons[type] || '\u2713') + '</span>' +
+    '<span class="toast-msg"></span>';
+  toast.querySelector('.toast-msg').textContent = message;
+  container.appendChild(toast);
+
+  // Trigger entry animation
+  requestAnimationFrame(function () { toast.classList.add('visible'); });
+
+  setTimeout(function () {
+    toast.classList.remove('visible');
+    setTimeout(function () { toast.remove(); }, 250);
+  }, duration);
+};
+
+/* ── Copy-to-clipboard helper (works over plain HTTP) ──── */
+window.copyTextToClipboard = function (text) {
+  if (navigator.clipboard && window.isSecureContext) {
+    return navigator.clipboard.writeText(text);
+  }
+  return new Promise(function (resolve, reject) {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.setAttribute('readonly', '');
+    ta.style.position = 'fixed';
+    ta.style.top = '0';
+    ta.style.left = '0';
+    ta.style.opacity = '0';
+    document.body.appendChild(ta);
+    ta.select();
+    ta.setSelectionRange(0, ta.value.length);
+    try {
+      const ok = document.execCommand('copy');
+      document.body.removeChild(ta);
+      ok ? resolve() : reject(new Error('execCommand copy failed'));
+    } catch (err) {
+      document.body.removeChild(ta);
+      reject(err);
+    }
+  });
+};
+
 /* ── Theme ───────────────────────────────────────────────── */
 (function () {
   const saved = localStorage.getItem('lf-theme') || 'dark';
   document.documentElement.setAttribute('data-theme', saved);
+
+  // Landing page theme button (web-theme-btn)
+  document.addEventListener('DOMContentLoaded', () => {
+    const btn = document.getElementById('theme-btn');
+    if (!btn) return;
+    const html = document.documentElement;
+    function applyLanding(theme) {
+      if (theme === 'light') { html.setAttribute('data-theme', 'light'); btn.textContent = '☽'; }
+      else { html.removeAttribute('data-theme'); btn.textContent = '☀'; }
+      localStorage.setItem('lf-theme', theme);
+    }
+    applyLanding(localStorage.getItem('lf-theme') || 'dark');
+    btn.addEventListener('click', () => {
+      applyLanding(html.getAttribute('data-theme') === 'light' ? 'dark' : 'light');
+    });
+  });
 })();
 
 window.toggleTheme = function () {
