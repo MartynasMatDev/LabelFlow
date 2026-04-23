@@ -89,7 +89,6 @@ def project_create(request):
         name            = request.POST.get('name', '').strip()
         description     = request.POST.get('description', '').strip()
         annotation_type = request.POST.get('annotation_type', 'bbox')
-        emoji           = request.POST.get('emoji', '◈').strip() or '◈'
         workspace_id    = request.POST.get('workspace_id') or (active_ws.pk if active_ws else None)
         planned_image_count = int(request.POST.get('planned_image_count') or 0)
 
@@ -116,7 +115,6 @@ def project_create(request):
             name=name,
             description=description,
             annotation_type=annotation_type,
-            emoji=emoji,
             planned_image_count=planned_image_count,
             workspace=workspace,
             created_by=request.user,
