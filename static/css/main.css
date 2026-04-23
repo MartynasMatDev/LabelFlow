@@ -309,6 +309,44 @@ input[type="checkbox"] {
 /* ── Dividers ───────────────────────────────────────────── */
 hr, .divider { border: none; border-top: 1px solid var(--border); margin: 22px 0; }
 
+/* ── Toast notifications ────────────────────────────────── */
+.toast-container {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  pointer-events: none;
+}
+.toast {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 240px;
+  max-width: 380px;
+  padding: 12px 16px;
+  background: var(--surface);
+  border: 1px solid var(--border-hover);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  color: var(--text);
+  font-size: 14px;
+  pointer-events: auto;
+  opacity: 0;
+  transform: translateY(10px);
+  transition: opacity .2s ease, transform .2s ease;
+}
+.toast.visible { opacity: 1; transform: translateY(0); }
+.toast-icon { font-size: 16px; flex-shrink: 0; }
+.toast-success { border-color: rgba(52,211,153,.4); }
+.toast-success .toast-icon { color: var(--success); }
+.toast-error   { border-color: rgba(248,113,113,.4); }
+.toast-error   .toast-icon { color: var(--danger); }
+.toast-info    { border-color: var(--border-accent); }
+.toast-info    .toast-icon { color: var(--accent-bright); }
+
 /* ── Empty state ────────────────────────────────────────── */
 .empty-state { text-align: center; padding: 64px 32px; color: var(--text-muted); }
 .empty-state .empty-icon { font-size: 44px; margin-bottom: 16px; opacity: .35; }
@@ -425,6 +463,7 @@ hr, .divider { border: none; border-top: 1px solid var(--border); margin: 22px 0
 /* ── Utilities ──────────────────────────────────────────── */
 .flex            { display: flex; }
 .flex-col        { display: flex; flex-direction: column; }
+.flex-spacer     { flex: 1; }
 .items-center    { align-items: center; }
 .justify-between { justify-content: space-between; }
 .justify-end     { justify-content: flex-end; }
@@ -461,6 +500,14 @@ hr, .divider { border: none; border-top: 1px solid var(--border); margin: 22px 0
 }
 .section-header h2 { font-size: 15px; }
 
+/* ── Workspace switcher ─────────────────────────────────── */
+.workspace-switcher { padding: 4px 8px; }
+.workspace-select { width: 100%; padding: 6px 8px; font-size: 13px; border-radius: 6px; }
+
+/* ── Logout form ────────────────────────────────────────── */
+.logout-form { margin: 4px 8px 0; }
+.nav-item-btn { width: 100%; background: none; border: none; cursor: pointer; text-align: left; }
+
 /* ── Scrollbar ──────────────────────────────────────────── */
 ::-webkit-scrollbar       { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
@@ -478,6 +525,9 @@ hr, .divider { border: none; border-top: 1px solid var(--border); margin: 22px 0
   grid-template-rows: auto 1fr;
   min-height: 100vh;
 }
+
+/* Backdrop is desktop-invisible; only shown on mobile via media query */
+.sidebar-backdrop { display: none; }
 
 /* ── Sidebar ────────────────────────────────────────────── */
 .sidebar {
@@ -1254,10 +1304,68 @@ hr, .divider { border: none; border-top: 1px solid var(--border); margin: 22px 0
   .web-nav    { padding: 0 20px; }
   .hero       { padding: 120px 20px 60px; }
   .features-grid { grid-template-columns: 1fr; }
+
+  /* App shell: single column, sidebar hidden by default */
   .app-shell  { grid-template-columns: 1fr; }
-  .sidebar    { display: none; }
-  .toolbar    { grid-column: 1; }
-  .app-content { grid-column: 1; padding: 16px; }
+  .sidebar {
+    display: flex;
+    position: fixed;
+    top: 0; left: 0;
+    width: 280px;
+    height: 100vh;
+    z-index: 300;
+    transform: translateX(-100%);
+    transition: transform .28s cubic-bezier(.4,0,.2,1);
+    box-shadow: 4px 0 24px rgba(0,0,0,.4);
+  }
+  .sidebar.mobile-open { transform: translateX(0); }
+  .sidebar-backdrop {
+    display: block;
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,.55);
+    z-index: 299;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity .28s ease;
+  }
+  .sidebar-backdrop.visible { opacity: 1; pointer-events: all; }
+  .toolbar    { grid-column: 1; padding: 0 14px; gap: 8px; }
+  .toolbar-search { display: none; }
+  .toolbar-sep { display: none; }
+  .toolbar-title { font-size: 14px; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .toolbar .flex.gap-2 { flex-shrink: 0; }
+  .app-content { grid-column: 1; padding: 14px; }
+
+  /* Hamburger button shown on mobile */
+  .mobile-menu-btn {
+    display: flex;
+    align-items: center; justify-content: center;
+    width: 36px; height: 36px; border-radius: 8px;
+    background: var(--surface2); border: 1px solid var(--border);
+    color: var(--text-muted); font-size: 16px; cursor: pointer;
+    flex-shrink: 0;
+  }
+
+  /* Page header stacks on mobile */
+  .page-header { flex-direction: column; gap: 10px; }
+  .page-actions { flex-wrap: wrap; }
+
+  /* Stats grid 2-col on mobile */
+  .stats-grid { grid-template-columns: repeat(2, 1fr); }
+
+  /* Dashboard grid single col */
+  .dashboard-grid { grid-template-columns: 1fr; }
+
+  /* Profile layout single col */
+  .profile-layout { grid-template-columns: 1fr; }
+
+  /* Team layout single col */
+  .team-layout { grid-template-columns: 1fr; }
+}
+
+/* Hamburger hidden on desktop, shown on mobile via media query */
+@media (min-width: 769px) {
+  .mobile-menu-btn { display: none; }
 }
 
 /* ── Polygon tool ──────────────────────────────────────── */
