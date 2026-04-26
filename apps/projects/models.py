@@ -20,7 +20,6 @@ class Workspace(models.Model):
     slug       = models.SlugField(max_length=220, unique=True)
     kind       = models.CharField(max_length=20, choices=KIND_CHOICES, default=KIND_ORGANIZATION)
     owner      = models.ForeignKey(User, on_delete=models.CASCADE, related_name='owned_workspaces')
-    emoji      = models.CharField(max_length=4, default='◈')
     planned_image_count = models.PositiveIntegerField(default=0, help_text="Expected total number of images for this project")
     description = models.TextField(blank=True)
     created_at = models.DateTimeField(auto_now_add=True)
