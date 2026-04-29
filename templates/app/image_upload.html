@@ -33,7 +33,7 @@
         {% if not p.is_archived %}
         <option value="{{ p.id }}"
           {% if selected_project_id == p.id %}selected{% endif %}>
-          {{ p.emoji }} {{ p.name }}
+          {{ p.name }}
         </option>
         {% endif %}
         {% endfor %}
