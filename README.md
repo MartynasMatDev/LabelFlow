@@ -163,8 +163,6 @@ bugfixes/* → dev → main
 | `feature/*` | New features |
 | `bugfixes/*` | Bug fixes |
 
-For detailed contribution guidelines, see [CONTRIBUTING.md](CONTRIBUTING.md).
-
 ---
 
 ## License
