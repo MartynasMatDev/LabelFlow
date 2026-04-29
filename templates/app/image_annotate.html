@@ -24,6 +24,11 @@
 .canvas-wrap.tool-brush #svg-overlay,
 .canvas-wrap.tool-eraser #svg-overlay { pointer-events: none; }
 
+.canvas-wrap.tool-pan            { cursor: grab !important; }
+.canvas-wrap.tool-pan *          { cursor: grab !important; }
+.canvas-wrap.panning,
+.canvas-wrap.panning *           { cursor: grabbing !important; }
+
 .brush-size-row { display:flex;align-items:center;gap:6px; }
 .brush-size-row label { font-size:11px;color:var(--text-muted);white-space:nowrap; }
 .brush-size-row input[type=range] { width:72px;accent-color:var(--primary); }
@@ -50,6 +55,9 @@
       <button class="tool-btn" id="tool-select" onclick="Annotator.setTool('select')" title="Select (V)">
         <span class="tool-icon"><i class="fa-solid fa-arrow-pointer"></i></span>
       </button>
+      <button class="tool-btn" id="tool-pan" onclick="Annotator.setTool('pan')" title="Pan (H)">
+        <span class="tool-icon"><i class="fa-solid fa-hand"></i></span>
+      </button>
       {% if project.annotation_type != 'segmentation' %}
       <button class="tool-btn active" id="tool-draw" onclick="Annotator.setTool('draw')" title="Draw (B)">
         <span class="tool-icon"><i class="fa-regular fa-square"></i></span> Rectangle
@@ -69,7 +77,7 @@
       <div class="topbar-sep"></div>
       <span class="brush-size-row">
         <label>Size</label>
-        <input type="range" id="brush-size-slider" min="2" max="80" value="20"
+        <input type="range" id="brush-size-slider" min="1" max="80" value="20"
                oninput="Annotator.setBrushSize(+this.value)">
         <span id="brush-size-val">20px</span>
       </span>
@@ -212,6 +220,8 @@
       <span class="key-hint"><kbd>P</kbd> Polygon</span>
       <span class="key-hint"><kbd>Esc</kbd> Cancel poly</span>
       {% endif %}
+      <span class="key-hint"><kbd>H</kbd> Pan</span>
+      <span class="key-hint"><kbd>Space</kbd> Temp pan</span>
       {% if project.annotation_type == 'segmentation' or project.annotation_type == 'mixed' %}
       <span class="key-hint"><kbd>U</kbd> Brush</span>
       <span class="key-hint"><kbd>E</kbd> Eraser</span>
@@ -269,6 +279,11 @@ const Annotator = (() => {
 
   let polyDrawing = false;
   let polyPoints  = [];
+
+  let panning       = false;
+  let panStart      = null;
+  let spaceDown     = false;
+  let prevTool      = null;  // tool to restore after space-pan
 
   /* ── Segmentation state ─────────────────────────────────── */
   let segMasks     = [];   // [{id, label, offscreen, ctx}]
@@ -350,11 +365,13 @@ const Annotator = (() => {
     const eraserBtn = document.getElementById('tool-eraser');
     const segPanel  = document.getElementById('seg-panel');
 
+    const panBtn = document.getElementById('tool-pan');
     if (drawBtn)   drawBtn.classList.toggle('active',   t === 'draw');
     if (selectBtn) selectBtn.classList.toggle('active', t === 'select');
     if (polyBtn)   polyBtn.classList.toggle('active',   t === 'polygon');
     if (brushBtn)  brushBtn.classList.toggle('active',  t === 'brush');
     if (eraserBtn) eraserBtn.classList.toggle('active', t === 'eraser');
+    if (panBtn)    panBtn.classList.toggle('active',    t === 'pan');
 
     if (segPanel) segPanel.style.display = (t === 'brush' || t === 'eraser') ? '' : 'none';
 
@@ -369,8 +386,13 @@ const Annotator = (() => {
   }
   function resetZoom() { scale = 1; applyZoom(); }
   function applyZoom() {
-    imgEl.style.transform = `scale(${scale})`;
+    const t = `scale(${scale})`;
+    imgEl.style.transform       = t;
     imgEl.style.transformOrigin = 'top left';
+    if (segCanvas) {
+      segCanvas.style.transform       = t;
+      segCanvas.style.transformOrigin = 'top left';
+    }
     zoomDisplay.textContent = Math.round(scale * 100) + '%';
     if (IS_SEG) segComposite();
   }
@@ -760,9 +782,10 @@ const Annotator = (() => {
   ══════════════════════════════════════════════════════════ */
   function segFitCanvas() {
     if (!segCanvas) return;
-    const r = imgEl.getBoundingClientRect();
-    segCanvas.width  = Math.round(r.width);
-    segCanvas.height = Math.round(r.height);
+    // Use offsetWidth/offsetHeight — unaffected by CSS transform, matches
+    // the container's natural layout size which is what inset:0 fills.
+    segCanvas.width  = imgEl.offsetWidth;
+    segCanvas.height = imgEl.offsetHeight;
   }
 
   function segComposite() {
@@ -1065,9 +1088,16 @@ const Annotator = (() => {
     if (e.key === 'b' || e.key === 'B') setTool('draw');
     if (e.key === 'v' || e.key === 'V') setTool('select');
     if (e.key === 'p' || e.key === 'P') setTool('polygon');
+    if (e.key === 'h' || e.key === 'H') setTool('pan');
     if (IS_SEG) {
       if (e.key === 'u' || e.key === 'U') setTool('brush');
       if (e.key === 'e' || e.key === 'E') setTool('eraser');
+    }
+    if (e.key === ' ' && !spaceDown) {
+      e.preventDefault();
+      spaceDown = true;
+      prevTool  = tool;
+      setTool('pan');
     }
     if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); deleteSelected(); }
     if ((e.ctrlKey || e.metaKey) && (e.key === 'z' || e.key === 'Z')) { e.preventDefault(); undo(); }
@@ -1075,13 +1105,50 @@ const Annotator = (() => {
     if (e.key === 'Escape') { cancelPolygon(); deselectAll(); }
   });
 
+  document.addEventListener('keyup', e => {
+    if (e.key === ' ') {
+      spaceDown = false;
+      if (!panning && prevTool) setTool(prevTool);
+      prevTool = null;
+    }
+  });
+
   /* ══════════════════════════════════════════════════════════
      EVENT WIRING
   ══════════════════════════════════════════════════════════ */
-  svg.addEventListener('mousedown', onCanvasMousedown);
-  imgEl.addEventListener('mousedown', onCanvasMousedown);
+  /* ── Pan helpers ────────────────────────────────────────── */
+  function isPanTrigger(e) {
+    return tool === 'pan' || spaceDown || e.button === 1;
+  }
+
+  function startPan(e) {
+    panning = true;
+    panStart = { x: e.clientX + wrap.scrollLeft, y: e.clientY + wrap.scrollTop };
+    wrap.classList.add('panning');
+  }
+
+  function doPan(e) {
+    if (!panning) return;
+    wrap.scrollLeft = panStart.x - e.clientX;
+    wrap.scrollTop  = panStart.y - e.clientY;
+  }
+
+  function stopPan() {
+    panning = false;
+    wrap.classList.remove('panning');
+  }
+
+  svg.addEventListener('mousedown', e => {
+    if (isPanTrigger(e)) { e.preventDefault(); startPan(e); return; }
+    onCanvasMousedown(e);
+  });
+  imgEl.addEventListener('mousedown', e => {
+    if (isPanTrigger(e)) { e.preventDefault(); startPan(e); return; }
+    onCanvasMousedown(e);
+  });
 
   document.addEventListener('mousemove', e => {
+    if (panning) { doPan(e); return; }
     onMousemove(e);
     if (segPainting) {
       const pt = clientToImgPx(e.clientX, e.clientY);
@@ -1093,9 +1160,13 @@ const Annotator = (() => {
   });
 
   document.addEventListener('mouseup', e => {
+    if (panning) { stopPan(); return; }
     onMouseup(e);
     if (segPainting) { segPainting = false; segLastPt = null; }
   });
+
+  // Middle-mouse: prevent default scroll behaviour
+  wrap.addEventListener('mousedown', e => { if (e.button === 1) e.preventDefault(); });
 
   svg.addEventListener('click', e => { if (e.target === svg) deselectAll(); });
   container.addEventListener('contextmenu', e => e.preventDefault());
