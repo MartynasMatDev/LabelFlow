@@ -24,7 +24,6 @@ def create_personal_workspace(sender, instance, created, **kwargs):
             owner=instance,
             name=f"{name}'s workspace",
             kind=Workspace.KIND_PERSONAL,
-            emoji='◈',
         )
     except (OperationalError, ProgrammingError):
         # Workspace table isn't ready yet — recoverable lazily later.

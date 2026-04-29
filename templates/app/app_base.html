@@ -26,7 +26,7 @@
             {% for ws in user_workspaces %}
               <option value="{% url 'workspace_switch' ws.pk %}"
                       {% if ws.pk == active_workspace.pk %}selected{% endif %}>
-                {{ ws.emoji }} {{ ws.name|truncatechars:24 }}{% if ws.is_personal %} (personal){% endif %}
+                {{ ws.name|truncatechars:24 }}{% if ws.is_personal %} (personal){% endif %}
               </option>
             {% endfor %}
           </select>
@@ -60,7 +60,7 @@
       {% if project %}
       <div class="nav-label">This project</div>
       <a href="{% url 'project_detail' project.id %}" class="nav-item {% if active_nav == 'project_detail' %}active{% endif %}">
-        <span class="nav-icon">{{ project.emoji }}</span> {{ project.name|truncatechars:18 }}
+        <span class="nav-icon"><i class="fa-solid fa-folder"></i></span> {{ project.name|truncatechars:18 }}
       </a>
       <a href="{% url 'project_images' project.id %}" class="nav-item {% if active_nav == 'project_images' %}active{% endif %}">
         <span class="nav-icon"><i class="fa-solid fa-images"></i></span> Images
