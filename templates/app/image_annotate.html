@@ -13,6 +13,36 @@
 
 {% block extra_head %}
 <link rel="stylesheet" href="{% static 'css/annotate.css' %}">
+<style>
+#seg-canvas {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.canvas-wrap.tool-brush #seg-canvas,
+.canvas-wrap.tool-eraser #seg-canvas  { pointer-events: all; cursor: crosshair; }
+.canvas-wrap.tool-brush #svg-overlay,
+.canvas-wrap.tool-eraser #svg-overlay { pointer-events: none; }
+
+.canvas-wrap.tool-pan            { cursor: grab !important; }
+.canvas-wrap.tool-pan *          { cursor: grab !important; }
+.canvas-wrap.panning,
+.canvas-wrap.panning *           { cursor: grabbing !important; }
+
+.brush-size-row { display:flex;align-items:center;gap:6px; }
+.brush-size-row label { font-size:11px;color:var(--text-muted);white-space:nowrap; }
+.brush-size-row input[type=range] { width:72px;accent-color:var(--primary); }
+.brush-size-row span { font-size:11px;min-width:26px;color:var(--text-muted); }
+
+#seg-panel { padding-bottom:8px; }
+.seg-mask-item {
+  display:flex;align-items:center;gap:8px;
+  padding:4px 8px;border-radius:4px;cursor:default;font-size:13px;
+}
+.seg-mask-item:hover { background:var(--bg-hover,rgba(0,0,0,.04)); }
+.seg-mask-dot { width:10px;height:10px;border-radius:50%;flex-shrink:0; }
+.seg-mask-label { flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap; }
+</style>
 {% endblock %}
 
 {% block app_content %}
@@ -25,12 +55,33 @@
       <button class="tool-btn" id="tool-select" onclick="Annotator.setTool('select')" title="Select (V)">
         <span class="tool-icon"><i class="fa-solid fa-arrow-pointer"></i></span>
       </button>
-      <button class="tool-btn active" id="tool-draw" onclick="Annotator.setTool('draw')"   title="Draw (B)">
+      <button class="tool-btn" id="tool-pan" onclick="Annotator.setTool('pan')" title="Pan (H)">
+        <span class="tool-icon"><i class="fa-solid fa-hand"></i></span>
+      </button>
+      {% if project.annotation_type != 'segmentation' %}
+      <button class="tool-btn active" id="tool-draw" onclick="Annotator.setTool('draw')" title="Draw (B)">
         <span class="tool-icon"><i class="fa-regular fa-square"></i></span> Rectangle
       </button>
       <button class="tool-btn" id="tool-polygon" onclick="Annotator.setTool('polygon')" title="Draw Polygon (P)">
         <span class="tool-icon"><i class="fa-solid fa-draw-polygon"></i></span> Polygon
       </button>
+      {% endif %}
+      {% if project.annotation_type == 'segmentation' or project.annotation_type == 'mixed' %}
+      <div class="topbar-sep"></div>
+      <button class="tool-btn {% if project.annotation_type == 'segmentation' %}active{% endif %}" id="tool-brush" onclick="Annotator.setTool('brush')" title="Brush (U)">
+        <span class="tool-icon"><i class="fa-solid fa-paintbrush"></i></span> Brush
+      </button>
+      <button class="tool-btn" id="tool-eraser" onclick="Annotator.setTool('eraser')" title="Eraser (E)">
+        <span class="tool-icon"><i class="fa-solid fa-eraser"></i></span> Eraser
+      </button>
+      <div class="topbar-sep"></div>
+      <span class="brush-size-row">
+        <label>Size</label>
+        <input type="range" id="brush-size-slider" min="1" max="80" value="20"
+               oninput="Annotator.setBrushSize(+this.value)">
+        <span id="brush-size-val">20px</span>
+      </span>
+      {% endif %}
     </div>
 
     <div class="topbar-sep"></div>
@@ -62,9 +113,12 @@
   </div>
 
   <!-- ── CANVAS ────────────────────────────────────────────── -->
-  <div class="canvas-wrap" id="canvas-wrap">
+  <div class="canvas-wrap {% if project.annotation_type == 'segmentation' %}tool-brush{% endif %}" id="canvas-wrap">
     <div id="canvas-container">
       <img id="img-base" src="{{ image.image_file.url }}" alt="{{ image.name }}" draggable="false">
+      {% if project.annotation_type == 'segmentation' or project.annotation_type == 'mixed' %}
+      <canvas id="seg-canvas"></canvas>
+      {% endif %}
       <svg id="svg-overlay" xmlns="http://www.w3.org/2000/svg">
         <rect id="draw-ghost" x="0" y="0" width="0" height="0" style="display:none;"/>
         <g id="boxes-group"></g>
@@ -80,10 +134,9 @@
   <!-- ── SIDEBAR ───────────────────────────────────────────── -->
   <aside class="annotate-sidebar">
 
-    <!-- Label picker (shown when a box is selected or being drawn) -->
+    <!-- Standard label picker (bbox / polygon selection) -->
     <div class="label-picker" id="label-picker">
-      <div class="label-picker-title">Label for selected box</div>
-
+      <div class="label-picker-title">Label for selected annotation</div>
       <div class="label-grid" id="label-grid">
         {% for tag in all_tags %}
         <span class="label-chip"
@@ -96,8 +149,6 @@
         </span>
         {% endfor %}
       </div>
-
-      <!-- Create new tag inline -->
       <div class="new-label-row">
         <input type="text"   id="new-label-name"  placeholder="New label…">
         <input type="color"  id="new-label-color" value="#6366f1">
@@ -105,23 +156,50 @@
       </div>
     </div>
 
-    <!-- Box list -->
+    <!-- Segmentation brush panel -->
+    {% if project.annotation_type == 'segmentation' or project.annotation_type == 'mixed' %}
+    <div id="seg-panel">
+      <div class="label-picker-title">Paint with label</div>
+      <div class="label-grid" id="seg-label-grid">
+        {% for tag in all_tags %}
+        <span class="label-chip"
+              style="--tc: {{ tag.color }}"
+              data-id="{{ tag.id }}"
+              data-name="{{ tag.name }}"
+              data-color="{{ tag.color }}"
+              onclick="Annotator.setSegLabel({{ tag.id }}, '{{ tag.name|escapejs }}', '{{ tag.color|escapejs }}')">
+          {{ tag.name }}
+        </span>
+        {% endfor %}
+      </div>
+      <div class="new-label-row">
+        <input type="text"  id="seg-new-label-name"  placeholder="New label…">
+        <input type="color" id="seg-new-label-color" value="#6366f1">
+        <button class="btn btn-primary btn-sm" onclick="Annotator.createSegLabel()">＋</button>
+      </div>
+      <div class="sidebar-section-title" style="margin-top:10px;">
+        Masks <span id="seg-mask-count" class="box-count-label">0</span>
+      </div>
+      <div id="seg-mask-list"></div>
+    </div>
+    {% endif %}
+
+    <!-- Annotation list (boxes + polygons) -->
+    {% if project.annotation_type != 'segmentation' %}
     <div class="sidebar-section" style="padding-bottom:6px;">
       <div class="sidebar-section-title">
         Annotations
         <span class="box-count-label" id="box-count">0</span>
       </div>
     </div>
-
     <div class="box-list" id="box-list">
       <div class="box-empty" id="box-empty">
-        <div class="box-empty-icon">
-          <i class="fa-regular fa-square-plus"></i>
-        </div>
-        <div>No boxes yet</div>
-        <div style="margin-top:4px;font-size:11px;">Select the Draw tool and drag on the image</div>
+        <div class="box-empty-icon"><i class="fa-regular fa-square-plus"></i></div>
+        <div>No annotations yet</div>
+        <div style="margin-top:4px;font-size:11px;">Select a draw tool and drag on the image</div>
       </div>
     </div>
+    {% endif %}
 
     <!-- Image meta -->
     <div class="sidebar-section" style="margin-top:auto;">
@@ -134,12 +212,22 @@
 
     <!-- Keyboard hints -->
     <div class="key-hints">
+      {% if project.annotation_type != 'segmentation' %}
       <span class="key-hint"><kbd>B</kbd> Draw</span>
       <span class="key-hint"><kbd>V</kbd> Select</span>
       <span class="key-hint"><kbd>Del</kbd> Delete</span>
       <span class="key-hint"><kbd>Ctrl Z</kbd> Undo</span>
       <span class="key-hint"><kbd>P</kbd> Polygon</span>
       <span class="key-hint"><kbd>Esc</kbd> Cancel poly</span>
+      {% endif %}
+      <span class="key-hint"><kbd>H</kbd> Pan</span>
+      <span class="key-hint"><kbd>Space</kbd> Temp pan</span>
+      {% if project.annotation_type == 'segmentation' or project.annotation_type == 'mixed' %}
+      <span class="key-hint"><kbd>U</kbd> Brush</span>
+      <span class="key-hint"><kbd>E</kbd> Eraser</span>
+      <span class="key-hint"><kbd>Ctrl Z</kbd> Undo</span>
+      <span class="key-hint"><kbd>Ctrl S</kbd> Save</span>
+      {% endif %}
     </div>
   </aside>
 
@@ -151,12 +239,18 @@
 /* ═══════════════════════════════════════════════════════════
    DATA — injected from Django
 ═══════════════════════════════════════════════════════════ */
-const IMAGE_PK        = {{ image.pk }};
-const SAVE_URL        = "{% url 'annotation_save' image.pk %}";
-const DELETE_BOX_URL  = "{% url 'annotation_delete_box' image.pk 0 %}".replace('/0/', '/');
-const CSRF_TOKEN      = '{{ csrf_token }}';
-const INITIAL_BOXES   = {{ boxes_json|safe }};
+const IMAGE_PK         = {{ image.pk }};
+const SAVE_URL         = "{% url 'annotation_save' image.pk %}";
+const SEG_SAVE_URL     = "{% url 'segmentation_save' image.pk %}";
+const DELETE_BOX_URL   = "{% url 'annotation_delete_box' image.pk 0 %}".replace('/0/', '/');
+const CSRF_TOKEN       = '{{ csrf_token }}';
+const INITIAL_BOXES    = {{ boxes_json|safe }};
 const INITIAL_POLYGONS = {{ polygons_json|safe }};
+const INITIAL_MASKS    = {{ seg_masks_json|safe }};
+const IMG_W            = {{ image.width|default:800 }};
+const IMG_H            = {{ image.height|default:600 }};
+const IS_SEG = {% if project.annotation_type == 'segmentation' or project.annotation_type == 'mixed' %}true{% else %}false{% endif %};
+const IS_SEG_ONLY = {% if project.annotation_type == 'segmentation' %}true{% else %}false{% endif %};
 
 /* ═══════════════════════════════════════════════════════════
    ANNOTATOR
@@ -164,13 +258,13 @@ const INITIAL_POLYGONS = {{ polygons_json|safe }};
 const Annotator = (() => {
 
   /* ── State ─────────────────────────────────────────────── */
-  let boxes       = [];        // { id, label, x, y, width, height } — % coords
+  let boxes       = [];
   let polygons    = [];
   let selectedIdx = -1;
   let selectedPolyIdx = -1;
-  let tool        = 'draw';    // 'draw' | 'select'
+  let tool        = IS_SEG_ONLY ? 'brush' : 'draw';
   let scale       = 1;
-  let undoStack   = [];        // snapshots of boxes array
+  let undoStack   = [];
   let dirty       = false;
 
   let drawing     = false;
@@ -185,6 +279,19 @@ const Annotator = (() => {
 
   let polyDrawing = false;
   let polyPoints  = [];
+
+  let panning       = false;
+  let panStart      = null;
+  let spaceDown     = false;
+  let prevTool      = null;  // tool to restore after space-pan
+
+  /* ── Segmentation state ─────────────────────────────────── */
+  let segMasks     = [];   // [{id, label, offscreen, ctx}]
+  let segActiveLbl = null; // {id, name, color}
+  let brushSize    = 20;
+  let segPainting  = false;
+  let segLastPt    = null;
+  let segUndoStack = [];
 
   /* ── DOM refs ──────────────────────────────────────────── */
   const wrap       = document.getElementById('canvas-wrap');
@@ -206,18 +313,18 @@ const Annotator = (() => {
   const polyGhostLine = document.getElementById('poly-ghost-line');
   const polyPreview   = document.getElementById('poly-preview-line');
   const polyGhostDots = document.getElementById('poly-ghost-dots');
+  const segCanvas  = IS_SEG ? document.getElementById('seg-canvas') : null;
+  const segCtx     = IS_SEG ? segCanvas.getContext('2d') : null;
 
-  /* ── Palette (colours for unlabelled boxes) ─────────────── */
+  /* ── Palette ────────────────────────────────────────────── */
   const PALETTE = ['#6366f1','#f59e0b','#10b981','#ef4444','#3b82f6','#ec4899','#8b5cf6','#14b8a6'];
   let   paletteIdx = 0;
-
   function nextColor() { return PALETTE[paletteIdx++ % PALETTE.length]; }
 
   /* ── Helpers ───────────────────────────────────────────── */
   function imgW() { return imgEl.getBoundingClientRect().width; }
   function imgH() { return imgEl.getBoundingClientRect().height; }
 
-  /** Convert client XY to percentage coords relative to the image */
   function clientToPercent(clientX, clientY) {
     const r = imgEl.getBoundingClientRect();
     return {
@@ -226,14 +333,18 @@ const Annotator = (() => {
     };
   }
 
-  /** Convert % to SVG pixel coords */
   function pctToSVG(px, py) {
     return { x: px / 100 * imgW(), y: py / 100 * imgH() };
   }
 
   function csrf() { return CSRF_TOKEN; }
 
-  /* ── Push snapshot for undo ─────────────────────────────── */
+  function hexToRgb(hex) {
+    const r = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+    return r ? { r: parseInt(r[1],16), g: parseInt(r[2],16), b: parseInt(r[3],16) } : {r:99,g:102,b:241};
+  }
+
+  /* ── Undo (boxes / polygons) ────────────────────────────── */
   function pushUndo() {
     undoStack.push({
       boxes:    JSON.parse(JSON.stringify(boxes)),
@@ -246,11 +357,26 @@ const Annotator = (() => {
   function setTool(t) {
     if (polyDrawing) cancelPolygon();
     tool = t;
-    document.getElementById('tool-draw').classList.toggle('active',    t === 'draw');
-    document.getElementById('tool-select').classList.toggle('active',  t === 'select');
-    document.getElementById('tool-polygon').classList.toggle('active', t === 'polygon');
+
+    const drawBtn   = document.getElementById('tool-draw');
+    const selectBtn = document.getElementById('tool-select');
+    const polyBtn   = document.getElementById('tool-polygon');
+    const brushBtn  = document.getElementById('tool-brush');
+    const eraserBtn = document.getElementById('tool-eraser');
+    const segPanel  = document.getElementById('seg-panel');
+
+    const panBtn = document.getElementById('tool-pan');
+    if (drawBtn)   drawBtn.classList.toggle('active',   t === 'draw');
+    if (selectBtn) selectBtn.classList.toggle('active', t === 'select');
+    if (polyBtn)   polyBtn.classList.toggle('active',   t === 'polygon');
+    if (brushBtn)  brushBtn.classList.toggle('active',  t === 'brush');
+    if (eraserBtn) eraserBtn.classList.toggle('active', t === 'eraser');
+    if (panBtn)    panBtn.classList.toggle('active',    t === 'pan');
+
+    if (segPanel) segPanel.style.display = (t === 'brush' || t === 'eraser') ? '' : 'none';
+
     wrap.className = 'canvas-wrap tool-' + t;
-    if (t === 'draw' || t === 'polygon') { deselectAll(); }
+    if (t === 'draw' || t === 'polygon') deselectAll();
   }
 
   /* ── Zoom ───────────────────────────────────────────────── */
@@ -258,21 +384,21 @@ const Annotator = (() => {
     scale = Math.max(0.2, Math.min(4, scale + delta));
     applyZoom();
   }
-
-  function resetZoom() {
-    scale = 1;
-    applyZoom();
-  }
-
+  function resetZoom() { scale = 1; applyZoom(); }
   function applyZoom() {
-    imgEl.style.transform = `scale(${scale})`;
+    const t = `scale(${scale})`;
+    imgEl.style.transform       = t;
     imgEl.style.transformOrigin = 'top left';
-    // SVG overlay follows the image via CSS inset:0 so it scales too
+    if (segCanvas) {
+      segCanvas.style.transform       = t;
+      segCanvas.style.transformOrigin = 'top left';
+    }
     zoomDisplay.textContent = Math.round(scale * 100) + '%';
+    if (IS_SEG) segComposite();
   }
 
   /* ══════════════════════════════════════════════════════════
-     RENDER
+     RENDER  (boxes + polygons)
   ══════════════════════════════════════════════════════════ */
   function render() {
     boxesGroup.innerHTML = '';
@@ -281,29 +407,20 @@ const Annotator = (() => {
     renderSidebarList();
   }
 
-  function boxColor(b) {
-    return b.label ? b.label.color : (b._color || '#6366f1');
-  }
+  function boxColor(b) { return b.label ? b.label.color : (b._color || '#6366f1'); }
 
   function renderBox(b, i) {
     const iW = imgW(), iH = imgH();
-    const px = b.x / 100 * iW;
-    const py = b.y / 100 * iH;
-    const pw = b.width  / 100 * iW;
-    const ph = b.height / 100 * iH;
-
-    const color = boxColor(b);
-    const sel   = (i === selectedIdx);
+    const px = b.x / 100 * iW, py = b.y / 100 * iH;
+    const pw = b.width  / 100 * iW, ph = b.height / 100 * iH;
+    const color = boxColor(b), sel = (i === selectedIdx);
 
     const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
     g.dataset.idx = i;
 
-    /* Main rect */
     const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-    rect.setAttribute('x', px);
-    rect.setAttribute('y', py);
-    rect.setAttribute('width',  pw);
-    rect.setAttribute('height', ph);
+    rect.setAttribute('x', px); rect.setAttribute('y', py);
+    rect.setAttribute('width', pw); rect.setAttribute('height', ph);
     rect.setAttribute('class', 'bbox-rect' + (sel ? ' selected' : ''));
     rect.setAttribute('stroke', color);
     rect.setAttribute('fill', sel ? color + '22' : 'none');
@@ -311,97 +428,72 @@ const Annotator = (() => {
     rect.addEventListener('mousedown', e => onBoxMousedown(e, i));
     g.appendChild(rect);
 
-    /* Label badge */
     const labelText = b.label ? b.label.name : 'unlabelled';
-    const badgeX = px;
-    const badgeY = Math.max(0, py - 20);
-    const charW  = 7;
-    const badgeW = labelText.length * charW + 14;
-
+    const badgeX = px, badgeY = Math.max(0, py - 20);
+    const badgeW = labelText.length * 7 + 14;
     const bgRect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-    bgRect.setAttribute('x', badgeX);
-    bgRect.setAttribute('y', badgeY);
-    bgRect.setAttribute('width',  badgeW);
-    bgRect.setAttribute('height', 18);
-    bgRect.setAttribute('rx', 4);
-    bgRect.setAttribute('fill', color);
+    bgRect.setAttribute('x', badgeX); bgRect.setAttribute('y', badgeY);
+    bgRect.setAttribute('width', badgeW); bgRect.setAttribute('height', 18);
+    bgRect.setAttribute('rx', 4); bgRect.setAttribute('fill', color);
     bgRect.setAttribute('class', 'bbox-label-bg');
     bgRect.style.cursor = 'pointer';
     bgRect.addEventListener('mousedown', e => onBoxMousedown(e, i));
     g.appendChild(bgRect);
 
     const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-    text.setAttribute('x', badgeX + 7);
-    text.setAttribute('y', badgeY + 9);
+    text.setAttribute('x', badgeX + 7); text.setAttribute('y', badgeY + 9);
     text.setAttribute('class', 'bbox-label-text');
     text.textContent = labelText;
     g.appendChild(text);
 
-    /* Resize handles (only when selected) */
     if (sel) {
       const handles = [
-        { id:'nw', cx: px,       cy: py       },
-        { id:'n',  cx: px+pw/2,  cy: py       },
-        { id:'ne', cx: px+pw,    cy: py       },
-        { id:'e',  cx: px+pw,    cy: py+ph/2  },
-        { id:'se', cx: px+pw,    cy: py+ph    },
-        { id:'s',  cx: px+pw/2,  cy: py+ph    },
-        { id:'sw', cx: px,       cy: py+ph    },
-        { id:'w',  cx: px,       cy: py+ph/2  },
+        {id:'nw',cx:px,cy:py},{id:'n',cx:px+pw/2,cy:py},{id:'ne',cx:px+pw,cy:py},
+        {id:'e',cx:px+pw,cy:py+ph/2},{id:'se',cx:px+pw,cy:py+ph},
+        {id:'s',cx:px+pw/2,cy:py+ph},{id:'sw',cx:px,cy:py+ph},{id:'w',cx:px,cy:py+ph/2},
       ];
       handles.forEach(h => {
         const c = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-        c.setAttribute('cx', h.cx);
-        c.setAttribute('cy', h.cy);
-        c.setAttribute('r', 5);
+        c.setAttribute('cx', h.cx); c.setAttribute('cy', h.cy); c.setAttribute('r', 5);
         c.setAttribute('class', `resize-handle ${h.id}`);
         c.addEventListener('mousedown', e => onHandleMousedown(e, i, h.id));
         g.appendChild(c);
       });
     }
-
     boxesGroup.appendChild(g);
   }
 
   function renderPolygon(p, i) {
-    const iW    = imgW(), iH = imgH();
+    const iW = imgW(), iH = imgH();
     const color = p.label ? p.label.color : (p._color || '#6366f1');
     const sel   = (i === selectedPolyIdx);
     const svgPts = p.points.map(pt => `${pt.x/100*iW},${pt.y/100*iH}`).join(' ');
 
     const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
-
     const poly = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
     poly.setAttribute('points', svgPts);
-    poly.setAttribute('class',  'poly-shape' + (sel ? ' selected' : ''));
-    poly.setAttribute('stroke', color);
-    poly.setAttribute('fill',   color);
+    poly.setAttribute('class', 'poly-shape' + (sel ? ' selected' : ''));
+    poly.setAttribute('stroke', color); poly.setAttribute('fill', color);
     poly.addEventListener('mousedown', e => { e.stopPropagation(); selectPolygon(i); render(); });
     g.appendChild(poly);
 
     if (p.points.length > 0) {
-      const fp     = p.points[0];
-      const bx     = fp.x / 100 * iW;
-      const by     = Math.max(0, fp.y / 100 * iH - 20);
-      const lText  = p.label ? p.label.name : 'unlabelled';
+      const fp = p.points[0];
+      const bx = fp.x/100*iW, by = Math.max(0, fp.y/100*iH - 20);
+      const lText = p.label ? p.label.name : 'unlabelled';
       const badgeW = lText.length * 7 + 14;
-
       const bg = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
-      bg.setAttribute('x', bx);  bg.setAttribute('y', by);
+      bg.setAttribute('x', bx); bg.setAttribute('y', by);
       bg.setAttribute('width', badgeW); bg.setAttribute('height', 18);
-      bg.setAttribute('rx', 4);  bg.setAttribute('fill', color);
-      bg.setAttribute('class', 'bbox-label-bg');
-      bg.style.cursor = 'pointer';
+      bg.setAttribute('rx', 4); bg.setAttribute('fill', color);
+      bg.setAttribute('class', 'bbox-label-bg'); bg.style.cursor = 'pointer';
       bg.addEventListener('mousedown', e => { e.stopPropagation(); selectPolygon(i); render(); });
       g.appendChild(bg);
-
       const txt = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-      txt.setAttribute('x', bx + 7); txt.setAttribute('y', by + 9);
-      txt.setAttribute('class', 'bbox-label-text');
-      txt.textContent = lText;
+      txt.setAttribute('x', bx+7); txt.setAttribute('y', by+9);
+      txt.setAttribute('class', 'bbox-label-text'); txt.textContent = lText;
       g.appendChild(txt);
     }
-
     boxesGroup.appendChild(g);
   }
 
@@ -409,22 +501,17 @@ const Annotator = (() => {
     const iW = imgW(), iH = imgH();
     const pts = polyPoints.map(p => `${p.x/100*iW},${p.y/100*iH}`).join(' ');
     polyGhostLine.setAttribute('points', pts);
-
     if (polyPoints.length > 0) {
-      const last = polyPoints[polyPoints.length - 1];
-      polyPreview.setAttribute('x1', last.x / 100 * iW);
-      polyPreview.setAttribute('y1', last.y / 100 * iH);
-      polyPreview.setAttribute('x2', cursorPt.x / 100 * iW);
-      polyPreview.setAttribute('y2', cursorPt.y / 100 * iH);
+      const last = polyPoints[polyPoints.length-1];
+      polyPreview.setAttribute('x1', last.x/100*iW); polyPreview.setAttribute('y1', last.y/100*iH);
+      polyPreview.setAttribute('x2', cursorPt.x/100*iW); polyPreview.setAttribute('y2', cursorPt.y/100*iH);
     }
-
     polyGhostDots.innerHTML = '';
     polyPoints.forEach((p, idx) => {
       const c = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-      c.setAttribute('cx', p.x / 100 * iW);
-      c.setAttribute('cy', p.y / 100 * iH);
-      c.setAttribute('r',  idx === 0 ? 6 : 4);
-      c.setAttribute('class', idx === 0 && polyPoints.length >= 3 ? 'poly-close-dot' : 'poly-ghost-dot');
+      c.setAttribute('cx', p.x/100*iW); c.setAttribute('cy', p.y/100*iH);
+      c.setAttribute('r', idx === 0 ? 6 : 4);
+      c.setAttribute('class', idx===0 && polyPoints.length>=3 ? 'poly-close-dot' : 'poly-ghost-dot');
       polyGhostDots.appendChild(c);
     });
   }
@@ -439,41 +526,32 @@ const Annotator = (() => {
   }
 
   function cancelPolygon() {
-    polyDrawing = false;
-    polyPoints  = [];
+    polyDrawing = false; polyPoints = [];
     polyGhost.style.display = 'none';
   }
 
   /* ── Sidebar list ───────────────────────────────────────── */
   function renderSidebarList() {
+    if (!boxCount) return;
     const total = boxes.length + polygons.length;
-    boxCount.textContent    = total;
-    boxEmpty.style.display  = total ? 'none' : 'block';
-
+    boxCount.textContent   = total;
+    if (boxEmpty) boxEmpty.style.display = total ? 'none' : 'block';
+    if (!boxList) return;
     [...boxList.querySelectorAll('.box-item')].forEach(el => el.remove());
 
     boxes.forEach((b, i) => {
       const div = document.createElement('div');
       div.className = 'box-item' + (i === selectedIdx ? ' active' : '');
       div.addEventListener('click', () => { selectBox(i); render(); });
-
       const dot = document.createElement('span');
-      dot.className = 'box-color-dot';
-      dot.style.background = boxColor(b);
-
+      dot.className = 'box-color-dot'; dot.style.background = boxColor(b);
       const lbl = document.createElement('span');
-      lbl.className = 'box-label-text';
-      lbl.textContent = b.label ? b.label.name : 'unlabelled';
-
+      lbl.className = 'box-label-text'; lbl.textContent = b.label ? b.label.name : 'unlabelled';
       const coords = document.createElement('span');
-      coords.className = 'box-coords';
-      coords.textContent = `${b.width.toFixed(0)}×${b.height.toFixed(0)}%`;
-
+      coords.className = 'box-coords'; coords.textContent = `${b.width.toFixed(0)}×${b.height.toFixed(0)}%`;
       const del = document.createElement('button');
-      del.className = 'box-del-btn';
-      del.textContent = '✕'; del.title = 'Delete';
+      del.className = 'box-del-btn'; del.textContent = '✕'; del.title = 'Delete';
       del.addEventListener('click', e => { e.stopPropagation(); deleteBox(i); });
-
       div.append(dot, lbl, coords, del);
       boxList.appendChild(div);
     });
@@ -483,24 +561,15 @@ const Annotator = (() => {
       const div = document.createElement('div');
       div.className = 'box-item' + (i === selectedPolyIdx ? ' active' : '');
       div.addEventListener('click', () => { selectPolygon(i); render(); });
-
       const dot = document.createElement('span');
-      dot.className = 'box-color-dot';
-      dot.style.background = color;
-
+      dot.className = 'box-color-dot'; dot.style.background = color;
       const lbl = document.createElement('span');
-      lbl.className = 'box-label-text';
-      lbl.textContent = '⬠ ' + (p.label ? p.label.name : 'unlabelled');
-
+      lbl.className = 'box-label-text'; lbl.textContent = '⬠ ' + (p.label ? p.label.name : 'unlabelled');
       const coords = document.createElement('span');
-      coords.className = 'box-coords';
-      coords.textContent = `${p.points.length}pts`;
-
+      coords.className = 'box-coords'; coords.textContent = `${p.points.length}pts`;
       const del = document.createElement('button');
-      del.className = 'box-del-btn';
-      del.textContent = '✕'; del.title = 'Delete';
+      del.className = 'box-del-btn'; del.textContent = '✕'; del.title = 'Delete';
       del.addEventListener('click', e => { e.stopPropagation(); deletePolygon(i); });
-
       div.append(dot, lbl, coords, del);
       boxList.appendChild(div);
     });
@@ -510,39 +579,32 @@ const Annotator = (() => {
      SELECTION
   ══════════════════════════════════════════════════════════ */
   function selectBox(i) {
-    selectedIdx     = i;
-    selectedPolyIdx = -1;
+    selectedIdx = i; selectedPolyIdx = -1;
     delBtn.style.display = i >= 0 ? '' : 'none';
     labelPicker.classList.toggle('visible', i >= 0);
     labelGrid.querySelectorAll('.label-chip').forEach(chip => {
-      chip.classList.toggle('selected',
-        i >= 0 && boxes[i].label && chip.dataset.id == boxes[i].label.id
-      );
+      chip.classList.toggle('selected', i >= 0 && boxes[i].label && chip.dataset.id == boxes[i].label.id);
     });
   }
 
   function selectPolygon(i) {
-    selectedPolyIdx = i;
-    selectedIdx     = -1;
+    selectedPolyIdx = i; selectedIdx = -1;
     delBtn.style.display = i >= 0 ? '' : 'none';
     labelPicker.classList.toggle('visible', i >= 0);
     labelGrid.querySelectorAll('.label-chip').forEach(chip => {
-      chip.classList.toggle('selected',
-        i >= 0 && polygons[i].label && chip.dataset.id == polygons[i].label.id
-      );
+      chip.classList.toggle('selected', i >= 0 && polygons[i].label && chip.dataset.id == polygons[i].label.id);
     });
   }
 
   function deselectAll() {
-    selectedIdx     = -1;
-    selectedPolyIdx = -1;
+    selectedIdx = -1; selectedPolyIdx = -1;
     delBtn.style.display = 'none';
     labelPicker.classList.remove('visible');
     render();
   }
 
   /* ══════════════════════════════════════════════════════════
-     DRAWING
+     DRAWING  (bbox + polygon)
   ══════════════════════════════════════════════════════════ */
   function onCanvasMousedown(e) {
     if (e.target !== svg && e.target !== imgEl && e.target !== ghost &&
@@ -550,36 +612,26 @@ const Annotator = (() => {
     if (e.button !== 0) return;
 
     if (tool === 'draw') {
-      drawing   = true;
-      drawStart = clientToPercent(e.clientX, e.clientY);
+      drawing = true; drawStart = clientToPercent(e.clientX, e.clientY);
       ghost.style.display = '';
-      ghost.setAttribute('x',      drawStart.x / 100 * imgW());
-      ghost.setAttribute('y',      drawStart.y / 100 * imgH());
-      ghost.setAttribute('width',  0);
-      ghost.setAttribute('height', 0);
-      e.preventDefault();
-      return;
+      ghost.setAttribute('x', drawStart.x/100*imgW()); ghost.setAttribute('y', drawStart.y/100*imgH());
+      ghost.setAttribute('width', 0); ghost.setAttribute('height', 0);
+      e.preventDefault(); return;
     }
 
     if (tool === 'polygon') {
       const pt = clientToPercent(e.clientX, e.clientY);
       if (!polyDrawing) {
-        polyDrawing = true;
-        polyPoints  = [pt];
-        polyGhost.style.display = '';
-        updatePolyGhost(pt);
-        e.preventDefault();
-        return;
+        polyDrawing = true; polyPoints = [pt];
+        polyGhost.style.display = ''; updatePolyGhost(pt);
+        e.preventDefault(); return;
       }
-      const fp = polyPoints[0];
-      const iW = imgW(), iH = imgH();
-      const dx = (pt.x - fp.x) / 100 * iW;
-      const dy = (pt.y - fp.y) / 100 * iH;
+      const fp = polyPoints[0], iW = imgW(), iH = imgH();
+      const dx = (pt.x - fp.x)/100*iW, dy = (pt.y - fp.y)/100*iH;
       if (Math.sqrt(dx*dx + dy*dy) < 12 && polyPoints.length >= 3) {
         finishPolygon();
       } else {
-        polyPoints.push(pt);
-        updatePolyGhost(pt);
+        polyPoints.push(pt); updatePolyGhost(pt);
       }
       e.preventDefault();
     }
@@ -587,77 +639,45 @@ const Annotator = (() => {
 
   function onMousemove(e) {
     if (drawing) {
-      const cur  = clientToPercent(e.clientX, e.clientY);
-      const minX = Math.min(drawStart.x, cur.x);
-      const minY = Math.min(drawStart.y, cur.y);
-      const maxX = Math.max(drawStart.x, cur.x);
-      const maxY = Math.max(drawStart.y, cur.y);
-      const iW   = imgW(), iH = imgH();
-
-      ghost.setAttribute('x',      minX / 100 * iW);
-      ghost.setAttribute('y',      minY / 100 * iH);
-      ghost.setAttribute('width',  (maxX - minX) / 100 * iW);
-      ghost.setAttribute('height', (maxY - minY) / 100 * iH);
-    }
-
-    if (dragging && selectedIdx >= 0) {
       const cur = clientToPercent(e.clientX, e.clientY);
-      const b   = boxes[selectedIdx];
+      const minX = Math.min(drawStart.x, cur.x), minY = Math.min(drawStart.y, cur.y);
+      const maxX = Math.max(drawStart.x, cur.x), maxY = Math.max(drawStart.y, cur.y);
+      const iW = imgW(), iH = imgH();
+      ghost.setAttribute('x', minX/100*iW); ghost.setAttribute('y', minY/100*iH);
+      ghost.setAttribute('width', (maxX-minX)/100*iW); ghost.setAttribute('height', (maxY-minY)/100*iH);
+    }
+    if (dragging && selectedIdx >= 0) {
+      const cur = clientToPercent(e.clientX, e.clientY), b = boxes[selectedIdx];
       b.x = Math.max(0, Math.min(100 - b.width,  cur.x - dragOffset.x));
       b.y = Math.max(0, Math.min(100 - b.height, cur.y - dragOffset.y));
-      markDirty();
-      render();
+      markDirty(); render();
     }
-
-    if (resizing && selectedIdx >= 0) {
-      onResize(e);
-    }
-    if (tool === 'polygon' && polyDrawing && polyPoints.length > 0) {
+    if (resizing && selectedIdx >= 0) onResize(e);
+    if (tool === 'polygon' && polyDrawing && polyPoints.length > 0)
       updatePolyGhost(clientToPercent(e.clientX, e.clientY));
-    }
   }
 
   function onMouseup(e) {
     if (drawing) {
-      drawing = false;
-      ghost.style.display = 'none';
-
-      const cur  = clientToPercent(e.clientX, e.clientY);
-      const minX = Math.min(drawStart.x, cur.x);
-      const minY = Math.min(drawStart.y, cur.y);
-      const maxX = Math.max(drawStart.x, cur.x);
-      const maxY = Math.max(drawStart.y, cur.y);
-      const w    = maxX - minX;
-      const h    = maxY - minY;
-
-      if (w > 0.5 && h > 0.5) {   // ignore tiny accidental clicks
+      drawing = false; ghost.style.display = 'none';
+      const cur = clientToPercent(e.clientX, e.clientY);
+      const minX = Math.min(drawStart.x, cur.x), minY = Math.min(drawStart.y, cur.y);
+      const w = Math.max(drawStart.x, cur.x) - minX, h = Math.max(drawStart.y, cur.y) - minY;
+      if (w > 0.5 && h > 0.5) {
         pushUndo();
-        const newBox = { id: null, label: null, x: minX, y: minY, width: w, height: h, _color: nextColor() };
-        boxes.push(newBox);
+        boxes.push({ id: null, label: null, x: minX, y: minY, width: w, height: h, _color: nextColor() });
         selectBox(boxes.length - 1);
-        markDirty();
-        render();
+        markDirty(); render();
       }
     }
-
-    if (dragging) {
-      dragging = false;
-      pushUndo();
-    }
-
-    if (resizing) {
-      resizing = false;
-      pushUndo();
-    }
+    if (dragging) { dragging = false; pushUndo(); }
+    if (resizing) { resizing = false; pushUndo(); }
   }
 
-  /* ── Clicking on an existing box ────────────────────────── */
   function onBoxMousedown(e, i) {
     e.stopPropagation();
     if (tool === 'select' || tool === 'draw') {
-      selectBox(i);
-      render();
-
+      selectBox(i); render();
       if (tool === 'select') {
         dragging = true;
         const cur = clientToPercent(e.clientX, e.clientY);
@@ -667,124 +687,77 @@ const Annotator = (() => {
     }
   }
 
-  /* ── Resize handles ─────────────────────────────────────── */
   function onHandleMousedown(e, i, handle) {
-    e.stopPropagation();
-    e.preventDefault();
-    resizing     = true;
-    resizeHandle = handle;
-    resizeStart  = { ...clientToPercent(e.clientX, e.clientY), box: { ...boxes[i] } };
+    e.stopPropagation(); e.preventDefault();
+    resizing = true; resizeHandle = handle;
+    resizeStart = { ...clientToPercent(e.clientX, e.clientY), box: { ...boxes[i] } };
     selectBox(i);
   }
 
   function onResize(e) {
-    const cur = clientToPercent(e.clientX, e.clientY);
-    const b   = boxes[selectedIdx];
-    const orig = resizeStart.box;
-    const dx  = cur.x - resizeStart.x;
-    const dy  = cur.y - resizeStart.y;
-
+    const cur = clientToPercent(e.clientX, e.clientY), b = boxes[selectedIdx];
+    const orig = resizeStart.box, dx = cur.x - resizeStart.x, dy = cur.y - resizeStart.y;
     const h = resizeHandle;
-
-    if (h.includes('e')) { b.width  = Math.max(1, orig.width  + dx); }
-    if (h.includes('s')) { b.height = Math.max(1, orig.height + dy); }
+    if (h.includes('e')) b.width  = Math.max(1, orig.width  + dx);
+    if (h.includes('s')) b.height = Math.max(1, orig.height + dy);
     if (h.includes('w')) {
-      const newX = Math.min(orig.x + orig.width - 1, orig.x + dx);
-      b.width    = orig.width - (newX - orig.x);
-      b.x        = newX;
+      const nx = Math.min(orig.x + orig.width - 1, orig.x + dx);
+      b.width = orig.width - (nx - orig.x); b.x = nx;
     }
     if (h.includes('n')) {
-      const newY = Math.min(orig.y + orig.height - 1, orig.y + dy);
-      b.height   = orig.height - (newY - orig.y);
-      b.y        = newY;
+      const ny = Math.min(orig.y + orig.height - 1, orig.y + dy);
+      b.height = orig.height - (ny - orig.y); b.y = ny;
     }
-
-    // Clamp
-    b.x      = Math.max(0, b.x);
-    b.y      = Math.max(0, b.y);
-    b.width  = Math.min(100 - b.x, b.width);
-    b.height = Math.min(100 - b.y, b.height);
-
-    markDirty();
-    render();
+    b.x = Math.max(0, b.x); b.y = Math.max(0, b.y);
+    b.width = Math.min(100 - b.x, b.width); b.height = Math.min(100 - b.y, b.height);
+    markDirty(); render();
   }
 
   /* ══════════════════════════════════════════════════════════
-     LABELS
+     LABELS  (bbox / polygon)
   ══════════════════════════════════════════════════════════ */
   function applyLabel(id, name, color) {
     if (selectedIdx < 0 && selectedPolyIdx < 0) return;
     pushUndo();
-    if (selectedIdx >= 0)         { boxes[selectedIdx].label = { id, name, color }; }
-    else if (selectedPolyIdx >= 0){ polygons[selectedPolyIdx].label = { id, name, color }; }
+    if (selectedIdx >= 0)          boxes[selectedIdx].label     = { id, name, color };
+    else if (selectedPolyIdx >= 0) polygons[selectedPolyIdx].label = { id, name, color };
     markDirty();
-    labelGrid.querySelectorAll('.label-chip').forEach(chip => {
-      chip.classList.toggle('selected', chip.dataset.id == id);
-    });
+    labelGrid.querySelectorAll('.label-chip').forEach(c => c.classList.toggle('selected', c.dataset.id == id));
     render();
   }
 
   async function createLabel() {
-    const nameInput  = document.getElementById('new-label-name');
+    const nameInput = document.getElementById('new-label-name');
     const colorInput = document.getElementById('new-label-color');
-    const name  = nameInput.value.trim();
-    const color = colorInput.value;
-
+    const name = nameInput.value.trim(), color = colorInput.value;
     if (!name) { nameInput.focus(); return; }
-
-    // POST to batch_tag endpoint with no images just to create the tag,
-    // OR use a simpler approach: create via the annotation_save with a sentinel.
-    // Here we call the batch_tag endpoint with an empty image list,
-    // which will call Tag.objects.get_or_create via new_tag.
     const fd = new FormData();
-    fd.append('action',        'add');
-    fd.append('new_tag',       name);
-    fd.append('new_tag_color', color);
-    fd.append('next',          window.location.href);
-
-    await fetch("{% url 'batch_tag' %}", { method: 'POST', headers: { 'X-CSRFToken': csrf() }, redirect: 'manual', body: fd });
-    // batch_tag redirects — we just want the tag created, redirect is ignored.
-    // Now fetch the tag id by looking it up in the DOM we'll add a chip:
-
-    // Optimistically add chip to label grid & apply to selected box
-    // We'll use id=null and rely on server to resolve on save
+    fd.append('action', 'add'); fd.append('new_tag', name); fd.append('new_tag_color', color);
+    fd.append('next', window.location.href);
+    await fetch("{% url 'batch_tag' %}", { method: 'POST', headers: {'X-CSRFToken': csrf()}, redirect: 'manual', body: fd });
     const chip = document.createElement('span');
-    chip.className   = 'label-chip selected';
-    chip.style       = `--tc: ${color}`;
-    chip.dataset.name  = name;
-    chip.dataset.color = color;
+    chip.className = 'label-chip selected'; chip.style = `--tc: ${color}`;
+    chip.dataset.name = name; chip.dataset.color = color; chip.dataset.id = '0';
     chip.textContent = name;
-    // id is unknown yet — mark as 0 to trigger server-side get_or_create in save
-    chip.dataset.id  = '0';
     chip.addEventListener('click', () => applyLabel(0, name, color));
     labelGrid.appendChild(chip);
-
     nameInput.value = '';
-
-    if (selectedIdx >= 0) {
-      applyLabel(0, name, color);   // id=0 → server will get_or_create
-    }
+    if (selectedIdx >= 0) applyLabel(0, name, color);
   }
 
   /* ══════════════════════════════════════════════════════════
-     DELETE / UNDO
+     DELETE / UNDO  (bbox / polygon)
   ══════════════════════════════════════════════════════════ */
   function deleteBox(i) {
-    pushUndo();
-    boxes.splice(i, 1);
-    if (selectedIdx === i)        { selectBox(-1); }
-    else if (selectedIdx > i)     { selectedIdx--; }
-    markDirty();
-    render();
+    pushUndo(); boxes.splice(i, 1);
+    if (selectedIdx === i) selectBox(-1); else if (selectedIdx > i) selectedIdx--;
+    markDirty(); render();
   }
 
   function deletePolygon(i) {
-    pushUndo();
-    polygons.splice(i, 1);
-    if (selectedPolyIdx === i)    { selectPolygon(-1); }
-    else if (selectedPolyIdx > i) { selectedPolyIdx--; }
-    markDirty();
-    render();
+    pushUndo(); polygons.splice(i, 1);
+    if (selectedPolyIdx === i) selectPolygon(-1); else if (selectedPolyIdx > i) selectedPolyIdx--;
+    markDirty(); render();
   }
 
   function deleteSelected() {
@@ -793,17 +766,229 @@ const Annotator = (() => {
   }
 
   function undo() {
+    if (tool === 'brush' || tool === 'eraser') { segUndo(); return; }
     if (polyDrawing) { cancelPolygon(); return; }
     if (!undoStack.length) return;
     const snap = undoStack.pop();
-    boxes    = snap.boxes;
-    polygons = snap.polygons;
-    selectedIdx     = -1;
-    selectedPolyIdx = -1;
+    boxes = snap.boxes; polygons = snap.polygons;
+    selectedIdx = -1; selectedPolyIdx = -1;
     delBtn.style.display = 'none';
     labelPicker.classList.remove('visible');
+    markDirty(); render();
+  }
+
+  /* ══════════════════════════════════════════════════════════
+     SEGMENTATION
+  ══════════════════════════════════════════════════════════ */
+  function segFitCanvas() {
+    if (!segCanvas) return;
+    // Use offsetWidth/offsetHeight — unaffected by CSS transform, matches
+    // the container's natural layout size which is what inset:0 fills.
+    segCanvas.width  = imgEl.offsetWidth;
+    segCanvas.height = imgEl.offsetHeight;
+  }
+
+  function segComposite() {
+    if (!segCtx || !segCanvas.width) return;
+    const dw = segCanvas.width, dh = segCanvas.height;
+    segCtx.clearRect(0, 0, dw, dh);
+    segMasks.forEach(m => {
+      segCtx.globalAlpha = 0.55;
+      segCtx.drawImage(m.offscreen, 0, 0, dw, dh);
+    });
+    segCtx.globalAlpha = 1;
+  }
+
+  function clientToImgPx(clientX, clientY) {
+    const r = imgEl.getBoundingClientRect();
+    return {
+      x: (clientX - r.left) / r.width  * IMG_W,
+      y: (clientY - r.top)  / r.height * IMG_H,
+    };
+  }
+
+  function getMaskForLabel(label) {
+    let m = segMasks.find(m => m.label && m.label.id === label.id);
+    if (!m) {
+      const oc = document.createElement('canvas');
+      oc.width = IMG_W; oc.height = IMG_H;
+      m = { id: null, label: { ...label }, offscreen: oc, ctx: oc.getContext('2d') };
+      segMasks.push(m);
+      renderSegList();
+    }
+    return m;
+  }
+
+  function scaledBrushRadius() {
+    return brushSize * (IMG_W / imgEl.getBoundingClientRect().width);
+  }
+
+  function segBrushAt(imgX, imgY) {
+    if (!segActiveLbl) return;
+    const m   = getMaskForLabel(segActiveLbl);
+    const r   = scaledBrushRadius();
+    const rgb = hexToRgb(segActiveLbl.color || '#6366f1');
+    m.ctx.globalCompositeOperation = 'source-over';
+    m.ctx.fillStyle   = `rgba(${rgb.r},${rgb.g},${rgb.b},1)`;
+    m.ctx.strokeStyle = `rgba(${rgb.r},${rgb.g},${rgb.b},1)`;
+    m.ctx.lineWidth   = r * 2;
+    m.ctx.lineCap     = 'round';
+    m.ctx.lineJoin    = 'round';
+    if (segLastPt) {
+      m.ctx.beginPath();
+      m.ctx.moveTo(segLastPt.x, segLastPt.y);
+      m.ctx.lineTo(imgX, imgY);
+      m.ctx.stroke();
+    }
+    m.ctx.beginPath();
+    m.ctx.arc(imgX, imgY, r, 0, Math.PI * 2);
+    m.ctx.fill();
+  }
+
+  function segEraseAt(imgX, imgY) {
+    const r = scaledBrushRadius();
+    segMasks.forEach(m => {
+      m.ctx.globalCompositeOperation = 'destination-out';
+      m.ctx.fillStyle   = 'rgba(0,0,0,1)';
+      m.ctx.strokeStyle = 'rgba(0,0,0,1)';
+      m.ctx.lineWidth   = r * 2;
+      m.ctx.lineCap     = 'round';
+      m.ctx.lineJoin    = 'round';
+      if (segLastPt) {
+        m.ctx.beginPath();
+        m.ctx.moveTo(segLastPt.x, segLastPt.y);
+        m.ctx.lineTo(imgX, imgY);
+        m.ctx.stroke();
+      }
+      m.ctx.beginPath();
+      m.ctx.arc(imgX, imgY, r, 0, Math.PI * 2);
+      m.ctx.fill();
+      m.ctx.globalCompositeOperation = 'source-over';
+    });
+  }
+
+  function segPushUndo() {
+    const snap = segMasks.map(m => ({
+      id: m.id, label: { ...m.label }, data: m.offscreen.toDataURL('image/png'),
+    }));
+    segUndoStack.push(snap);
+    if (segUndoStack.length > 20) segUndoStack.shift();
+  }
+
+  function segUndo() {
+    if (!segUndoStack.length) return;
+    const snap = segUndoStack.pop();
+    segMasks = [];
+    let pending = snap.length;
+    if (!pending) { segComposite(); renderSegList(); return; }
+    snap.forEach(s => {
+      const oc = document.createElement('canvas');
+      oc.width = IMG_W; oc.height = IMG_H;
+      const ctx = oc.getContext('2d');
+      const img = new window.Image();
+      img.onload = () => {
+        ctx.drawImage(img, 0, 0);
+        segMasks.push({ id: s.id, label: s.label, offscreen: oc, ctx });
+        if (--pending === 0) { segComposite(); renderSegList(); }
+      };
+      img.src = s.data;
+    });
     markDirty();
-    render();
+  }
+
+  function setSegLabel(id, name, color) {
+    segActiveLbl = { id, name, color };
+    document.querySelectorAll('#seg-label-grid .label-chip').forEach(c => {
+      c.classList.toggle('selected', c.dataset.id == id);
+    });
+  }
+
+  function setBrushSize(sz) {
+    brushSize = sz;
+    const lbl = document.getElementById('brush-size-val');
+    if (lbl) lbl.textContent = sz + 'px';
+  }
+
+  async function createSegLabel() {
+    const nameInput  = document.getElementById('seg-new-label-name');
+    const colorInput = document.getElementById('seg-new-label-color');
+    const name = nameInput.value.trim(), color = colorInput.value;
+    if (!name) { nameInput.focus(); return; }
+    const fd = new FormData();
+    fd.append('action', 'add'); fd.append('new_tag', name); fd.append('new_tag_color', color);
+    fd.append('next', window.location.href);
+    await fetch("{% url 'batch_tag' %}", { method:'POST', headers:{'X-CSRFToken':csrf()}, redirect:'manual', body:fd });
+    const chip = document.createElement('span');
+    chip.className = 'label-chip'; chip.style = `--tc: ${color}`;
+    chip.dataset.id = '0'; chip.dataset.name = name; chip.dataset.color = color;
+    chip.textContent = name;
+    chip.addEventListener('click', () => setSegLabel(0, name, color));
+    document.getElementById('seg-label-grid').appendChild(chip);
+    nameInput.value = '';
+    setSegLabel(0, name, color);
+  }
+
+  function renderSegList() {
+    const list  = document.getElementById('seg-mask-list');
+    const count = document.getElementById('seg-mask-count');
+    if (!list) return;
+    if (count) count.textContent = segMasks.length;
+    list.innerHTML = '';
+    segMasks.forEach((m, i) => {
+      const div = document.createElement('div');
+      div.className = 'seg-mask-item';
+      const dot = document.createElement('span');
+      dot.className = 'seg-mask-dot';
+      dot.style.background = m.label ? m.label.color : '#aaa';
+      const lbl = document.createElement('span');
+      lbl.className = 'seg-mask-label';
+      lbl.textContent = m.label ? m.label.name : 'unlabelled';
+      const del = document.createElement('button');
+      del.className = 'box-del-btn'; del.textContent = '✕'; del.title = 'Delete mask';
+      del.addEventListener('click', () => segDeleteMask(i));
+      div.append(dot, lbl, del);
+      list.appendChild(div);
+    });
+  }
+
+  function segDeleteMask(i) {
+    segPushUndo();
+    segMasks.splice(i, 1);
+    segComposite(); renderSegList(); markDirty();
+  }
+
+  function segLoadInitial() {
+    if (!IS_SEG || !INITIAL_MASKS.length) return;
+    let pending = INITIAL_MASKS.length;
+    INITIAL_MASKS.forEach(sm => {
+      const oc = document.createElement('canvas');
+      oc.width = IMG_W; oc.height = IMG_H;
+      const ctx = oc.getContext('2d');
+      const img = new window.Image();
+      img.onload = () => {
+        ctx.drawImage(img, 0, 0);
+        segMasks.push({ id: sm.id, label: sm.label, offscreen: oc, ctx });
+        if (--pending === 0) { segComposite(); renderSegList(); }
+      };
+      img.src = sm.mask_data;
+    });
+  }
+
+  /* Segmentation mouse events on seg-canvas */
+  if (IS_SEG && segCanvas) {
+    segCanvas.addEventListener('mousedown', e => {
+      if (tool !== 'brush' && tool !== 'eraser') return;
+      if (e.button !== 0) return;
+      segPushUndo();
+      segPainting = true;
+      const pt = clientToImgPx(e.clientX, e.clientY);
+      segLastPt = null;
+      if (tool === 'brush') segBrushAt(pt.x, pt.y);
+      else segEraseAt(pt.x, pt.y);
+      segLastPt = pt;
+      segComposite(); markDirty();
+      e.preventDefault();
+    });
   }
 
   /* ══════════════════════════════════════════════════════════
@@ -819,57 +1004,74 @@ const Annotator = (() => {
     saveStatus.textContent = 'Saving…';
     saveStatus.style.color = 'var(--text-muted)';
 
-    const payload = {
-      mark_done: markDone,
-      boxes: boxes.map(b => ({
-        id:          b.id || null,
-        label_id:    b.label ? (b.label.id || null) : null,
-        label_name:  b.label ? b.label.name  : null,
-        label_color: b.label ? b.label.color : null,
-        x: b.x, y: b.y, width: b.width, height: b.height,
-      })),
-      polygons: polygons.map(p => ({
-        id:          p.id || null,
-        label_id:    p.label ? (p.label.id || null) : null,
-        label_name:  p.label ? p.label.name  : null,
-        label_color: p.label ? p.label.color : null,
-        points:      p.points,
-      })),
-    };
-
     try {
-      const r    = await fetch(SAVE_URL, {
-        method:  'POST',
-        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf() },
-        body:    JSON.stringify(payload),
-      });
-      const data = await r.json();
+      let finalStatus = null;
 
-      if (data.success) {
-        // Sync server-assigned IDs back to local state
-        data.boxes.forEach((sb, i) => {
-          if (boxes[i]) {
-            boxes[i].id    = sb.id;
-            boxes[i].label = sb.label;
-          }
+      // ── Save masks (segmentation / mixed) ──
+      if (IS_SEG) {
+        const masks = segMasks.map(m => ({
+          id:          m.id || null,
+          label_id:    m.label ? (m.label.id || null) : null,
+          label_name:  m.label ? m.label.name  : null,
+          label_color: m.label ? m.label.color : null,
+          mask_data:   m.offscreen.toDataURL('image/png'),
+        }));
+        const sr = await fetch(SEG_SAVE_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf() },
+          body: JSON.stringify({ mark_done: markDone, masks }),
         });
-        (data.polygons || []).forEach((sp, i) => {
-          if (polygons[i]) {
-            polygons[i].id    = sp.id;
-            polygons[i].label = sp.label;
-          }
-        });
-        dirty = false;
-        saveStatus.textContent = 'All changes saved';
-        saveStatus.style.color = 'var(--success)';
+        const sd = await sr.json();
+        if (sd.success) {
+          sd.masks.forEach((sm, i) => { if (segMasks[i]) segMasks[i].id = sm.id; });
+          finalStatus = sd.status;
+        } else {
+          saveStatus.textContent = 'Save failed'; saveStatus.style.color = 'var(--danger)';
+          return;
+        }
+      }
 
-        // Update status badge
-        const s = data.status;
-        statusBadge.className = `status-badge ${s}`;
-        statusBadge.textContent = s === 'done' ? '✓ Done' : s === 'partial' ? '◑ Partial' : '⏳ Pending';
-      } else {
-        saveStatus.textContent = 'Save failed';
-        saveStatus.style.color = 'var(--danger)';
+      // ── Save boxes / polygons (bbox / polygon / mixed) ──
+      if (!IS_SEG_ONLY) {
+        const payload = {
+          mark_done: markDone,
+          boxes: boxes.map(b => ({
+            id: b.id || null,
+            label_id: b.label ? (b.label.id || null) : null,
+            label_name: b.label ? b.label.name : null,
+            label_color: b.label ? b.label.color : null,
+            x: b.x, y: b.y, width: b.width, height: b.height,
+          })),
+          polygons: polygons.map(p => ({
+            id: p.id || null,
+            label_id: p.label ? (p.label.id || null) : null,
+            label_name: p.label ? p.label.name : null,
+            label_color: p.label ? p.label.color : null,
+            points: p.points,
+          })),
+        };
+        const r    = await fetch(SAVE_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrf() },
+          body: JSON.stringify(payload),
+        });
+        const data = await r.json();
+        if (data.success) {
+          data.boxes.forEach((sb, i) => { if (boxes[i]) { boxes[i].id = sb.id; boxes[i].label = sb.label; } });
+          (data.polygons || []).forEach((sp, i) => { if (polygons[i]) { polygons[i].id = sp.id; polygons[i].label = sp.label; } });
+          finalStatus = data.status;
+        } else {
+          saveStatus.textContent = 'Save failed'; saveStatus.style.color = 'var(--danger)';
+          return;
+        }
+      }
+
+      dirty = false;
+      saveStatus.textContent = 'All changes saved';
+      saveStatus.style.color = 'var(--success)';
+      if (finalStatus) {
+        statusBadge.className = `status-badge ${finalStatus}`;
+        statusBadge.textContent = finalStatus === 'done' ? '✓ Done' : finalStatus === 'partial' ? '◑ Partial' : '⏳ Pending';
       }
     } catch {
       saveStatus.textContent = 'Network error';
@@ -886,52 +1088,132 @@ const Annotator = (() => {
     if (e.key === 'b' || e.key === 'B') setTool('draw');
     if (e.key === 'v' || e.key === 'V') setTool('select');
     if (e.key === 'p' || e.key === 'P') setTool('polygon');
+    if (e.key === 'h' || e.key === 'H') setTool('pan');
+    if (IS_SEG) {
+      if (e.key === 'u' || e.key === 'U') setTool('brush');
+      if (e.key === 'e' || e.key === 'E') setTool('eraser');
+    }
+    if (e.key === ' ' && !spaceDown) {
+      e.preventDefault();
+      spaceDown = true;
+      prevTool  = tool;
+      setTool('pan');
+    }
     if (e.key === 'Delete' || e.key === 'Backspace') { e.preventDefault(); deleteSelected(); }
     if ((e.ctrlKey || e.metaKey) && (e.key === 'z' || e.key === 'Z')) { e.preventDefault(); undo(); }
     if ((e.ctrlKey || e.metaKey) && (e.key === 's' || e.key === 'S')) { e.preventDefault(); save(false); }
     if (e.key === 'Escape') { cancelPolygon(); deselectAll(); }
   });
 
+  document.addEventListener('keyup', e => {
+    if (e.key === ' ') {
+      spaceDown = false;
+      if (!panning && prevTool) setTool(prevTool);
+      prevTool = null;
+    }
+  });
+
   /* ══════════════════════════════════════════════════════════
      EVENT WIRING
   ══════════════════════════════════════════════════════════ */
-  svg.addEventListener('mousedown',       onCanvasMousedown);
-  imgEl.addEventListener('mousedown',     onCanvasMousedown);
-  document.addEventListener('mousemove',  onMousemove);
-  document.addEventListener('mouseup',    onMouseup);
+  /* ── Pan helpers ────────────────────────────────────────── */
+  function isPanTrigger(e) {
+    return tool === 'pan' || spaceDown || e.button === 1;
+  }
 
-  // Click on blank SVG area = deselect
-  svg.addEventListener('click', e => {
-    if (e.target === svg) deselectAll();
+  function startPan(e) {
+    panning = true;
+    panStart = { x: e.clientX + wrap.scrollLeft, y: e.clientY + wrap.scrollTop };
+    wrap.classList.add('panning');
+  }
+
+  function doPan(e) {
+    if (!panning) return;
+    wrap.scrollLeft = panStart.x - e.clientX;
+    wrap.scrollTop  = panStart.y - e.clientY;
+  }
+
+  function stopPan() {
+    panning = false;
+    wrap.classList.remove('panning');
+  }
+
+  svg.addEventListener('mousedown', e => {
+    if (isPanTrigger(e)) { e.preventDefault(); startPan(e); return; }
+    onCanvasMousedown(e);
+  });
+  imgEl.addEventListener('mousedown', e => {
+    if (isPanTrigger(e)) { e.preventDefault(); startPan(e); return; }
+    onCanvasMousedown(e);
   });
 
-  // Prevent context menu on canvas
+  document.addEventListener('mousemove', e => {
+    if (panning) { doPan(e); return; }
+    onMousemove(e);
+    if (segPainting) {
+      const pt = clientToImgPx(e.clientX, e.clientY);
+      if (tool === 'brush') segBrushAt(pt.x, pt.y);
+      else if (tool === 'eraser') segEraseAt(pt.x, pt.y);
+      segLastPt = pt;
+      segComposite();
+    }
+  });
+
+  document.addEventListener('mouseup', e => {
+    if (panning) { stopPan(); return; }
+    onMouseup(e);
+    if (segPainting) { segPainting = false; segLastPt = null; }
+  });
+
+  // Middle-mouse: prevent default scroll behaviour
+  wrap.addEventListener('mousedown', e => { if (e.button === 1) e.preventDefault(); });
+
+  svg.addEventListener('click', e => { if (e.target === svg) deselectAll(); });
   container.addEventListener('contextmenu', e => e.preventDefault());
 
   /* ══════════════════════════════════════════════════════════
-     INIT — load existing boxes
+     INIT
   ══════════════════════════════════════════════════════════ */
   function init() {
-    // Wait for image to load so imgW/imgH are accurate
     function start() {
       boxes    = INITIAL_BOXES.map(b => ({ ...b }));
       polygons = INITIAL_POLYGONS.map(p => ({ ...p }));
       render();
-      setTool('draw');
+
+      if (IS_SEG) {
+        segFitCanvas();
+        segLoadInitial();
+        // Show seg panel immediately for segmentation projects
+        const segPanel = document.getElementById('seg-panel');
+        if (segPanel) segPanel.style.display = '';
+        // Pick first label if available
+        const firstChip = document.querySelector('#seg-label-grid .label-chip');
+        if (firstChip) setSegLabel(+firstChip.dataset.id, firstChip.dataset.name, firstChip.dataset.color);
+      }
+
+      setTool(IS_SEG_ONLY ? 'brush' : 'draw');
     }
 
-    if (imgEl.complete) { start(); }
-    else                { imgEl.addEventListener('load', start); }
+    if (imgEl.complete) start();
+    else imgEl.addEventListener('load', start);
+
+    // Refit seg canvas on window resize
+    if (IS_SEG) {
+      window.addEventListener('resize', () => { segFitCanvas(); segComposite(); });
+    }
   }
 
   init();
 
   /* ── Public API ─────────────────────────────────────────── */
-  return { setTool, zoom, resetZoom, save, undo, deleteSelected, applyLabel, createLabel };
+  return {
+    setTool, zoom, resetZoom, save, undo, deleteSelected,
+    applyLabel, createLabel,
+    setSegLabel, setBrushSize, createSegLabel,
+  };
 
 })();
 
-// Expose globally so toolbar onclick= attributes work
 window.Annotator = Annotator;
 </script>
 {% endblock %}

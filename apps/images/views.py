@@ -15,7 +15,7 @@ from django.urls import reverse
 from apps.projects.models import Project
 from apps.projects.activity import log_activity
 from apps.projects.workspace_utils import get_active_workspace
-from .models import Image, Tag, BoundingBox, Polygon
+from .models import Image, Tag, BoundingBox, Polygon, SegmentationMask
 
 
 ALLOWED_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.webp', '.bmp', '.gif'}
@@ -281,18 +281,20 @@ def image_annotate(request, pk):
         messages.error(request, 'You do not have access to this image.')
         return redirect('image_list')
 
-    boxes = [b.to_dict() for b in image.bounding_boxes.select_related('label').all()]
-    all_tags = Tag.objects.all()
+    boxes    = [b.to_dict() for b in image.bounding_boxes.select_related('label').all()]
     polygons = [p.to_dict() for p in image.polygons.select_related('label').all()]
+    seg_masks = [m.to_dict() for m in image.seg_masks.select_related('label').all()]
+    all_tags = Tag.objects.all()
 
     ctx = {
-        'active_nav': 'images',
-        'project': image.project,
-        'image': image,
-        'boxes_json': json.dumps(boxes),
+        'active_nav':    'images',
+        'project':       image.project,
+        'image':         image,
+        'boxes_json':    json.dumps(boxes),
         'polygons_json': json.dumps(polygons),
-        'all_tags': all_tags,
-        'user_role': image.project.get_user_role(request.user) or 'admin',
+        'seg_masks_json': json.dumps(seg_masks),
+        'all_tags':      all_tags,
+        'user_role':     image.project.get_user_role(request.user) or 'admin',
     }
     return render(request, 'app/image_annotate.html', ctx)
 
@@ -415,6 +417,75 @@ def annotation_save(request, pk):
                      detail=image.name, meta={'image_id': image.pk, 'box_count': len(saved) + len(saved_polys)})
 
     return JsonResponse({'success': True, 'boxes': saved, 'polygons': saved_polys, 'status': image.status})
+
+
+@login_required
+@require_POST
+def segmentation_save(request, pk):
+    image = get_object_or_404(Image, pk=pk)
+    if not image.project.user_has_access(request.user):
+        return JsonResponse({'error': 'Access denied.'}, status=403)
+
+    try:
+        data      = json.loads(request.body)
+        incoming  = data.get('masks', [])
+        mark_done = data.get('mark_done', False)
+    except (json.JSONDecodeError, AttributeError):
+        return JsonResponse({'error': 'Invalid JSON.'}, status=400)
+
+    kept_ids = []
+    saved    = []
+
+    for m in incoming:
+        mask_id   = m.get('id')
+        label_id  = m.get('label_id')
+        mask_data = m.get('mask_data', '')
+
+        if not mask_data:
+            continue
+
+        label = Tag.objects.filter(pk=label_id).first() if label_id else None
+        if not label and m.get('label_name'):
+            label, _ = Tag.objects.get_or_create(
+                name=m['label_name'],
+                defaults={'color': m.get('label_color', '#6366f1'), 'created_by': request.user},
+            )
+
+        if mask_id:
+            mask = SegmentationMask.objects.filter(pk=mask_id, image=image).first()
+            if mask:
+                mask.label     = label
+                mask.mask_data = mask_data
+                mask.save()
+                kept_ids.append(mask.pk)
+                saved.append(mask.to_meta())
+                continue
+
+        mask = SegmentationMask.objects.create(
+            image=image, label=label, mask_data=mask_data, created_by=request.user,
+        )
+        kept_ids.append(mask.pk)
+        saved.append(mask.to_meta())
+
+    image.seg_masks.exclude(pk__in=kept_ids).delete()
+
+    prev_status = image.status
+    if mark_done:
+        image.status = 'done'
+    elif saved:
+        image.status = 'partial'
+    else:
+        image.status = 'pending'
+    image.save(update_fields=['status'])
+
+    if mark_done and prev_status != 'done':
+        log_activity(image.project, request.user, 'annotation_done',
+                     detail=image.name, meta={'image_id': image.pk, 'mask_count': len(saved)})
+    elif saved:
+        log_activity(image.project, request.user, 'annotation_saved',
+                     detail=image.name, meta={'image_id': image.pk, 'mask_count': len(saved)})
+
+    return JsonResponse({'success': True, 'masks': saved, 'status': image.status})
 
 
 @login_required
