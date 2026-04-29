@@ -48,6 +48,7 @@
           <select id="annotation_type" name="annotation_type">
             <option value="bbox"           {% if request.POST.annotation_type == 'bbox' %}selected{% endif %}>Bounding Box</option>
             <option value="polygon"        {% if request.POST.annotation_type == 'polygon' %}selected{% endif %}>Polygon</option>
+            <option value="segmentation"   {% if request.POST.annotation_type == 'segmentation' %}selected{% endif %}>Segmentation</option>
             <option value="classification" {% if request.POST.annotation_type == 'classification' %}selected{% endif %}>Classification</option>
             <option value="mixed"          {% if request.POST.annotation_type == 'mixed' %}selected{% endif %}>Mixed</option>
           </select>

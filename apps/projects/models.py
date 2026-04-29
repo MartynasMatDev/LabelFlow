@@ -125,7 +125,8 @@ class WorkspaceMember(models.Model):
 class Project(models.Model):
     ANNOTATION_TYPE_CHOICES = [
         ('bbox', 'Bounding Box'),
-        ('polygon', 'Poligon'),
+        ('polygon', 'Polygon'),
+        ('segmentation', 'Segmentation'),
         ('classification', 'Classification'),
         ('mixed', 'Mixed'),
     ]
