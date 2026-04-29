@@ -153,7 +153,7 @@
         {% for project in projects %}
         <div class="member-row" style="justify-content:space-between;">
           <div class="member-row-info">
-            <div class="member-row-name">{{ project.emoji }} {{ project.name }}</div>
+            <div class="member-row-name">{{ project.name }}</div>
             <div class="member-row-email">{{ project.member_count }} assigned member(s) · {{ project.image_count }} images</div>
           </div>
           <a href="{% url 'team_management' project.id %}" class="btn btn-ghost btn-sm">

@@ -34,7 +34,6 @@ def workspace_create(request):
     if request.method == 'POST':
         name        = request.POST.get('name', '').strip()
         description = request.POST.get('description', '').strip()
-        emoji       = request.POST.get('emoji', '◈').strip() or '◈'
 
         if not name:
             messages.error(request, 'Workspace name is required.')
@@ -45,7 +44,6 @@ def workspace_create(request):
             description=description,
             kind=Workspace.KIND_ORGANIZATION,
             owner=request.user,
-            emoji=emoji,
         )
         set_active_workspace(request, workspace)
         messages.success(request, f'Workspace "{workspace.name}" created.')
