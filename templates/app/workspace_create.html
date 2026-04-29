@@ -29,13 +29,7 @@
                   placeholder="Short description...">{{ request.POST.description|default:'' }}</textarea>
       </div>
 
-      <div class="form-group" style="max-width:160px;">
-        <label for="emoji">Icon</label>
-        <input type="text" id="emoji" name="emoji" placeholder="◈" maxlength="4"
-               value="{{ request.POST.emoji|default:'◈' }}"
-               style="font-size:20px; text-align:center;">
-        <div class="form-hint">Emoji or symbol</div>
-      </div>
+
     </div>
 
     <div class="card" style="margin-bottom:20px;">

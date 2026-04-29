@@ -48,7 +48,7 @@
     {% if projects %}
       {% for project in projects %}
       <a href="{% url 'project_detail' project.id %}" class="project-row">
-        <div class="project-row-icon">{{ project.emoji }}</div>
+        <div class="project-row-icon"><i class="fa-solid fa-folder"></i></div>
         <div class="project-row-info">
           <div class="project-row-name">{{ project.name }}</div>
           <div class="project-row-meta">{{ project.image_count }} img · {{ project.member_count }} members · {{ project.get_annotation_type_display }}</div>

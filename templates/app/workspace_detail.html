@@ -15,7 +15,7 @@
 {% block app_content %}
 <div class="page-header">
   <div class="page-title">
-    <h1>{{ workspace.emoji }} {{ workspace.name }}</h1>
+    <h1>{{ workspace.name }}</h1>
     <p>
       <span class="badge badge-muted">{{ workspace.get_kind_display }}</span>
       &middot; {{ projects.count }} project{{ projects.count|pluralize }}
@@ -34,7 +34,7 @@
   {% for project in projects %}
   <a href="{% url 'project_detail' project.id %}" class="project-card">
     <div class="project-card-banner">
-      <span style="font-size:32px;">{{ project.emoji }}</span>
+      <i class="fa-solid fa-folder" style="font-size:32px;"></i>
     </div>
     <div class="project-card-body">
       <div class="project-card-name">{{ project.name }}</div>

@@ -23,7 +23,7 @@
           {% for ws in workspaces %}
             <option value="{{ ws.pk }}"
                     {% if ws.pk == active_workspace.pk %}selected{% endif %}>
-              {{ ws.emoji }} {{ ws.name }}{% if ws.is_personal %} (personal){% endif %}
+              {{ ws.name }}{% if ws.is_personal %} (personal){% endif %}
             </option>
           {% endfor %}
         </select>
