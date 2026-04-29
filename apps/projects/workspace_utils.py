@@ -37,7 +37,6 @@ def get_personal_workspace(user):
         owner=user,
         name=f"{name}'s workspace",
         kind=Workspace.KIND_PERSONAL,
-        emoji='◈',
     )
 
 
