@@ -123,6 +123,51 @@ class BoundingBox(models.Model):
             'height': self.height,
         }
 
+class SegmentationMask(models.Model):
+    """Per-label pixel mask stored as a base64-encoded PNG."""
+    image = models.ForeignKey(
+        Image, on_delete=models.CASCADE, related_name='seg_masks'
+    )
+    label = models.ForeignKey(
+        Tag, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='seg_masks'
+    )
+    mask_data  = models.TextField(help_text='Base64-encoded PNG mask (data: URI)')
+    created_by = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, related_name='created_masks'
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['created_at']
+
+    def __str__(self):
+        label_name = self.label.name if self.label else 'unlabelled'
+        return f'{label_name} mask on {self.image.name}'
+
+    def to_dict(self):
+        return {
+            'id':        self.pk,
+            'label':     {
+                'id':    self.label.id,
+                'name':  self.label.name,
+                'color': self.label.color,
+            } if self.label else None,
+            'mask_data': self.mask_data,
+        }
+
+    def to_meta(self):
+        return {
+            'id':    self.pk,
+            'label': {
+                'id':    self.label.id,
+                'name':  self.label.name,
+                'color': self.label.color,
+            } if self.label else None,
+        }
+
+
 class Polygon(models.Model):
     """A closed polygon annotation on an image."""
     image = models.ForeignKey(
