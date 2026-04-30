@@ -1,0 +1,65 @@
+/* ── OAuth divider ── */
+.oauth-divider {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 20px 0 16px;
+  color: var(--text-muted);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: .03em;
+}
+.oauth-divider::before,
+.oauth-divider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: var(--border-hover);
+}
+
+/* ── OAuth button row ── */
+.oauth-btns {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.oauth-btns form {
+  display: contents;
+}
+
+.btn-oauth {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  padding: 10px 16px;
+  border-radius: var(--radius);
+  border: 1.5px solid var(--border-hover);
+  background: var(--surface2);
+  color: var(--text);
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: all .15s;
+  white-space: nowrap;
+}
+
+.btn-oauth:hover {
+  background: var(--surface);
+  border-color: var(--accent);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-sm);
+}
+
+.btn-oauth svg {
+  flex-shrink: 0;
+}
+
+.btn-github {
+  color: var(--text);
+}
+
+.btn-github:hover {
+  border-color: #6e5494;
+}
