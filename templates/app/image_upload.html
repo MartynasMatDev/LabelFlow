@@ -4,7 +4,7 @@
 {% block toolbar_title %}Upload{% endblock %}
 
 {% block toolbar_actions %}
-<a href="{% url 'image_list' %}" class="btn btn-ghost btn-sm">← All images</a>
+<a href="{% url 'image_list' %}" class="btn btn-ghost btn-sm">? All images</a>
 {% endblock %}
 
 {% block extra_head %}
@@ -21,7 +21,7 @@
 
 <div class="upload-layout">
 
-  <!-- ── LEFT ───────────────────────────────────────────── -->
+  <!-- -- LEFT --------------------------------------------- -->
   <div>
 
     <!-- Project selector -->
@@ -94,7 +94,7 @@
 
       <!-- Inline error log -->
       <div class="error-log" id="error-log">
-        <div class="error-log-title">⚠ Skipped / failed</div>
+        <div class="error-log-title">? Skipped / failed</div>
         <div id="error-list"></div>
       </div>
 
@@ -119,12 +119,15 @@
 
   </div>
 
-  <!-- ── RIGHT ──────────────────────────────────────────── -->
+  <!-- -- RIGHT -------------------------------------------- -->
   <div>
     <div class="upload-info-card">
       <h3>Upload rules</h3>
-      <div class="upload-info-row"><span class="k">Formats</span>    <span class="v">JPG PNG WEBP BMP GIF</span></div>
-      <div class="upload-info-row"><span class="k">Max file size</span><span class="v">20 MB</span></div>
+
+      <div class="upload-info-row"><span class="k">Accepted formats</span><span class="v">JPG PNG WEBP BMP GIF</span></div>
+      <div class="upload-info-row"><span class="k">Stored as</span>       <span class="v">JPEG · 1024 × 1024 px</span></div>
+      <div class="upload-info-row"><span class="k">Aspect ratio</span>    <span class="v">Preserved (letterboxed)</span></div>
+      <div class="upload-info-row"><span class="k">Max file size</span>   <span class="v">20 MB</span></div>
       <div class="upload-info-row"><span class="k">Subfolders</span>  <span class="v">Ignored</span></div>
       <div class="upload-info-row"><span class="k">Concurrent</span>  <span class="v">3 at a time</span></div>
     </div>
@@ -149,11 +152,11 @@
     <div class="edit-modal-header">
       <span class="edit-modal-title" id="edit-modal-filename">image.jpg</span>
       <div class="edit-modal-nav">
-        <button class="edit-nav-btn" id="edit-nav-prev" title="Previous (←)" onclick="editNavigate(-1)"><i class="fa-solid fa-arrow-left"></i></button>
+        <button class="edit-nav-btn" id="edit-nav-prev" title="Previous (?)" onclick="editNavigate(-1)"><i class="fa-solid fa-arrow-left"></i></button>
         <span class="edit-nav-counter" id="edit-nav-counter">1 / 1</span>
-        <button class="edit-nav-btn" id="edit-nav-next" title="Next (→)" onclick="editNavigate(1)"><i class="fa-solid fa-arrow-right"></i></button>
+        <button class="edit-nav-btn" id="edit-nav-next" title="Next (?)" onclick="editNavigate(1)"><i class="fa-solid fa-arrow-right"></i></button>
       </div>
-      <button class="edit-modal-close" onclick="closeEditModal()" title="Cancel (Esc)">✕</button>
+      <button class="edit-modal-close" onclick="closeEditModal()" title="Cancel (Esc)">?</button>
     </div>
     <div class="edit-modal-stage">
       <div class="edit-modal-stage-inner">
@@ -172,9 +175,9 @@
     </div>
     <div class="edit-modal-toolbar">
       <span class="edit-toolbar-label">Rotate</span>
-      <button class="edit-rot-btn" onclick="applyRotation(-90)"><span class="icon"><i class="fa-solid fa-rotate-left"></i></span> −90°</button>
+      <button class="edit-rot-btn" onclick="applyRotation(-90)"><span class="icon"><i class="fa-solid fa-rotate-left"></i></span> -90°</button>
       <button class="edit-rot-btn" onclick="applyRotation(90)"><span class="icon"><i class="fa-solid fa-rotate-right"></i></span> +90°</button>
-      <button class="edit-rot-btn" onclick="applyRotation(180)">↕ 180°</button>
+      <button class="edit-rot-btn" onclick="applyRotation(180)">? 180°</button>
       <button class="edit-rot-btn" onclick="resetRotation()" style="color:var(--text-muted);"><i class="fa-solid fa-rotate"></i> Reset</button>
     </div>
     <div class="edit-modal-toolbar-row">
