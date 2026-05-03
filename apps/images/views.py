@@ -12,6 +12,9 @@ from django.db.models import Q
 from django.views.decorators.http import require_POST
 from django.urls import reverse
 
+from django.core.files.uploadedfile import InMemoryUploadedFile
+from PIL import Image as PILImage
+
 from apps.projects.models import Project
 from apps.projects.activity import log_activity
 from apps.projects.workspace_utils import get_active_workspace
@@ -21,6 +24,83 @@ from .models import Image, Tag, BoundingBox, Polygon, SegmentationMask
 ALLOWED_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.webp', '.bmp', '.gif'}
 MAX_FILE_BYTES = 20 * 1024 * 1024  # 20 MB
 
+TARGET_SIZE   = 1024
+TARGET_FORMAT = 'JPEG'
+TARGET_EXT    = '.jpg'
+JPEG_QUALITY  = 92
+
+def _normalise_upload(django_file, original_name):
+    django_file.seek(0)
+    img = PILImage.open(django_file)
+    img.load()
+
+    if img.mode in ('RGBA', 'LA'):
+        bg = PILImage.new('RGB', img.size, (0, 0, 0))
+        bg.paste(img.convert('RGB'), mask=img.split()[-1])
+        img = bg
+    elif img.mode == 'P':
+        img = img.convert('RGBA')
+        bg = PILImage.new('RGB', img.size, (0, 0, 0))
+        bg.paste(img.convert('RGB'), mask=img.split()[-1])
+        img = bg
+    elif img.mode != 'RGB':
+        img = img.convert('RGB')
+
+    w, h = img.size
+    if w < h:
+        img = img.resize((TARGET_SIZE, int(h * TARGET_SIZE / w)), PILImage.LANCZOS)
+    else:
+        img = img.resize((int(w * TARGET_SIZE / h), TARGET_SIZE), PILImage.LANCZOS)
+
+    img = _smart_crop(img, TARGET_SIZE)
+
+    buf = io.BytesIO()
+    img.save(buf, format=TARGET_FORMAT, quality=JPEG_QUALITY)
+    buf_size = buf.tell()
+    buf.seek(0)
+
+    return InMemoryUploadedFile(
+        file=buf, field_name='image_file',
+        name=os.path.splitext(original_name)[0] + TARGET_EXT,
+        content_type='image/jpeg', size=buf_size, charset=None,
+    )
+
+
+def _smart_crop(img, size):
+    w, h = img.size
+    if w == size and h == size:
+        return img
+
+    if w > h:
+        max_offset = w - size
+        def make_box(o): return (o, 0, o + size, size)
+    else:
+        max_offset = h - size
+        def make_box(o): return (0, o, size, o + size)
+
+    steps = min(max_offset + 1, 16)
+    offsets = [int(max_offset * i / (steps - 1)) for i in range(steps)] if steps > 1 else [max_offset // 2]
+
+    best_offset  = offsets[len(offsets) // 2]
+    best_entropy = -1.0
+    grey = img.convert('L')
+
+    for offset in offsets:
+        e = _entropy(grey.crop(make_box(offset)))
+        if e > best_entropy:
+            best_entropy = e
+            best_offset  = offset
+
+    return img.crop(make_box(best_offset))
+
+
+def _entropy(grey_tile):
+    import math
+    hist  = grey_tile.histogram()
+    total = sum(hist)
+    if total == 0:
+        return 0.0
+    return -sum((p / total) * math.log2(p / total) for p in hist if p > 0)
 
 def _user_projects(user, workspace=None):
     """Projects the user can see. When `workspace` is given, restrict
@@ -136,13 +216,20 @@ def image_upload(request):
                 messages.warning(request, f'File too large (max 20 MB): {f.name}')
                 continue
 
+            try:
+                normalised = _normalise_upload(f, f.name)
+            except Exception as exc:
+                messages.warning(request, f'Could not process "{f.name}": {exc}')
+                continue
+
             image = Image.objects.create(
                 project=project,
                 uploaded_by=request.user,
-                image_file=f,
-                name=f.name,
-                file_size=f.size,
+                image_file=normalised,
+                name=normalised.name,
+                file_size=normalised.size,
             )
+
             log_activity(project, request.user, 'image_uploaded', detail=image.name)
             uploaded += 1
 
@@ -191,13 +278,19 @@ def image_upload_ajax(request):
         )
 
     try:
+        normalised = _normalise_upload(f, f.name)
+    except Exception as exc:
+        return JsonResponse({'success': False, 'error': f'Image processing failed: {exc}'}, status=500)
+
+    try:
         image = Image.objects.create(
             project=project,
             uploaded_by=request.user,
-            image_file=f,
-            name=f.name,
-            file_size=f.size,
+            image_file=normalised,
+            name=normalised.name,
+            file_size=normalised.size,
         )
+
         log_activity(project, request.user, 'image_uploaded', detail=image.name)
     except Exception as exc:
         return JsonResponse({'success': False, 'error': str(exc)}, status=500)
