@@ -668,21 +668,14 @@ def _cleanup_orphan_tags():
 
 # ─── YOLO EXPORT (kept from dev) ──────────────────────────────────────────────
 
-@login_required
-def export_yolo(request, project_id):
-    project = get_object_or_404(Project, id=project_id)
-    if not project.user_has_access(request.user):
-        messages.error(request, 'You do not have access to this project.')
-        return redirect('project_list')
-
-    status_filter = request.GET.get('status', '')
+def build_yolo_zip(project, status_filter=''):
+    """Build a YOLO-format zip for a project. Returns (bytes, filename, image_count)."""
     images_qs = Image.objects.filter(project=project).prefetch_related(
         'bounding_boxes__label', 'polygons__label'
     )
     if status_filter in ('pending', 'partial', 'done'):
         images_qs = images_qs.filter(status=status_filter)
 
-    # Collect all unique labels across images in a stable order
     label_set = {}
     for image in images_qs:
         for box in image.bounding_boxes.all():
@@ -698,13 +691,10 @@ def export_yolo(request, project_id):
     with zipfile.ZipFile(buf, 'w', zipfile.ZIP_DEFLATED) as zf:
         for image in images_qs:
             stem = os.path.splitext(image.name)[0]
-
-            # Write image file
             if image.image_file and os.path.exists(image.image_file.path):
                 ext = os.path.splitext(image.image_file.name)[1]
                 zf.write(image.image_file.path, f'images/{stem}{ext}')
 
-            # Build annotation lines
             lines = []
             for box in image.bounding_boxes.all():
                 if box.label is None:
@@ -728,21 +718,40 @@ def export_yolo(request, project_id):
             zf.writestr(f'labels/{stem}.txt', '\n'.join(lines))
 
         zf.writestr('classes.txt', '\n'.join(class_names))
-
         yaml_lines = [
-            f'path: .',
-            f'train: images',
-            f'val: images',
-            f'',
+            'path: .',
+            'train: images',
+            'val: images',
+            '',
             f'nc: {len(class_names)}',
             f'names: {json.dumps(class_names)}',
         ]
         zf.writestr('data.yaml', '\n'.join(yaml_lines))
 
-    log_activity(project, request.user, 'export_yolo', detail=f'{images_qs.count()} images')
-
     buf.seek(0)
     slug = project.name.lower().replace(' ', '_')
-    response = HttpResponse(buf.read(), content_type='application/zip')
-    response['Content-Disposition'] = f'attachment; filename="{slug}_yolo.zip"'
+    return buf.read(), f'{slug}_yolo.zip', images_qs.count()
+
+
+@login_required
+def export_yolo(request, project_id):
+    project = get_object_or_404(Project, id=project_id)
+    if not project.user_has_access(request.user):
+        messages.error(request, 'You do not have access to this project.')
+        return redirect('project_list')
+
+    status_filter = request.GET.get('status', '')
+    data, filename, count = build_yolo_zip(project, status_filter)
+    log_activity(project, request.user, 'export_yolo', detail=f'{count} images')
+    response = HttpResponse(data, content_type='application/zip')
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    return response
+
+
+def public_export_yolo(request, share_token):
+    """Public, no-auth download of a project's YOLO dataset by share token."""
+    project = get_object_or_404(Project, share_token=share_token, is_public=True, is_archived=False)
+    data, filename, _ = build_yolo_zip(project, status_filter='done')
+    response = HttpResponse(data, content_type='application/zip')
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
     return response

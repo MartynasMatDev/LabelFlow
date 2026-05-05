@@ -144,6 +144,8 @@ class Project(models.Model):
     )
     created_by      = models.ForeignKey(User, on_delete=models.CASCADE, related_name='owned_projects')
     is_archived     = models.BooleanField(default=False, db_index=True)
+    is_public       = models.BooleanField(default=False, db_index=True)
+    share_token     = models.UUIDField(default=uuid.uuid4, unique=True, editable=False)
     created_at      = models.DateTimeField(auto_now_add=True)
     updated_at      = models.DateTimeField(auto_now=True)
 
