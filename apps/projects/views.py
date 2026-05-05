@@ -381,6 +381,36 @@ def restore_project(request, project_id):
     return redirect('archived_projects')
 
 
+import uuid as _uuid
+from django.views.decorators.http import require_POST
+
+
+@login_required
+@require_POST
+def share_toggle(request, project_id):
+    """Enable, disable, or rotate a public share link for a project."""
+    project = get_object_or_404(Project, id=project_id)
+    if not project.user_is_admin(request.user):
+        messages.error(request, 'Only project admins can manage sharing.')
+        return redirect('project_detail', project_id=project.id)
+
+    action = request.POST.get('action', 'enable')
+    if action == 'disable':
+        project.is_public = False
+        project.save(update_fields=['is_public', 'updated_at'])
+        messages.success(request, 'Public sharing disabled.')
+    elif action == 'rotate':
+        project.share_token = _uuid.uuid4()
+        project.is_public = True
+        project.save(update_fields=['share_token', 'is_public', 'updated_at'])
+        messages.success(request, 'New public link generated.')
+    else:
+        project.is_public = True
+        project.save(update_fields=['is_public', 'updated_at'])
+        messages.success(request, 'Public sharing enabled.')
+    return redirect('project_detail', project_id=project.id)
+
+
 def invitation_prompt(request, token):
     invitation = get_object_or_404(Invitation, token=token)
     if invitation.accepted_at is not None:
