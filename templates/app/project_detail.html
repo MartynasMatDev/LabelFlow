@@ -320,47 +320,20 @@
       <button type="button" class="btn btn-ghost btn-sm" onclick="document.getElementById('share-modal').style.display='none';">✕</button>
     </div>
     <p style="font-size:13px;color:var(--text-muted);margin-bottom:14px;">
-      Anyone with a link below can download the dataset (annotated images only). No login required.
+      Anyone with the link can view dataset details and download in their preferred format (YOLO, CSV, COCO, JSON). No login required.
     </p>
 
     {% if project.is_public %}
-      {% with base=request.scheme|add:'://'|add:request.get_host %}
-      <label style="font-size:12px;color:var(--text-muted);">YOLO</label>
-      <div style="display:flex;gap:8px;margin-top:6px;margin-bottom:10px;">
-        <input id="share-url-yolo" type="text" readonly
-               value="{{ base }}{% url 'public_export_yolo' project.share_token %}"
-               style="flex:1;padding:8px 10px;border-radius:6px;border:1px solid var(--surface3);background:var(--surface2);color:var(--text);font-family:'DM Mono',monospace;font-size:12px;">
-        <button type="button" class="btn btn-secondary btn-sm"
-                onclick="navigator.clipboard.writeText(document.getElementById('share-url-yolo').value);this.innerText='Copied';">Copy</button>
-      </div>
-
-      <label style="font-size:12px;color:var(--text-muted);">CSV</label>
-      <div style="display:flex;gap:8px;margin-top:6px;margin-bottom:10px;">
-        <input id="share-url-csv" type="text" readonly
-               value="{{ base }}{% url 'public_export_csv' project.share_token %}"
-               style="flex:1;padding:8px 10px;border-radius:6px;border:1px solid var(--surface3);background:var(--surface2);color:var(--text);font-family:'DM Mono',monospace;font-size:12px;">
-        <button type="button" class="btn btn-secondary btn-sm"
-                onclick="navigator.clipboard.writeText(document.getElementById('share-url-csv').value);this.innerText='Copied';">Copy</button>
-      </div>
-
-      <label style="font-size:12px;color:var(--text-muted);">COCO JSON</label>
-      <div style="display:flex;gap:8px;margin-top:6px;margin-bottom:10px;">
-        <input id="share-url-coco" type="text" readonly
-               value="{{ base }}{% url 'public_export_coco' project.share_token %}"
-               style="flex:1;padding:8px 10px;border-radius:6px;border:1px solid var(--surface3);background:var(--surface2);color:var(--text);font-family:'DM Mono',monospace;font-size:12px;">
-        <button type="button" class="btn btn-secondary btn-sm"
-                onclick="navigator.clipboard.writeText(document.getElementById('share-url-coco').value);this.innerText='Copied';">Copy</button>
-      </div>
-
-      <label style="font-size:12px;color:var(--text-muted);">JSON</label>
+      <label style="font-size:12px;color:var(--text-muted);">Public link</label>
       <div style="display:flex;gap:8px;margin-top:6px;margin-bottom:14px;">
-        <input id="share-url-json" type="text" readonly
-               value="{{ base }}{% url 'public_export_json' project.share_token %}"
+        <input id="share-url" type="text" readonly
+               value="{{ request.scheme }}://{{ request.get_host }}{% url 'public_share_landing' project.share_token %}"
                style="flex:1;padding:8px 10px;border-radius:6px;border:1px solid var(--surface3);background:var(--surface2);color:var(--text);font-family:'DM Mono',monospace;font-size:12px;">
         <button type="button" class="btn btn-secondary btn-sm"
-                onclick="navigator.clipboard.writeText(document.getElementById('share-url-json').value);this.innerText='Copied';">Copy</button>
+                onclick="navigator.clipboard.writeText(document.getElementById('share-url').value);this.innerText='Copied';">Copy</button>
+        <a class="btn btn-secondary btn-sm" target="_blank"
+           href="{% url 'public_share_landing' project.share_token %}">Open</a>
       </div>
-      {% endwith %}
 
       <div style="display:flex;gap:8px;flex-wrap:wrap;">
         <form method="post" action="{% url 'share_toggle' project.id %}" style="margin:0;">
