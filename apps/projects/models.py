@@ -259,6 +259,9 @@ class ActivityLog(models.Model):
         ('project_restored',  'Restored project'),
         # Export
         ('export_yolo',       'Exported YOLO'),
+        ('export_csv', 'Exported CSV'),
+        ('export_coco', 'Exported COCO'),
+        ('export_json', 'Exported JSON'),
     ]
 
     project    = models.ForeignKey(Project, on_delete=models.CASCADE, related_name='activity_logs')

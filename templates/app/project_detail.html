@@ -16,10 +16,19 @@
     <i class="fa-solid fa-download"></i> Export <i class="fa-solid fa-chevron-down" style="font-size:10px;margin-left:2px;"></i>
   </button>
   <div class="dropdown-menu">
-    <a href="{% url 'export_yolo' project.id %}?status=done" class="dropdown-item">
-      <i class="fa-solid fa-file-lines"></i> YOLO format
-    </a>
-  </div>
+  <a href="{% url 'export_yolo' project.id %}?status=done" class="dropdown-item">
+    <i class="fa-solid fa-file-lines"></i> YOLO format
+  </a>
+  <a href="{% url 'export_csv' project.id %}?status=done" class="dropdown-item">
+    <i class="fa-solid fa-file-csv"></i> CSV
+  </a>
+  <a href="{% url 'export_coco' project.id %}?status=done" class="dropdown-item">
+    <i class="fa-solid fa-brackets-curly"></i> COCO JSON
+  </a>
+  <a href="{% url 'export_json' project.id %}?status=done" class="dropdown-item">
+    <i class="fa-solid fa-code"></i> JSON
+  </a>
+</div>
 </div>
 {% if is_admin %}
 <a href="{% url 'team_management' project.id %}" class="btn btn-ghost btn-sm"><i class="fa-solid fa-users"></i> Team</a>
@@ -311,20 +320,47 @@
       <button type="button" class="btn btn-ghost btn-sm" onclick="document.getElementById('share-modal').style.display='none';">✕</button>
     </div>
     <p style="font-size:13px;color:var(--text-muted);margin-bottom:14px;">
-      Anyone with the link can download the YOLO dataset (annotated images only). No login required.
+      Anyone with a link below can download the dataset (annotated images only). No login required.
     </p>
 
     {% if project.is_public %}
-      <label style="font-size:12px;color:var(--text-muted);">Public URL</label>
-      <div style="display:flex;gap:8px;margin-top:6px;margin-bottom:14px;">
-        <input id="share-url" type="text" readonly
-               value="{{ request.scheme }}://{{ request.get_host }}{% url 'public_export_yolo' project.share_token %}"
+      {% with base=request.scheme|add:'://'|add:request.get_host %}
+      <label style="font-size:12px;color:var(--text-muted);">YOLO</label>
+      <div style="display:flex;gap:8px;margin-top:6px;margin-bottom:10px;">
+        <input id="share-url-yolo" type="text" readonly
+               value="{{ base }}{% url 'public_export_yolo' project.share_token %}"
                style="flex:1;padding:8px 10px;border-radius:6px;border:1px solid var(--surface3);background:var(--surface2);color:var(--text);font-family:'DM Mono',monospace;font-size:12px;">
         <button type="button" class="btn btn-secondary btn-sm"
-                onclick="navigator.clipboard.writeText(document.getElementById('share-url').value);this.innerText='Copied';">
-          Copy
-        </button>
+                onclick="navigator.clipboard.writeText(document.getElementById('share-url-yolo').value);this.innerText='Copied';">Copy</button>
       </div>
+
+      <label style="font-size:12px;color:var(--text-muted);">CSV</label>
+      <div style="display:flex;gap:8px;margin-top:6px;margin-bottom:10px;">
+        <input id="share-url-csv" type="text" readonly
+               value="{{ base }}{% url 'public_export_csv' project.share_token %}"
+               style="flex:1;padding:8px 10px;border-radius:6px;border:1px solid var(--surface3);background:var(--surface2);color:var(--text);font-family:'DM Mono',monospace;font-size:12px;">
+        <button type="button" class="btn btn-secondary btn-sm"
+                onclick="navigator.clipboard.writeText(document.getElementById('share-url-csv').value);this.innerText='Copied';">Copy</button>
+      </div>
+
+      <label style="font-size:12px;color:var(--text-muted);">COCO JSON</label>
+      <div style="display:flex;gap:8px;margin-top:6px;margin-bottom:10px;">
+        <input id="share-url-coco" type="text" readonly
+               value="{{ base }}{% url 'public_export_coco' project.share_token %}"
+               style="flex:1;padding:8px 10px;border-radius:6px;border:1px solid var(--surface3);background:var(--surface2);color:var(--text);font-family:'DM Mono',monospace;font-size:12px;">
+        <button type="button" class="btn btn-secondary btn-sm"
+                onclick="navigator.clipboard.writeText(document.getElementById('share-url-coco').value);this.innerText='Copied';">Copy</button>
+      </div>
+
+      <label style="font-size:12px;color:var(--text-muted);">JSON</label>
+      <div style="display:flex;gap:8px;margin-top:6px;margin-bottom:14px;">
+        <input id="share-url-json" type="text" readonly
+               value="{{ base }}{% url 'public_export_json' project.share_token %}"
+               style="flex:1;padding:8px 10px;border-radius:6px;border:1px solid var(--surface3);background:var(--surface2);color:var(--text);font-family:'DM Mono',monospace;font-size:12px;">
+        <button type="button" class="btn btn-secondary btn-sm"
+                onclick="navigator.clipboard.writeText(document.getElementById('share-url-json').value);this.innerText='Copied';">Copy</button>
+      </div>
+      {% endwith %}
 
       <div style="display:flex;gap:8px;flex-wrap:wrap;">
         <form method="post" action="{% url 'share_toggle' project.id %}" style="margin:0;">
