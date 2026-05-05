@@ -16,10 +16,19 @@
     <i class="fa-solid fa-download"></i> Export <i class="fa-solid fa-chevron-down" style="font-size:10px;margin-left:2px;"></i>
   </button>
   <div class="dropdown-menu">
-    <a href="{% url 'export_yolo' project.id %}?status=done" class="dropdown-item">
-      <i class="fa-solid fa-file-lines"></i> YOLO format
-    </a>
-  </div>
+  <a href="{% url 'export_yolo' project.id %}?status=done" class="dropdown-item">
+    <i class="fa-solid fa-file-lines"></i> YOLO format
+  </a>
+  <a href="{% url 'export_csv' project.id %}?status=done" class="dropdown-item">
+    <i class="fa-solid fa-file-csv"></i> CSV
+  </a>
+  <a href="{% url 'export_coco' project.id %}?status=done" class="dropdown-item">
+    <i class="fa-solid fa-brackets-curly"></i> COCO JSON
+  </a>
+  <a href="{% url 'export_json' project.id %}?status=done" class="dropdown-item">
+    <i class="fa-solid fa-code"></i> JSON
+  </a>
+</div>
 </div>
 {% if is_admin %}
 <a href="{% url 'team_management' project.id %}" class="btn btn-ghost btn-sm"><i class="fa-solid fa-users"></i> Team</a>

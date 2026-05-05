@@ -746,3 +746,276 @@ def export_yolo(request, project_id):
     response = HttpResponse(buf.read(), content_type='application/zip')
     response['Content-Disposition'] = f'attachment; filename="{slug}_yolo.zip"'
     return response
+
+# ─── CSV EXPORT ───────────────────────────────────────────────────────────────
+
+@login_required
+def export_csv(request, project_id):
+    import csv
+
+    project = get_object_or_404(Project, id=project_id)
+    if not project.user_has_access(request.user):
+        messages.error(request, 'You do not have access to this project.')
+        return redirect('project_list')
+
+    status_filter = request.GET.get('status', '')
+    images_qs = Image.objects.filter(project=project).prefetch_related(
+        'bounding_boxes__label', 'polygons__label', 'tags'
+    )
+    if status_filter in ('pending', 'partial', 'done'):
+        images_qs = images_qs.filter(status=status_filter)
+
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, 'w', zipfile.ZIP_DEFLATED) as zf:
+        # Paveikslėliai
+        for image in images_qs:
+            if image.image_file and os.path.exists(image.image_file.path):
+                zf.write(image.image_file.path, f'images/{image.name}')
+
+        # CSV anotacijos
+        csv_buf = io.StringIO()
+        writer = csv.writer(csv_buf)
+        writer.writerow([
+            'image_id', 'image_name', 'image_status',
+            'annotation_type', 'annotation_id',
+            'label', 'label_color',
+            'x', 'y', 'width', 'height',
+            'points', 'tags',
+        ])
+
+        for image in images_qs:
+            tags_str = '|'.join(t.name for t in image.tags.all())
+
+            for box in image.bounding_boxes.all():
+                writer.writerow([
+                    image.pk, image.name, image.status,
+                    'bbox', box.pk,
+                    box.label.name if box.label else '',
+                    box.label.color if box.label else '',
+                    round(box.x, 4), round(box.y, 4),
+                    round(box.width, 4), round(box.height, 4),
+                    '', tags_str,
+                ])
+
+            for poly in image.polygons.all():
+                points_str = ';'.join(f"{p['x']:.4f},{p['y']:.4f}" for p in poly.points)
+                writer.writerow([
+                    image.pk, image.name, image.status,
+                    'polygon', poly.pk,
+                    poly.label.name if poly.label else '',
+                    poly.label.color if poly.label else '',
+                    '', '', '', '',
+                    points_str, tags_str,
+                ])
+
+            if not image.bounding_boxes.exists() and not image.polygons.exists():
+                writer.writerow([
+                    image.pk, image.name, image.status,
+                    '', '', '', '', '', '', '', '', '', tags_str,
+                ])
+
+        zf.writestr('annotations/annotations.csv', csv_buf.getvalue())
+
+    log_activity(project, request.user, 'export_csv', detail=f'{images_qs.count()} images')
+
+    buf.seek(0)
+    slug = project.name.lower().replace(' ', '_')
+    response = HttpResponse(buf.read(), content_type='application/zip')
+    response['Content-Disposition'] = f'attachment; filename="{slug}_csv.zip"'
+    return response
+
+
+# ─── COCO EXPORT ──────────────────────────────────────────────────────────────
+
+@login_required
+def export_coco(request, project_id):
+    project = get_object_or_404(Project, id=project_id)
+    if not project.user_has_access(request.user):
+        messages.error(request, 'You do not have access to this project.')
+        return redirect('project_list')
+
+    status_filter = request.GET.get('status', '')
+    images_qs = Image.objects.filter(project=project).prefetch_related(
+        'bounding_boxes__label', 'polygons__label'
+    )
+    if status_filter in ('pending', 'partial', 'done'):
+        images_qs = images_qs.filter(status=status_filter)
+
+    label_set = {}
+    for image in images_qs:
+        for box in image.bounding_boxes.all():
+            if box.label and box.label.id not in label_set:
+                label_set[box.label.id] = box.label.name
+        for poly in image.polygons.all():
+            if poly.label and poly.label.id not in label_set:
+                label_set[poly.label.id] = poly.label.name
+
+    cat_id_map = {lid: idx + 1 for idx, lid in enumerate(label_set)}
+    categories = [
+        {'id': cat_id_map[lid], 'name': name, 'supercategory': 'object'}
+        for lid, name in label_set.items()
+    ]
+
+    coco_images = []
+    coco_annotations = []
+    ann_id = 1
+
+    for image in images_qs:
+        img_w, img_h = 1024, 1024
+        try:
+            if image.image_file and os.path.exists(image.image_file.path):
+                with PILImage.open(image.image_file.path) as pil:
+                    img_w, img_h = pil.size
+        except Exception:
+            pass
+
+        coco_images.append({
+            'id': image.pk,
+            'file_name': f'images/{image.name}',
+            'width': img_w,
+            'height': img_h,
+        })
+
+        for box in image.bounding_boxes.all():
+            if box.label is None:
+                continue
+            abs_x = box.x / 100 * img_w
+            abs_y = box.y / 100 * img_h
+            abs_w = box.width / 100 * img_w
+            abs_h = box.height / 100 * img_h
+            coco_annotations.append({
+                'id': ann_id,
+                'image_id': image.pk,
+                'category_id': cat_id_map[box.label.id],
+                'bbox': [round(abs_x, 2), round(abs_y, 2), round(abs_w, 2), round(abs_h, 2)],
+                'area': round(abs_w * abs_h, 2),
+                'segmentation': [],
+                'iscrowd': 0,
+            })
+            ann_id += 1
+
+        for poly in image.polygons.all():
+            if poly.label is None:
+                continue
+            seg = []
+            for pt in poly.points:
+                seg.append(round(pt['x'] / 100 * img_w, 2))
+                seg.append(round(pt['y'] / 100 * img_h, 2))
+            xs = seg[0::2]
+            ys = seg[1::2]
+            bbox_x, bbox_y = min(xs), min(ys)
+            bbox_w, bbox_h = max(xs) - bbox_x, max(ys) - bbox_y
+            coco_annotations.append({
+                'id': ann_id,
+                'image_id': image.pk,
+                'category_id': cat_id_map[poly.label.id],
+                'bbox': [round(bbox_x, 2), round(bbox_y, 2), round(bbox_w, 2), round(bbox_h, 2)],
+                'area': round(bbox_w * bbox_h, 2),
+                'segmentation': [seg],
+                'iscrowd': 0,
+            })
+            ann_id += 1
+
+    coco_dict = {
+        'info': {
+            'description': project.name,
+            'version': '1.0',
+            'year': datetime.now().year,
+            'date_created': datetime.now().strftime('%Y/%m/%d'),
+        },
+        'licenses': [],
+        'categories': categories,
+        'images': coco_images,
+        'annotations': coco_annotations,
+    }
+
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, 'w', zipfile.ZIP_DEFLATED) as zf:
+        for image in images_qs:
+            if image.image_file and os.path.exists(image.image_file.path):
+                zf.write(image.image_file.path, f'images/{image.name}')
+
+        zf.writestr('annotations/instances_default.json', json.dumps(coco_dict, ensure_ascii=False, indent=2))
+
+    log_activity(project, request.user, 'export_coco', detail=f'{images_qs.count()} images')
+
+    buf.seek(0)
+    slug = project.name.lower().replace(' ', '_')
+    response = HttpResponse(buf.read(), content_type='application/zip')
+    response['Content-Disposition'] = f'attachment; filename="{slug}_coco.zip"'
+    return response
+
+
+# ─── JSON EXPORT ──────────────────────────────────────────────────────────────
+
+@login_required
+def export_json(request, project_id):
+    project = get_object_or_404(Project, id=project_id)
+    if not project.user_has_access(request.user):
+        messages.error(request, 'You do not have access to this project.')
+        return redirect('project_list')
+
+    status_filter = request.GET.get('status', '')
+    images_qs = Image.objects.filter(project=project).prefetch_related(
+        'bounding_boxes__label', 'polygons__label', 'tags'
+    )
+    if status_filter in ('pending', 'partial', 'done'):
+        images_qs = images_qs.filter(status=status_filter)
+
+    output = {
+        'project': {
+            'id': project.pk,
+            'name': project.name,
+            'annotation_type': project.annotation_type,
+            'exported_at': datetime.now().isoformat(),
+        },
+        'images': [],
+    }
+
+    for image in images_qs:
+        img_entry = {
+            'id': image.pk,
+            'name': image.name,
+            'status': image.status,
+            'uploaded_at': image.uploaded_at.isoformat() if hasattr(image, 'uploaded_at') else None,
+            'tags': [t.name for t in image.tags.all()],
+            'bounding_boxes': [],
+            'polygons': [],
+        }
+
+        for box in image.bounding_boxes.all():
+            img_entry['bounding_boxes'].append({
+                'id': box.pk,
+                'label': box.label.name if box.label else None,
+                'label_color': box.label.color if box.label else None,
+                'x': round(box.x, 4),
+                'y': round(box.y, 4),
+                'width': round(box.width, 4),
+                'height': round(box.height, 4),
+            })
+
+        for poly in image.polygons.all():
+            img_entry['polygons'].append({
+                'id': poly.pk,
+                'label': poly.label.name if poly.label else None,
+                'label_color': poly.label.color if poly.label else None,
+                'points': [{'x': round(p['x'], 4), 'y': round(p['y'], 4)} for p in poly.points],
+            })
+
+        output['images'].append(img_entry)
+
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, 'w', zipfile.ZIP_DEFLATED) as zf:
+        for image in images_qs:
+            if image.image_file and os.path.exists(image.image_file.path):
+                zf.write(image.image_file.path, f'images/{image.name}')
+
+        zf.writestr('annotations/annotations.json', json.dumps(output, ensure_ascii=False, indent=2))
+
+    log_activity(project, request.user, 'export_json', detail=f'{images_qs.count()} images')
+
+    buf.seek(0)
+    slug = project.name.lower().replace(' ', '_')
+    response = HttpResponse(buf.read(), content_type='application/zip')
+    response['Content-Disposition'] = f'attachment; filename="{slug}_json.zip"'
+    return response
