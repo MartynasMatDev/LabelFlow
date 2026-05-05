@@ -92,7 +92,13 @@
       <i class="fa-solid fa-trash"></i> Delete
     </button>
 
-    <div class="topbar-sep"></div>
+    <button class="tool-btn" id="btn-reset-all"
+            onclick="Annotator.resetAll()"
+            title="Clear all annotations">
+      <i class="fa-solid fa-xmark"></i> Reset
+    </button>
+
+     <div class="topbar-sep"></div>
 
     <!-- Zoom -->
     <button class="tool-btn" onclick="Annotator.zoom(-0.1)" title="Zoom out"><i class="fa-solid fa-magnifying-glass-minus"></i></button>
@@ -765,6 +771,17 @@ const Annotator = (() => {
     if (selectedPolyIdx >= 0) { deletePolygon(selectedPolyIdx); }
   }
 
+  function resetAll() {
+  pushUndo();
+  if (IS_SEG) segPushUndo();
+  boxes = []; polygons = [];
+  selectedIdx = -1; selectedPolyIdx = -1;
+  delBtn.style.display = 'none';
+  labelPicker.classList.remove('visible');
+  if (IS_SEG) { segMasks = []; segComposite(); renderSegList(); }
+  markDirty(); render();
+}
+
   function undo() {
     if (tool === 'brush' || tool === 'eraser') { segUndo(); return; }
     if (polyDrawing) { cancelPolygon(); return; }
@@ -1207,7 +1224,7 @@ const Annotator = (() => {
 
   /* ── Public API ─────────────────────────────────────────── */
   return {
-    setTool, zoom, resetZoom, save, undo, deleteSelected,
+    setTool, zoom, resetZoom, save, undo, deleteSelected, resetAll,
     applyLabel, createLabel,
     setSegLabel, setBrushSize, createSegLabel,
   };
