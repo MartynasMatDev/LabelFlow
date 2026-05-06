@@ -249,6 +249,72 @@
 
       </div>
 
+      <!-- Disk usage -->
+    <div class="metric-card metric-card--wide" style="padding:18px 20px;">
+      <div style="font-size:12px;font-weight:700;color:var(--text-muted);text-transform:uppercase;
+                  letter-spacing:.06em;font-family:'DM Mono',monospace;margin-bottom:16px;">
+        <i class="fa-solid fa-hard-drive" style="margin-right:6px;"></i>Storage
+      </div>
+
+      <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1px;
+                  background:var(--border);border-radius:8px;overflow:hidden;">
+
+        <!-- Project size -->
+        <div style="background:var(--surface);padding:16px 18px;">
+          <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;
+                      letter-spacing:.06em;font-family:'DM Mono',monospace;margin-bottom:8px;">
+            This project
+          </div>
+          <div style="font-size:28px;font-weight:700;font-family:'DM Mono',monospace;
+                      color:var(--text);line-height:1;">
+            {{ metrics.project_disk_human }}
+          </div>
+          <div style="font-size:12px;color:var(--text-muted);margin-top:6px;">image files on disk</div>
+        </div>
+
+        <!-- Server used -->
+        <div style="background:var(--surface);padding:16px 18px;">
+          <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;
+                      letter-spacing:.06em;font-family:'DM Mono',monospace;margin-bottom:8px;">
+            Server used
+          </div>
+          <div style="font-size:28px;font-weight:700;font-family:'DM Mono',monospace;
+                      color:var(--text);line-height:1;">
+            {{ metrics.disk_used_human }}
+          </div>
+          <div style="font-size:12px;color:var(--text-muted);margin-top:6px;">
+            of {{ metrics.disk_total_human }} total
+          </div>
+        </div>
+
+        <!-- Server free + bar -->
+        <div style="background:var(--surface);padding:16px 18px;">
+          <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;
+                      letter-spacing:.06em;font-family:'DM Mono',monospace;margin-bottom:8px;">
+            Server free
+          </div>
+          <div style="font-size:28px;font-weight:700;font-family:'DM Mono',monospace;
+                      color:var(--text);line-height:1;">
+            {{ metrics.disk_free_human }}
+          </div>
+          {% if metrics.disk_used_pct is not None %}
+          <div style="height:3px;background:var(--border);border-radius:3px;
+                      overflow:hidden;margin-top:10px;">
+            <div style="width:{{ metrics.disk_used_pct }}%;height:100%;border-radius:3px;
+                        background:{% if metrics.disk_used_pct > 85 %}var(--danger)
+                                   {% elif metrics.disk_used_pct > 65 %}var(--warning)
+                                   {% else %}var(--accent){% endif %};"></div>
+          </div>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:5px;
+                      font-family:'DM Mono',monospace;">
+            {{ metrics.disk_used_pct }}% used
+          </div>
+          {% endif %}
+        </div>
+
+      </div>
+    </div>
+
     </div>
 
 
