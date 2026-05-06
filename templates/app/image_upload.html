@@ -60,6 +60,17 @@
       </div>
     </div>
 
+    <div class="card" style="padding:16px;margin-top:16px;">
+      <label for="image-urls"><strong>Import from URLs</strong></label>
+      <textarea id="image-urls" name="image_urls" rows="4"
+                placeholder="Paste image URLs (one per line)"
+                style="width:100%;margin-top:8px;"></textarea>
+    </div>
+
+    <button type="button" class="btn btn-primary btn-sm" onclick="uploadUrls()">
+      <i class="fa-solid fa-link"></i> Upload from URLs
+    </button>
+
     <!-- Hidden inputs -->
     <input type="file" id="input-files" multiple
            accept=".jpg,.jpeg,.png,.webp,.bmp,.gif">
@@ -146,6 +157,11 @@
 <!-- Hidden element with the base URL for project detail -->
 <div id="project-detail-base" data-url="{{ project_detail_base }}" style="display:none;"></div>
 
+<!-- Hidden config for JS -->
+<div id="upload-config"
+     data-upload-url="{% url 'image_upload_ajax' %}"
+     style="display:none;"></div>
+
 <!-- Rotation edit modal -->
 <div id="edit-modal-overlay">
   <div class="edit-modal" role="dialog" aria-modal="true" aria-label="Rotate image">
@@ -209,5 +225,49 @@
     </div>
   </div>
 </div>
+    <script>
+    function uploadUrls() {
+      const textarea = document.getElementById('image-urls');
+      const projectSelect = document.getElementById('project-select');
+
+      const urls = textarea.value.trim();
+      const projectId = projectSelect.value;
+
+      if (!projectId) {
+        alert("Please select a project first.");
+        return;
+      }
+
+      if (!urls) {
+        alert("Please enter at least one URL.");
+        return;
+      }
+
+      fetch("{% url 'image_upload_ajax' %}", {
+        method: "POST",
+        headers: {
+          "X-CSRFToken": "{{ csrf_token }}",
+          "Content-Type": "application/x-www-form-urlencoded"
+        },
+        body: new URLSearchParams({
+          project: projectId,
+          image_urls: urls
+        })
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) {
+          alert("Upload complete!");
+          location.reload();
+        } else {
+          alert(data.error || "Upload failed");
+        }
+      })
+      .catch(err => {
+        console.error(err);
+        alert("Something went wrong.");
+      });
+    }
+    </script>
 {% endblock %}
 
