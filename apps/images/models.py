@@ -201,3 +201,34 @@ class Polygon(models.Model):
             } if self.label else None,
             'points': self.points,
         }
+
+class ImageComment(models.Model):
+    """A threaded comment left on an image."""
+    image      = models.ForeignKey(Image, on_delete=models.CASCADE, related_name='comments')
+    author     = models.ForeignKey(User,  on_delete=models.SET_NULL, null=True, related_name='image_comments')
+    body       = models.TextField(max_length=2000)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['created_at']
+
+    def __str__(self):
+        return f'Comment by {self.author} on {self.image}'
+
+    def get_initials(self):
+        if not self.author:
+            return '??'
+        first = self.author.first_name[:1].upper() if self.author.first_name else ''
+        last  = self.author.last_name[:1].upper()  if self.author.last_name  else ''
+        return (first + last) or self.author.username[:2].upper()
+
+    def to_dict(self):
+        return {
+            'id':         self.pk,
+            'author':     self.author.get_full_name() or self.author.username if self.author else 'Unknown',
+            'initials':   self.get_initials(),
+            'body':       self.body,
+            'created_at': self.created_at.strftime('%Y-%m-%d %H:%M'),
+            'can_delete': False,   # filled in by the view per-request-user
+        }
