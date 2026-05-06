@@ -19,6 +19,7 @@ from apps.projects.models import Project
 from apps.projects.activity import log_activity
 from apps.projects.workspace_utils import get_active_workspace
 from .models import Image, Tag, BoundingBox, Polygon, SegmentationMask
+from .models import Image, BoundingBox, ImageComment
 
 
 ALLOWED_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.webp', '.bmp', '.gif'}
@@ -354,14 +355,21 @@ def image_detail(request, pk):
     if not image.project.user_has_access(request.user):
         messages.error(request, 'You do not have access to this image.')
         return redirect('image_list')
+
     boxes    = [b.to_dict() for b in image.bounding_boxes.select_related('label').all()]
     polygons = [p.to_dict() for p in image.polygons.select_related('label').all()]
+
+    comments = image.comments.select_related('author').all()
+    for c in comments:
+        c.can_delete = (c.author == request.user or image.project.user_is_admin(request.user))
+
     return render(request, 'app/image_detail.html', {
         'image':         image,
         'active_nav':    'images',
         'project':       image.project,
         'boxes_json':    json.dumps(boxes),
         'polygons_json': json.dumps(polygons),
+        'comments':      comments,
     })
 
 
@@ -1019,3 +1027,33 @@ def export_json(request, project_id):
     response = HttpResponse(buf.read(), content_type='application/zip')
     response['Content-Disposition'] = f'attachment; filename="{slug}_json.zip"'
     return response
+
+@login_required
+def image_comment(request, image_id):
+    """POST  → add comment; DELETE ?comment_id=N → delete own comment."""
+    image = get_object_or_404(Image, pk=image_id)
+    if not image.project.user_has_access(request.user):
+        return JsonResponse({'error': 'Forbidden'}, status=403)
+
+    if request.method == 'POST':
+        data = json.loads(request.body or '{}')
+        body = data.get('body', '').strip()
+        if not body:
+            return JsonResponse({'error': 'Comment cannot be empty.'}, status=400)
+        if len(body) > 2000:
+            return JsonResponse({'error': 'Comment too long (max 2 000 chars).'}, status=400)
+
+        comment = ImageComment.objects.create(image=image, author=request.user, body=body)
+        d = comment.to_dict()
+        d['can_delete'] = True
+        return JsonResponse({'comment': d}, status=201)
+
+    if request.method == 'DELETE':
+        comment_id = request.GET.get('comment_id')
+        comment = get_object_or_404(ImageComment, pk=comment_id, image=image)
+        if comment.author != request.user and not image.project.user_is_admin(request.user):
+            return JsonResponse({'error': 'Forbidden'}, status=403)
+        comment.delete()
+        return JsonResponse({'deleted': True})
+
+    return JsonResponse({'error': 'Method not allowed'}, status=405)
