@@ -73,6 +73,167 @@
   </div>
 </div>
 
+<!-- ── Comments ─────────────────────────────────────────────────── -->
+<div class="card" style="margin-top:16px;" id="comments-section">
+  <h3 style="font-size:12px;font-weight:700;color:var(--text-muted);text-transform:uppercase;
+             letter-spacing:.06em;font-family:'DM Mono',monospace;margin-bottom:14px;">
+    Comments <span id="comment-count" style="opacity:.6;">({{ image.comments.count }})</span>
+  </h3>
+
+  <!-- Existing comments list -->
+  <div id="comment-list" style="display:flex;flex-direction:column;gap:12px;margin-bottom:16px;">
+    {% for c in comments %}
+    <div class="comment-item" data-id="{{ c.pk }}"
+         style="display:flex;gap:10px;align-items:flex-start;">
+      <div class="avatar avatar-sm" style="flex-shrink:0;background:var(--accent);color:#fff;
+           display:flex;align-items:center;justify-content:center;border-radius:50%;
+           width:30px;height:30px;font-size:11px;font-weight:700;">
+        {{ c.get_initials }}
+      </div>
+      <div style="flex:1;min-width:0;">
+        <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;">
+          <span style="font-size:13px;font-weight:600;">
+            {{ c.author.get_full_name|default:c.author.username }}
+          </span>
+          <time style="font-size:11px;color:var(--text-muted);font-family:'DM Mono',monospace;">
+            {{ c.created_at|date:"Y-m-d H:i" }}
+          </time>
+          {% if c.can_delete %}
+          <button onclick="deleteComment({{ c.pk }}, this)"
+                  style="margin-left:auto;font-size:11px;color:var(--danger);background:none;
+                         border:none;cursor:pointer;padding:0;">Delete</button>
+          {% endif %}
+        </div>
+        <p style="font-size:13px;margin-top:4px;white-space:pre-wrap;word-break:break-word;">{{ c.body }}</p>
+      </div>
+    </div>
+    {% empty %}
+    <p id="no-comments-msg" style="font-size:13px;color:var(--text-muted);">No comments yet.</p>
+    {% endfor %}
+  </div>
+
+  <!-- New comment form -->
+  <div style="display:flex;gap:10px;align-items:flex-start;">
+    <div class="avatar avatar-sm"
+         style="flex-shrink:0;background:var(--accent);color:#fff;display:flex;
+                align-items:center;justify-content:center;border-radius:50%;
+                width:30px;height:30px;font-size:11px;font-weight:700;">
+      {{ request.user.first_name|slice:":1"|upper }}{{ request.user.last_name|slice:":1"|upper }}
+    </div>
+    <div style="flex:1;">
+      <textarea id="new-comment-body" rows="2"
+                placeholder="Add a comment…"
+                style="width:100%;resize:vertical;font-size:13px;
+                       padding:8px 10px;border-radius:6px;
+                       border:1px solid var(--border);background:var(--surface2);
+                       color:var(--text);font-family:inherit;"></textarea>
+      <div style="display:flex;justify-content:flex-end;margin-top:6px;">
+        <button onclick="submitComment()"
+                class="btn btn-primary btn-sm">
+          <i class="fa-solid fa-paper-plane"></i> Post
+        </button>
+      </div>
+      <p id="comment-error" style="font-size:12px;color:var(--danger);margin-top:4px;display:none;"></p>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  const IMAGE_ID   = {{ image.pk }};
+  const COMMENT_URL = `/app/images/${IMAGE_ID}/comments/`;   // adjust if your URL prefix differs
+  const CSRF       = document.cookie.match(/csrftoken=([^;]+)/)?.[1] || '';
+
+  window.submitComment = async function () {
+    const ta    = document.getElementById('new-comment-body');
+    const errEl = document.getElementById('comment-error');
+    const body  = ta.value.trim();
+    errEl.style.display = 'none';
+
+    if (!body) { showErr('Comment cannot be empty.'); return; }
+
+    try {
+      const res  = await fetch(COMMENT_URL, {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF },
+        body:    JSON.stringify({ body }),
+      });
+      const data = await res.json();
+      if (!res.ok) { showErr(data.error || 'Error'); return; }
+
+      ta.value = '';
+      appendComment(data.comment);
+      updateCount(1);
+    } catch (e) { showErr('Network error.'); }
+  };
+
+  window.deleteComment = async function (commentId, btn) {
+    if (!confirm('Delete this comment?')) return;
+    try {
+      const res = await fetch(`${COMMENT_URL}?comment_id=${commentId}`, {
+        method:  'DELETE',
+        headers: { 'X-CSRFToken': CSRF },
+      });
+      if (!res.ok) { alert('Could not delete comment.'); return; }
+      const item = document.querySelector(`.comment-item[data-id="${commentId}"]`);
+      if (item) item.remove();
+      updateCount(-1);
+      if (!document.querySelector('.comment-item')) {
+        const list = document.getElementById('comment-list');
+        list.innerHTML = '<p id="no-comments-msg" style="font-size:13px;color:var(--text-muted);">No comments yet.</p>';
+      }
+    } catch (e) { alert('Network error.'); }
+  };
+
+  function appendComment(c) {
+    const noMsg = document.getElementById('no-comments-msg');
+    if (noMsg) noMsg.remove();
+    const list = document.getElementById('comment-list');
+    const div  = document.createElement('div');
+    div.className  = 'comment-item';
+    div.dataset.id = c.id;
+    div.style.cssText = 'display:flex;gap:10px;align-items:flex-start;';
+    div.innerHTML = `
+      <div style="flex-shrink:0;background:var(--accent);color:#fff;display:flex;
+                  align-items:center;justify-content:center;border-radius:50%;
+                  width:30px;height:30px;font-size:11px;font-weight:700;">${c.initials}</div>
+      <div style="flex:1;min-width:0;">
+        <div style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;">
+          <span style="font-size:13px;font-weight:600;">${c.author}</span>
+          <time style="font-size:11px;color:var(--text-muted);font-family:'DM Mono',monospace;">${c.created_at}</time>
+          ${c.can_delete ? `<button onclick="deleteComment(${c.id}, this)"
+            style="margin-left:auto;font-size:11px;color:var(--danger);background:none;border:none;cursor:pointer;padding:0;">Delete</button>` : ''}
+        </div>
+        <p style="font-size:13px;margin-top:4px;white-space:pre-wrap;word-break:break-word;">${escHtml(c.body)}</p>
+      </div>`;
+    list.appendChild(div);
+  }
+
+  function updateCount(delta) {
+    const el = document.getElementById('comment-count');
+    if (!el) return;
+    const cur = parseInt(el.textContent.replace(/\D/g, '') || '0', 10);
+    el.textContent = `(${cur + delta})`;
+  }
+
+  function showErr(msg) {
+    const el = document.getElementById('comment-error');
+    el.textContent = msg;
+    el.style.display = 'block';
+  }
+
+  function escHtml(s) {
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+            .replace(/"/g,'&quot;').replace(/'/g,'&#039;');
+  }
+
+  // Post on Ctrl/Cmd+Enter
+  document.getElementById('new-comment-body').addEventListener('keydown', e => {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') submitComment();
+  });
+})();
+</script>
+
 <script>
 (function () {
   const BOXES = {{ boxes_json|safe }};
