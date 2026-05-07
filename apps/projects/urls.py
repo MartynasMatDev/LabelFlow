@@ -1,6 +1,7 @@
 from django.urls import path
 from . import views
 from . import workspace_views
+from . import notifications as notification_views
 
 urlpatterns = [
     path('',                                         views.dashboard,          name='dashboard'),
@@ -20,4 +21,10 @@ urlpatterns = [
     path('workspaces/<int:workspace_id>/',           workspace_views.workspace_detail, name='workspace_detail'),
     path('workspaces/<int:workspace_id>/switch/',    workspace_views.workspace_switch, name='workspace_switch'),
     path('workspaces/<int:workspace_id>/team/',      workspace_views.workspace_team,   name='workspace_team'),
+
+    # Notifications
+    path('notifications/',                           notification_views.notifications_list,         name='notifications_list'),
+    path('notifications/unread/',                    notification_views.notifications_unread_json,  name='notifications_unread_json'),
+    path('notifications/<int:notification_id>/read/', notification_views.notification_mark_read,    name='notification_mark_read'),
+    path('notifications/mark-all-read/',             notification_views.notifications_mark_all_read, name='notifications_mark_all_read'),
 ]
