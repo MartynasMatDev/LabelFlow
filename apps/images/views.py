@@ -19,7 +19,12 @@ from apps.projects.models import Project
 from apps.projects.activity import log_activity
 from apps.projects.workspace_utils import get_active_workspace
 from .models import Image, Tag, BoundingBox, Polygon, SegmentationMask
+from .models import Image, BoundingBox, ImageComment
 
+import requests
+from django.core.files.base import ContentFile
+import io, urllib.request, urllib.parse, urllib.error, imghdr
+from django.core.files.base import ContentFile
 
 ALLOWED_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.webp', '.bmp', '.gif'}
 MAX_FILE_BYTES = 20 * 1024 * 1024  # 20 MB
@@ -65,6 +70,24 @@ def _normalise_upload(django_file, original_name):
         content_type='image/jpeg', size=buf_size, charset=None,
     )
 
+def _download_image_from_url(url):
+    try:
+        response = requests.get(url, timeout=10, stream=True)
+        response.raise_for_status()
+    except Exception as e:
+        raise ValueError(f"Failed to download: {e}")
+
+    content_type = response.headers.get('Content-Type', '')
+    if not content_type.startswith('image/'):
+        raise ValueError("URL does not point to an image")
+
+    content = response.content
+    if len(content) > MAX_FILE_BYTES:
+        raise ValueError("File too large")
+
+    name = url.split('/')[-1].split('?')[0] or 'image.jpg'
+
+    return ContentFile(content, name=name)
 
 def _smart_crop(img, size):
     w, h = img.size
@@ -188,6 +211,9 @@ def image_list(request, project_id=None):
 
 @login_required
 def image_upload(request):
+    files = request.FILES.getlist('image_files')
+    urls_raw = request.POST.get('image_urls', '').strip()
+    url_list = [u.strip() for u in urls_raw.splitlines() if u.strip()]
     projects = _user_projects(request.user, workspace=get_active_workspace(request))
 
     if request.method == 'POST':
@@ -199,7 +225,7 @@ def image_upload(request):
             return redirect('image_list')
 
         files = request.FILES.getlist('image_files')
-        if not files:
+        if not files and not url_list:
             messages.error(request, 'No file was selected.')
             return render(request, 'app/image_upload.html', {
                 'projects': projects,
@@ -233,6 +259,37 @@ def image_upload(request):
             log_activity(project, request.user, 'image_uploaded', detail=image.name)
             uploaded += 1
 
+        # --- Handle URL uploads ---
+        for url in url_list:
+            try:
+                downloaded = _download_image_from_url(url)
+
+                if downloaded.size > MAX_FILE_BYTES:
+                    messages.warning(request, f'File too large (from URL): {url}')
+                    continue
+
+                ext = os.path.splitext(downloaded.name)[1].lower()
+                if ext not in ALLOWED_EXTENSIONS:
+                    # fallback if no extension
+                    downloaded.name += '.jpg'
+
+                normalised = _normalise_upload(downloaded, downloaded.name)
+
+            except Exception as exc:
+                messages.warning(request, f'Failed URL "{url}": {exc}')
+                continue
+
+            image = Image.objects.create(
+                project=project,
+                uploaded_by=request.user,
+                image_file=normalised,
+                name=normalised.name,
+                file_size=normalised.size,
+            )
+
+            log_activity(project, request.user, 'image_uploaded', detail=image.name)
+            uploaded += 1
+
         if uploaded:
             messages.success(request, f'Uploaded {uploaded} image(s) to project "{project.name}".')
         return redirect('project_images', project_id=project.id)
@@ -251,6 +308,62 @@ def image_upload(request):
 @login_required
 @require_POST
 def image_upload_ajax(request):
+    url = request.POST.get('image_url', '').strip()
+    urls_raw = request.POST.get('image_urls', '').strip()
+    url_list = [u.strip() for u in urls_raw.splitlines() if u.strip()]
+
+    image_urls_raw = request.POST.get('image_urls', '').strip()
+    if image_urls_raw:
+        project_id = request.POST.get('project')
+        project = get_object_or_404(Project, pk=project_id)
+        if not project.user_has_access(request.user):
+            return JsonResponse({'error': 'Forbidden'}, status=403)
+
+        urls = [u.strip() for u in image_urls_raw.splitlines() if u.strip()]
+        imported = []
+        errors = []
+
+        for raw_url in urls:
+            try:
+                parsed = urllib.parse.urlparse(raw_url)
+                if parsed.scheme not in ('http', 'https'):
+                    errors.append({'url': raw_url, 'error': 'Only http/https URLs are supported.'})
+                    continue
+
+                req = urllib.request.Request(raw_url, headers={'User-Agent': 'Mozilla/5.0'})
+                with urllib.request.urlopen(req, timeout=15) as resp:
+                    content_type = resp.headers.get_content_type()
+                    if not content_type.startswith('image/'):
+                        errors.append({'url': raw_url, 'error': f'Not an image ({content_type}).'})
+                        continue
+                    data = resp.read(20 * 1024 * 1024)  # 20 MB cap
+
+                # Guess extension from content-type or URL
+                ext_map = {'image/jpeg': 'jpg', 'image/png': 'png',
+                           'image/webp': 'webp', 'image/gif': 'gif', 'image/bmp': 'bmp'}
+                ext = ext_map.get(content_type, imghdr.what(None, h=data) or 'jpg')
+
+                filename = os.path.basename(urllib.parse.urlparse(raw_url).path) or f'import.{ext}'
+                if not any(filename.lower().endswith(e) for e in ('.jpg', '.jpeg', '.png', '.webp', '.gif', '.bmp')):
+                    filename = f'{filename}.{ext}'
+
+                img_obj = Image(project=project, uploaded_by=request.user,
+                                file_size=len(data), name=filename)
+                img_obj.image_file.save(filename, ContentFile(data), save=True)
+                imported.append({'name': filename, 'id': img_obj.pk})
+
+            except urllib.error.URLError as e:
+                errors.append({'url': raw_url, 'error': str(e.reason)})
+            except Exception as e:
+                errors.append({'url': raw_url, 'error': str(e)})
+
+        #from apps.projects.activity import log_activity  # adjust import path as needed
+        #if imported:
+        log_activity(project, request.user, 'image_uploaded',
+                         detail=f'{len(imported)} image(s) imported from URL')
+
+        return JsonResponse({'success': True, 'imported': imported, 'errors': errors})
+
     project_id = request.POST.get('project', '').strip()
     if not project_id:
         return JsonResponse({'success': False, 'error': 'No project specified.'}, status=400)
@@ -264,8 +377,57 @@ def image_upload_ajax(request):
         return JsonResponse({'success': False, 'error': 'Access denied.'}, status=403)
 
     f = request.FILES.get('image_file')
-    if not f:
-        return JsonResponse({'success': False, 'error': 'No file received.'}, status=400)
+    if not f and not url and not url_list:
+        return JsonResponse({'success': False, 'error': 'No file or URL provided.'}, status=400)
+
+    if url_list:
+        uploaded = 0
+
+        for url in url_list:
+            try:
+                downloaded = _download_image_from_url(url)
+
+                normalised = _normalise_upload(downloaded, downloaded.name)
+
+                image = Image.objects.create(
+                    project=project,
+                    uploaded_by=request.user,
+                    image_file=normalised,
+                    name=normalised.name,
+                    file_size=normalised.size,
+                )
+
+                log_activity(project, request.user, 'image_uploaded', detail=image.name)
+                uploaded += 1
+
+            except Exception as exc:
+                continue
+
+        return JsonResponse({'success': True, 'uploaded': uploaded})
+
+    if url:
+        try:
+            downloaded = _download_image_from_url(url)
+
+            if downloaded.size > MAX_FILE_BYTES:
+                return JsonResponse({'success': False, 'error': 'File too large.'}, status=400)
+
+            normalised = _normalise_upload(downloaded, downloaded.name)
+
+            image = Image.objects.create(
+                project=project,
+                uploaded_by=request.user,
+                image_file=normalised,
+                name=normalised.name,
+                file_size=normalised.size,
+            )
+
+            log_activity(project, request.user, 'image_uploaded', detail=image.name)
+
+            return JsonResponse({'success': True, 'name': image.name, 'id': image.pk})
+
+        except Exception as exc:
+            return JsonResponse({'success': False, 'error': str(exc)}, status=400)
 
     ext = os.path.splitext(f.name)[1].lower()
     if ext not in ALLOWED_EXTENSIONS:
@@ -354,14 +516,21 @@ def image_detail(request, pk):
     if not image.project.user_has_access(request.user):
         messages.error(request, 'You do not have access to this image.')
         return redirect('image_list')
+
     boxes    = [b.to_dict() for b in image.bounding_boxes.select_related('label').all()]
     polygons = [p.to_dict() for p in image.polygons.select_related('label').all()]
+
+    comments = image.comments.select_related('author').all()
+    for c in comments:
+        c.can_delete = (c.author == request.user or image.project.user_is_admin(request.user))
+
     return render(request, 'app/image_detail.html', {
         'image':         image,
         'active_nav':    'images',
         'project':       image.project,
         'boxes_json':    json.dumps(boxes),
         'polygons_json': json.dumps(polygons),
+        'comments':      comments,
     })
 
 
@@ -1066,3 +1235,34 @@ def public_export_json(request, share_token):
     response = HttpResponse(data, content_type='application/zip')
     response['Content-Disposition'] = f'attachment; filename="{filename}"'
     return response
+
+
+@login_required
+def image_comment(request, image_id):
+    """POST  → add comment; DELETE ?comment_id=N → delete own comment."""
+    image = get_object_or_404(Image, pk=image_id)
+    if not image.project.user_has_access(request.user):
+        return JsonResponse({'error': 'Forbidden'}, status=403)
+
+    if request.method == 'POST':
+        data = json.loads(request.body or '{}')
+        body = data.get('body', '').strip()
+        if not body:
+            return JsonResponse({'error': 'Comment cannot be empty.'}, status=400)
+        if len(body) > 2000:
+            return JsonResponse({'error': 'Comment too long (max 2 000 chars).'}, status=400)
+
+        comment = ImageComment.objects.create(image=image, author=request.user, body=body)
+        d = comment.to_dict()
+        d['can_delete'] = True
+        return JsonResponse({'comment': d}, status=201)
+
+    if request.method == 'DELETE':
+        comment_id = request.GET.get('comment_id')
+        comment = get_object_or_404(ImageComment, pk=comment_id, image=image)
+        if comment.author != request.user and not image.project.user_is_admin(request.user):
+            return JsonResponse({'error': 'Forbidden'}, status=403)
+        comment.delete()
+        return JsonResponse({'deleted': True})
+
+    return JsonResponse({'error': 'Method not allowed'}, status=405)

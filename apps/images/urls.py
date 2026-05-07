@@ -27,4 +27,6 @@ urlpatterns = [
     path('project/<int:project_id>/export/csv/',  views.export_csv,  name='export_csv'),
     path('project/<int:project_id>/export/coco/', views.export_coco, name='export_coco'),
     path('project/<int:project_id>/export/json/', views.export_json, name='export_json'),
+
+    path('<int:image_id>/comments/', views.image_comment, name='image_comment'),
 ]
