@@ -364,6 +364,58 @@ class Invitation(models.Model):
         )
 
 
+class Notification(models.Model):
+    """In-app notification delivered to a user about activity in a project
+    or workspace they belong to."""
+
+    KIND_CHOICES = [
+        ('member_added',     'Member added'),
+        ('member_removed',   'Member removed'),
+        ('role_changed',     'Role changed'),
+        ('image_uploaded',   'Image uploaded'),
+        ('image_deleted',    'Image deleted'),
+        ('annotation_done',  'Annotation completed'),
+        ('annotation_saved', 'Annotations saved'),
+        ('tag_added',        'Tag added'),
+        ('tag_removed',      'Tag removed'),
+        ('project_created',  'Project created'),
+        ('project_archived', 'Project archived'),
+        ('project_restored', 'Project restored'),
+        ('comment',          'New comment'),
+    ]
+
+    recipient   = models.ForeignKey(User, on_delete=models.CASCADE, related_name='notifications')
+    actor       = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True, related_name='+')
+    project     = models.ForeignKey(Project, on_delete=models.CASCADE, null=True, blank=True, related_name='notifications')
+    kind        = models.CharField(max_length=40, choices=KIND_CHOICES)
+    detail      = models.CharField(max_length=500, blank=True)
+    url         = models.CharField(max_length=500, blank=True)
+    is_read     = models.BooleanField(default=False, db_index=True)
+    created_at  = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['recipient', 'is_read', '-created_at']),
+        ]
+
+    def __str__(self):
+        return f"{self.recipient.username}: {self.get_kind_display()}"
+
+    @property
+    def actor_name(self):
+        if not self.actor:
+            return 'Someone'
+        return self.actor.get_full_name() or self.actor.username
+
+    def get_initials(self):
+        if not self.actor:
+            return '??'
+        first = self.actor.first_name[:1].upper() if self.actor.first_name else ''
+        last  = self.actor.last_name[:1].upper()  if self.actor.last_name  else ''
+        return (first + last) or self.actor.username[:2].upper()
+
+
 class WorkspaceInvitation(models.Model):
     """Invitation to join a workspace via email."""
     workspace  = models.ForeignKey(Workspace, on_delete=models.CASCADE, related_name='invitations')
