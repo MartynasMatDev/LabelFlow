@@ -14,6 +14,7 @@ from .workspace_utils import get_active_workspace, workspaces_for
 
 from django.db.models import Count, Avg
 from apps.images.models import Image, BoundingBox
+import os, shutil
 
 def _user_projects(user, include_archived=False, workspace=None):
     """Projects the user can see. If `workspace` is given, limits to that
@@ -133,38 +134,67 @@ def project_create(request):
 def _project_metrics(project):
     images_qs = Image.objects.filter(project=project)
 
-    total_images = images_qs.count()
-
+    total_images  = images_qs.count()
     status_counts = images_qs.values('status').annotate(count=Count('id'))
-    status_map = {item['status']: item['count'] for item in status_counts}
-
-    total_boxes = BoundingBox.objects.filter(image__project=project).count()
-
-    avg_boxes = BoundingBox.objects.filter(
+    status_map    = {item['status']: item['count'] for item in status_counts}
+    total_boxes   = BoundingBox.objects.filter(image__project=project).count()
+    avg_boxes     = BoundingBox.objects.filter(
         image__project=project
     ).values('image').annotate(c=Count('id')).aggregate(avg=Avg('c'))['avg'] or 0
+    total_tags    = project.images.values('tags').distinct().count()
+    completed     = status_map.get('done', 0)
+    progress      = (completed / total_images * 100) if total_images else 0
 
-    total_tags = project.images.values('tags').distinct().count()
+    # ── Disk usage ──────────────────────────────────────────────────────────
+    from django.conf import settings
 
-    completed = status_map.get('done', 0)
+    # Sum file_size stored on Image rows (fast, no FS access needed)
+    from django.db.models import Sum
+    from apps.images.models import Image as ImageModel
+    total_bytes = (
+        ImageModel.objects.filter(project=project)
+        .aggregate(s=Sum('file_size'))['s'] or 0
+    )
 
-    if total_images > 0:
-        progress = (completed / total_images) * 100
-    else:
-        progress = 0
+    # Server-wide disk info (the partition where MEDIA_ROOT lives)
+    media_root = getattr(settings, 'MEDIA_ROOT', '/')
+    try:
+        disk       = shutil.disk_usage(media_root)
+        disk_total = disk.total
+        disk_used  = disk.used
+        disk_free  = disk.free
+        disk_pct   = round(disk_used / disk_total * 100, 1) if disk_total else 0
+    except Exception:
+        disk_total = disk_used = disk_free = disk_pct = None
+
+    def fmt_bytes(b):
+        if b is None:
+            return '—'
+        for unit in ('B', 'KB', 'MB', 'GB', 'TB'):
+            if b < 1024:
+                return f'{b:.1f} {unit}'
+            b /= 1024
+        return f'{b:.1f} PB'
 
     return {
-        'total_images': total_images,
-        'pending': status_map.get('pending', 0),
-        'partial': status_map.get('partial', 0),
-        'done': completed,
-        'total_boxes': total_boxes,
-        'avg_boxes': round(avg_boxes, 2),
-        'total_tags': total_tags,
+        'total_images':    total_images,
+        'pending':         status_map.get('pending', 0),
+        'partial':         status_map.get('partial', 0),
+        'done':            completed,
+        'total_boxes':     total_boxes,
+        'avg_boxes':       round(avg_boxes, 2),
+        'total_tags':      total_tags,
         'progress_percent': round(progress, 2),
         'completed_images': completed,
         'remaining_images': max(project.planned_image_count - completed, 0)
-        if project.planned_image_count else None,
+                            if project.planned_image_count else None,
+        # disk
+        'project_disk_bytes': total_bytes,
+        'project_disk_human': fmt_bytes(total_bytes),
+        'disk_total_human':   fmt_bytes(disk_total),
+        'disk_used_human':    fmt_bytes(disk_used),
+        'disk_free_human':    fmt_bytes(disk_free),
+        'disk_used_pct':      disk_pct,
     }
 
 @login_required

@@ -1354,4 +1354,58 @@ window.closeDeleteModal = () => document.getElementById('delete-modal').classLis
       }
     });
   }
+
+
+async function uploadUrls() {
+  const urls = document.getElementById('image-urls').value.trim();
+  const projectId = document.getElementById('project-select').value;
+
+  if (!projectId) {
+    alert("Please select a project first.");
+    return;
+  }
+
+  if (!urls) {
+    alert("Please paste at least one image URL.");
+    return;
+  }
+
+  const formData = new FormData();
+  formData.append("image_urls", urls);
+  formData.append("project", projectId);
+
+  const uploadUrl = document.getElementById("btn-upload").dataset.uploadUrl;
+
+  const res = await fetch(uploadUrl, {
+    method: "POST",
+    body: formData,
+    headers: {
+      "X-CSRFToken": getCookie("csrftoken")
+    }
+  });
+
+  const data = await res.json();
+
+  if (data.success || data.uploaded !== undefined) {
+    // reload or update UI
+    location.reload();
+  } else {
+    alert(data.error || "Upload failed");
+  }
+}
+
+function getCookie(name) {
+  let cookieValue = null;
+  if (document.cookie && document.cookie !== "") {
+    const cookies = document.cookie.split(";");
+    for (let i = 0; i < cookies.length; i++) {
+      const cookie = cookies[i].trim();
+      if (cookie.substring(0, name.length + 1) === name + "=") {
+        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+        break;
+      }
+    }
+  }
+  return cookieValue;
+}
 })();
