@@ -32,6 +32,9 @@
 </div>
 {% if is_admin %}
 <a href="{% url 'team_management' project.id %}" class="btn btn-ghost btn-sm"><i class="fa-solid fa-users"></i> Team</a>
+<button type="button" class="btn btn-ghost btn-sm" onclick="document.getElementById('share-modal').style.display='flex';">
+  <i class="fa-solid fa-share-nodes"></i> Share
+</button>
 {% endif %}
 {% if is_admin and not project.is_archived %}
 <a href="{% url 'archive_project' project.id %}"
@@ -371,6 +374,57 @@
     </div>
   </div>
 </div>
+
+{% if is_admin %}
+<!-- ── Share modal ─────────────────────────────────────────── -->
+<div id="share-modal"
+     style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:1000;align-items:center;justify-content:center;"
+     onclick="if(event.target===this)this.style.display='none';">
+  <div class="card" style="max-width:520px;width:92%;padding:22px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+      <h2 style="font-size:16px;margin:0;">Share dataset publicly</h2>
+      <button type="button" class="btn btn-ghost btn-sm" onclick="document.getElementById('share-modal').style.display='none';">✕</button>
+    </div>
+    <p style="font-size:13px;color:var(--text-muted);margin-bottom:14px;">
+      Anyone with the link can view dataset details and download in their preferred format (YOLO, CSV, COCO, JSON). No login required.
+    </p>
+
+    {% if project.is_public %}
+      <label style="font-size:12px;color:var(--text-muted);">Public link</label>
+      <div style="display:flex;gap:8px;margin-top:6px;margin-bottom:14px;">
+        <input id="share-url" type="text" readonly
+               value="{{ request.scheme }}://{{ request.get_host }}{% url 'public_share_landing' project.share_token %}"
+               style="flex:1;padding:8px 10px;border-radius:6px;border:1px solid var(--surface3);background:var(--surface2);color:var(--text);font-family:'DM Mono',monospace;font-size:12px;">
+        <button type="button" class="btn btn-secondary btn-sm"
+                onclick="navigator.clipboard.writeText(document.getElementById('share-url').value);this.innerText='Copied';">Copy</button>
+        <a class="btn btn-secondary btn-sm" target="_blank"
+           href="{% url 'public_share_landing' project.share_token %}">Open</a>
+      </div>
+
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <form method="post" action="{% url 'share_toggle' project.id %}" style="margin:0;">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="rotate">
+          <button type="submit" class="btn btn-secondary btn-sm">Generate new link</button>
+        </form>
+        <form method="post" action="{% url 'share_toggle' project.id %}" style="margin:0;">
+          {% csrf_token %}
+          <input type="hidden" name="action" value="disable">
+          <button type="submit" class="btn btn-danger btn-sm">Disable sharing</button>
+        </form>
+      </div>
+    {% else %}
+      <form method="post" action="{% url 'share_toggle' project.id %}" style="margin:0;">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="enable">
+        <button type="submit" class="btn btn-accent btn-sm">
+          <i class="fa-solid fa-link"></i> Enable public link
+        </button>
+      </form>
+    {% endif %}
+  </div>
+</div>
+{% endif %}
 
 <!-- ── Tab + Activity JS ───────────────────────────────────── -->
 <script>

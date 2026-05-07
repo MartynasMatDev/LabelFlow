@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+
+{% block title %}{{ project.name }} — Public dataset{% endblock %}
+
+{% block body %}
+<div style="max-width:760px;margin:48px auto;padding:0 20px;">
+
+  <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+    <i class="fa-solid fa-share-nodes" style="color:var(--accent);"></i>
+    <span style="font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--text-muted);">
+      Public dataset
+    </span>
+  </div>
+
+  <h1 style="font-size:30px;margin:0 0 6px;">{{ project.name }}</h1>
+  <p style="color:var(--text-muted);margin:0 0 28px;">
+    {{ project.description|default:"Shared dataset — annotated images available for download." }}
+  </p>
+
+  <div class="card" style="padding:22px;margin-bottom:22px;">
+    <h2 style="font-size:14px;letter-spacing:.06em;text-transform:uppercase;color:var(--text-muted);margin:0 0 14px;">
+      About this dataset
+    </h2>
+    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:14px;">
+      <div>
+        <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;">Annotation type</div>
+        <div style="font-size:16px;font-weight:600;margin-top:4px;">{{ project.get_annotation_type_display|default:project.annotation_type }}</div>
+      </div>
+      <div>
+        <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;">Images</div>
+        <div style="font-size:16px;font-weight:600;margin-top:4px;">{{ image_total }}</div>
+      </div>
+      <div>
+        <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;">Annotated</div>
+        <div style="font-size:16px;font-weight:600;margin-top:4px;">{{ image_done }}</div>
+      </div>
+      <div>
+        <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;">Labels</div>
+        <div style="font-size:16px;font-weight:600;margin-top:4px;">{{ label_names|length }}</div>
+      </div>
+    </div>
+
+    {% if label_names %}
+    <div style="margin-top:18px;">
+      <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px;">Label classes</div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;">
+        {% for name in label_names %}
+          <span style="padding:3px 10px;border-radius:999px;background:var(--surface2);border:1px solid var(--surface3);font-size:12px;">{{ name }}</span>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+  </div>
+
+  <div class="card" style="padding:22px;">
+    <h2 style="font-size:14px;letter-spacing:.06em;text-transform:uppercase;color:var(--text-muted);margin:0 0 6px;">
+      Download
+    </h2>
+    <p style="color:var(--text-muted);font-size:13px;margin:0 0 16px;">
+      Pick a format. Includes images and annotations for completed items only.
+    </p>
+
+    <form method="get" id="format-form" onsubmit="return triggerDownload(event);"
+          style="display:flex;flex-direction:column;gap:10px;">
+      {% with token=project.share_token %}
+      <label style="display:flex;align-items:center;gap:10px;padding:12px 14px;border:1px solid var(--surface3);border-radius:8px;cursor:pointer;">
+        <input type="radio" name="format" value="{% url 'public_export_yolo' token %}" checked>
+        <i class="fa-solid fa-file-lines" style="color:var(--accent);"></i>
+        <div>
+          <div style="font-weight:600;">YOLO</div>
+          <div style="font-size:12px;color:var(--text-muted);">Bounding boxes + class IDs, ready for Ultralytics training.</div>
+        </div>
+      </label>
+      <label style="display:flex;align-items:center;gap:10px;padding:12px 14px;border:1px solid var(--surface3);border-radius:8px;cursor:pointer;">
+        <input type="radio" name="format" value="{% url 'public_export_csv' token %}">
+        <i class="fa-solid fa-file-csv" style="color:var(--accent);"></i>
+        <div>
+          <div style="font-weight:600;">CSV</div>
+          <div style="font-size:12px;color:var(--text-muted);">One row per annotation. Easy to inspect or import into pandas.</div>
+        </div>
+      </label>
+      <label style="display:flex;align-items:center;gap:10px;padding:12px 14px;border:1px solid var(--surface3);border-radius:8px;cursor:pointer;">
+        <input type="radio" name="format" value="{% url 'public_export_coco' token %}">
+        <i class="fa-solid fa-brackets-curly" style="color:var(--accent);"></i>
+        <div>
+          <div style="font-weight:600;">COCO JSON</div>
+          <div style="font-size:12px;color:var(--text-muted);">Standard <code>instances_default.json</code> with categories, bboxes, segmentation.</div>
+        </div>
+      </label>
+      <label style="display:flex;align-items:center;gap:10px;padding:12px 14px;border:1px solid var(--surface3);border-radius:8px;cursor:pointer;">
+        <input type="radio" name="format" value="{% url 'public_export_json' token %}">
+        <i class="fa-solid fa-code" style="color:var(--accent);"></i>
+        <div>
+          <div style="font-weight:600;">JSON</div>
+          <div style="font-size:12px;color:var(--text-muted);">LabelFlow native — full project + image + tag metadata.</div>
+        </div>
+      </label>
+      {% endwith %}
+
+      <button type="submit" class="btn btn-accent"
+              style="margin-top:6px;align-self:flex-start;padding:10px 18px;">
+        <i class="fa-solid fa-download"></i> Download dataset
+      </button>
+    </form>
+  </div>
+
+  <p style="margin-top:24px;text-align:center;color:var(--text-muted);font-size:12px;">
+    Powered by <a href="/" style="color:var(--accent);">LabelFlow</a>.
+  </p>
+</div>
+
+<script>
+  function triggerDownload(e) {
+    e.preventDefault();
+    const choice = document.querySelector('input[name="format"]:checked');
+    if (choice) window.location.href = choice.value;
+    return false;
+  }
+</script>
+{% endblock %}
