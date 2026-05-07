@@ -411,6 +411,60 @@ def restore_project(request, project_id):
     return redirect('archived_projects')
 
 
+import uuid as _uuid
+from django.views.decorators.http import require_POST
+
+
+@login_required
+@require_POST
+def share_toggle(request, project_id):
+    """Enable, disable, or rotate a public share link for a project."""
+    project = get_object_or_404(Project, id=project_id)
+    if not project.user_is_admin(request.user):
+        messages.error(request, 'Only project admins can manage sharing.')
+        return redirect('project_detail', project_id=project.id)
+
+    action = request.POST.get('action', 'enable')
+    if action == 'disable':
+        project.is_public = False
+        project.save(update_fields=['is_public', 'updated_at'])
+        messages.success(request, 'Public sharing disabled.')
+    elif action == 'rotate':
+        project.share_token = _uuid.uuid4()
+        project.is_public = True
+        project.save(update_fields=['share_token', 'is_public', 'updated_at'])
+        messages.success(request, 'New public link generated.')
+    else:
+        project.is_public = True
+        project.save(update_fields=['is_public', 'updated_at'])
+        messages.success(request, 'Public sharing enabled.')
+    return redirect('project_detail', project_id=project.id)
+
+
+def public_share_landing(request, share_token):
+    """Public landing page for a shared dataset. Shows stats + format download buttons."""
+    project = get_object_or_404(
+        Project, share_token=share_token, is_public=True, is_archived=False
+    )
+    images = Image.objects.filter(project=project)
+    total = images.count()
+    done = images.filter(status='done').count()
+    label_names = sorted({
+        b.label.name
+        for img in images.prefetch_related('bounding_boxes__label', 'polygons__label')
+        for b in list(img.bounding_boxes.all()) + list(img.polygons.all())
+        if b.label
+    })
+
+    ctx = {
+        'project': project,
+        'image_total': total,
+        'image_done': done,
+        'label_names': label_names,
+    }
+    return render(request, 'public_share.html', ctx)
+
+
 def invitation_prompt(request, token):
     invitation = get_object_or_404(Invitation, token=token)
     if invitation.accepted_at is not None:

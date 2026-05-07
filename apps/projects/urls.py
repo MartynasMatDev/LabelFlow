@@ -1,6 +1,7 @@
 from django.urls import path
 from . import views
 from . import workspace_views
+from . import notifications as notification_views
 
 urlpatterns = [
     path('',                                         views.dashboard,          name='dashboard'),
@@ -12,6 +13,7 @@ urlpatterns = [
     path('projects/<int:project_id>/archive/',       views.archive_project,    name='archive_project'),
     path('projects/<int:project_id>/restore/',       views.restore_project,    name='restore_project'),
     path('projects/<int:project_id>/activity/',      views.activity_feed_json, name='activity_feed_json'),
+    path('projects/<int:project_id>/share/',         views.share_toggle,       name='share_toggle'),
 
     # Workspaces
     path('workspaces/',                              workspace_views.workspace_list,   name='workspace_list'),
@@ -19,4 +21,10 @@ urlpatterns = [
     path('workspaces/<int:workspace_id>/',           workspace_views.workspace_detail, name='workspace_detail'),
     path('workspaces/<int:workspace_id>/switch/',    workspace_views.workspace_switch, name='workspace_switch'),
     path('workspaces/<int:workspace_id>/team/',      workspace_views.workspace_team,   name='workspace_team'),
+
+    # Notifications
+    path('notifications/',                           notification_views.notifications_list,         name='notifications_list'),
+    path('notifications/unread/',                    notification_views.notifications_unread_json,  name='notifications_unread_json'),
+    path('notifications/<int:notification_id>/read/', notification_views.notification_mark_read,    name='notification_mark_read'),
+    path('notifications/mark-all-read/',             notification_views.notifications_mark_all_read, name='notifications_mark_all_read'),
 ]

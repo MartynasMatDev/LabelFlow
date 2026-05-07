@@ -125,6 +125,49 @@
 
     <span class="toolbar-sep"></span>
 
+    <div class="notification-bell" id="notification-bell">
+      <button type="button" class="notification-bell-btn" id="notification-bell-btn"
+              aria-label="Notifications" aria-haspopup="true" aria-expanded="false">
+        <i class="fa-solid fa-bell"></i>
+        {% if notification_unread_count %}
+          <span class="notification-badge" id="notification-badge">{{ notification_unread_count }}</span>
+        {% else %}
+          <span class="notification-badge" id="notification-badge" hidden>0</span>
+        {% endif %}
+      </button>
+
+      <div class="notification-panel" id="notification-panel" role="menu" hidden>
+        <div class="notification-panel-head">
+          <strong>Notifications</strong>
+          <form method="post" action="{% url 'notifications_mark_all_read' %}" class="m-0">
+            {% csrf_token %}
+            <button type="submit" class="notification-mark-all">Mark all read</button>
+          </form>
+        </div>
+        <div class="notification-panel-body">
+          {% for n in notification_recent %}
+            <a href="{% url 'notification_mark_read' n.id %}"
+               class="notification-item {% if not n.is_read %}is-unread{% endif %}"
+               onclick="event.preventDefault(); fetch(this.href, {method:'POST', headers:{'X-CSRFToken':document.querySelector('[name=csrfmiddlewaretoken]').value, 'X-Requested-With':'XMLHttpRequest'}}).finally(()=>{ if(this.dataset.url){ window.location.href=this.dataset.url; } else { window.location.href='{% url 'notifications_list' %}'; } });"
+               data-url="{{ n.url }}">
+              <span class="notification-icon"><i class="fa-solid {{ n.icon }}"></i></span>
+              <span class="notification-text">
+                <span class="notification-actor">{{ n.actor_name }}</span>
+                <span class="notification-verb">{{ n.verb }}</span>
+                {% if n.detail %}<span class="notification-detail">— {{ n.detail|truncatechars:60 }}</span>{% endif %}
+                <span class="notification-time">{{ n.created_at|timesince }} ago</span>
+              </span>
+            </a>
+          {% empty %}
+            <div class="notification-empty">No notifications yet.</div>
+          {% endfor %}
+        </div>
+        <div class="notification-panel-foot">
+          <a href="{% url 'notifications_list' %}">View all</a>
+        </div>
+      </div>
+    </div>
+
     <div class="flex gap-2">
       {% block toolbar_actions %}{% endblock %}
     </div>
@@ -171,6 +214,30 @@ document.addEventListener('DOMContentLoaded', function () {
       if (window.innerWidth <= 768) closeMobileMenu();
     });
   });
+
+  // Notification bell dropdown
+  var bell = document.getElementById('notification-bell');
+  var btn = document.getElementById('notification-bell-btn');
+  var panel = document.getElementById('notification-panel');
+  if (bell && btn && panel) {
+    btn.addEventListener('click', function (e) {
+      e.stopPropagation();
+      var open = !panel.hasAttribute('hidden');
+      if (open) {
+        panel.setAttribute('hidden', '');
+        btn.setAttribute('aria-expanded', 'false');
+      } else {
+        panel.removeAttribute('hidden');
+        btn.setAttribute('aria-expanded', 'true');
+      }
+    });
+    document.addEventListener('click', function (e) {
+      if (!bell.contains(e.target)) {
+        panel.setAttribute('hidden', '');
+        btn.setAttribute('aria-expanded', 'false');
+      }
+    });
+  }
 });
 </script>
 {% endblock %}
