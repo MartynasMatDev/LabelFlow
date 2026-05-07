@@ -14,6 +14,7 @@ from .workspace_utils import get_active_workspace, workspaces_for
 
 from django.db.models import Count, Avg
 from apps.images.models import Image, BoundingBox
+import os, shutil
 
 def _user_projects(user, include_archived=False, workspace=None):
     """Projects the user can see. If `workspace` is given, limits to that
@@ -133,38 +134,67 @@ def project_create(request):
 def _project_metrics(project):
     images_qs = Image.objects.filter(project=project)
 
-    total_images = images_qs.count()
-
+    total_images  = images_qs.count()
     status_counts = images_qs.values('status').annotate(count=Count('id'))
-    status_map = {item['status']: item['count'] for item in status_counts}
-
-    total_boxes = BoundingBox.objects.filter(image__project=project).count()
-
-    avg_boxes = BoundingBox.objects.filter(
+    status_map    = {item['status']: item['count'] for item in status_counts}
+    total_boxes   = BoundingBox.objects.filter(image__project=project).count()
+    avg_boxes     = BoundingBox.objects.filter(
         image__project=project
     ).values('image').annotate(c=Count('id')).aggregate(avg=Avg('c'))['avg'] or 0
+    total_tags    = project.images.values('tags').distinct().count()
+    completed     = status_map.get('done', 0)
+    progress      = (completed / total_images * 100) if total_images else 0
 
-    total_tags = project.images.values('tags').distinct().count()
+    # ── Disk usage ──────────────────────────────────────────────────────────
+    from django.conf import settings
 
-    completed = status_map.get('done', 0)
+    # Sum file_size stored on Image rows (fast, no FS access needed)
+    from django.db.models import Sum
+    from apps.images.models import Image as ImageModel
+    total_bytes = (
+        ImageModel.objects.filter(project=project)
+        .aggregate(s=Sum('file_size'))['s'] or 0
+    )
 
-    if total_images > 0:
-        progress = (completed / total_images) * 100
-    else:
-        progress = 0
+    # Server-wide disk info (the partition where MEDIA_ROOT lives)
+    media_root = getattr(settings, 'MEDIA_ROOT', '/')
+    try:
+        disk       = shutil.disk_usage(media_root)
+        disk_total = disk.total
+        disk_used  = disk.used
+        disk_free  = disk.free
+        disk_pct   = round(disk_used / disk_total * 100, 1) if disk_total else 0
+    except Exception:
+        disk_total = disk_used = disk_free = disk_pct = None
+
+    def fmt_bytes(b):
+        if b is None:
+            return '—'
+        for unit in ('B', 'KB', 'MB', 'GB', 'TB'):
+            if b < 1024:
+                return f'{b:.1f} {unit}'
+            b /= 1024
+        return f'{b:.1f} PB'
 
     return {
-        'total_images': total_images,
-        'pending': status_map.get('pending', 0),
-        'partial': status_map.get('partial', 0),
-        'done': completed,
-        'total_boxes': total_boxes,
-        'avg_boxes': round(avg_boxes, 2),
-        'total_tags': total_tags,
+        'total_images':    total_images,
+        'pending':         status_map.get('pending', 0),
+        'partial':         status_map.get('partial', 0),
+        'done':            completed,
+        'total_boxes':     total_boxes,
+        'avg_boxes':       round(avg_boxes, 2),
+        'total_tags':      total_tags,
         'progress_percent': round(progress, 2),
         'completed_images': completed,
         'remaining_images': max(project.planned_image_count - completed, 0)
-        if project.planned_image_count else None,
+                            if project.planned_image_count else None,
+        # disk
+        'project_disk_bytes': total_bytes,
+        'project_disk_human': fmt_bytes(total_bytes),
+        'disk_total_human':   fmt_bytes(disk_total),
+        'disk_used_human':    fmt_bytes(disk_used),
+        'disk_free_human':    fmt_bytes(disk_free),
+        'disk_used_pct':      disk_pct,
     }
 
 @login_required
@@ -379,6 +409,60 @@ def restore_project(request, project_id):
     log_activity(project, request.user, 'project_restored', detail=project.name)
     messages.success(request, f'Project "{project.name}" restored.')
     return redirect('archived_projects')
+
+
+import uuid as _uuid
+from django.views.decorators.http import require_POST
+
+
+@login_required
+@require_POST
+def share_toggle(request, project_id):
+    """Enable, disable, or rotate a public share link for a project."""
+    project = get_object_or_404(Project, id=project_id)
+    if not project.user_is_admin(request.user):
+        messages.error(request, 'Only project admins can manage sharing.')
+        return redirect('project_detail', project_id=project.id)
+
+    action = request.POST.get('action', 'enable')
+    if action == 'disable':
+        project.is_public = False
+        project.save(update_fields=['is_public', 'updated_at'])
+        messages.success(request, 'Public sharing disabled.')
+    elif action == 'rotate':
+        project.share_token = _uuid.uuid4()
+        project.is_public = True
+        project.save(update_fields=['share_token', 'is_public', 'updated_at'])
+        messages.success(request, 'New public link generated.')
+    else:
+        project.is_public = True
+        project.save(update_fields=['is_public', 'updated_at'])
+        messages.success(request, 'Public sharing enabled.')
+    return redirect('project_detail', project_id=project.id)
+
+
+def public_share_landing(request, share_token):
+    """Public landing page for a shared dataset. Shows stats + format download buttons."""
+    project = get_object_or_404(
+        Project, share_token=share_token, is_public=True, is_archived=False
+    )
+    images = Image.objects.filter(project=project)
+    total = images.count()
+    done = images.filter(status='done').count()
+    label_names = sorted({
+        b.label.name
+        for img in images.prefetch_related('bounding_boxes__label', 'polygons__label')
+        for b in list(img.bounding_boxes.all()) + list(img.polygons.all())
+        if b.label
+    })
+
+    ctx = {
+        'project': project,
+        'image_total': total,
+        'image_done': done,
+        'label_names': label_names,
+    }
+    return render(request, 'public_share.html', ctx)
 
 
 def invitation_prompt(request, token):
