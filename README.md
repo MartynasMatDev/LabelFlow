@@ -168,3 +168,43 @@ bugfixes/* → dev → main
 ## License
 
 This project is created for educational purposes.
+
+
+
+## Upload images with API, directly from terminal
+
+1)  Run the project in your main terminal:
+python manage.py runserver
+
+2) Open a new local terminal. We will use only this one from now on. Set it up with:
+cd C:\Users\misei\PycharmProjects\LabelFlow
+venv\Scripts\activate
+
+3) Use your real username and password. Paste this:
+$login = Invoke-WebRequest -Method POST -Uri "http://127.0.0.1:8000/app/images/api/token/" -ContentType "application/json" -Body '{"username": "REAL_USERNAME", "password": "REAL_PASSWORD"}' -UseBasicParsing; $token = ($login.Content | ConvertFrom-Json).token; Write-Host "Token:" $token
+
+4) Get the project ID from the project page URL. For example:
+http://127.0.0.1:8000/app/images/project/4/
+                                         ↑
+                                     projectId = 4
+5) Change $token and $projectId to your own values, then paste all of this into the terminal:
+Add-Type -AssemblyName System.Net.Http
+$token = "975de635b239286364f08f"
+$projectId = "69"
+function Upload-Image($path) {
+    $client = New-Object System.Net.Http.HttpClient
+    $client.DefaultRequestHeaders.Add("Authorization", "Token $token")
+    $content = New-Object System.Net.Http.MultipartFormDataContent
+    $content.Add((New-Object System.Net.Http.StringContent($projectId)), "project")
+    $bytes = [System.IO.File]::ReadAllBytes($path)
+    $file = New-Object System.Net.Http.ByteArrayContent(,$bytes)
+    $file.Headers.ContentType = [System.Net.Http.Headers.MediaTypeHeaderValue]::Parse("image/png")
+    $content.Add($file, "image_file", [System.IO.Path]::GetFileName($path))
+    $client.PostAsync("http://127.0.0.1:8000/app/images/api/upload/", $content).Result.Content.ReadAsStringAsync().Result | ConvertFrom-Json
+}
+
+6) Upload an image from your PC with:
+Upload-Image "C:\User\abc\photo.png"
+Upload-Image "C:\User\abc\another_photo.png"
+
+
