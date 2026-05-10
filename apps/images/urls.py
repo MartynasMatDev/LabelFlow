@@ -31,8 +31,15 @@ urlpatterns = [
 
     path('<int:image_id>/comments/', views.image_comment, name='image_comment'),
 
-    path('api/upload/', api_views.api_image_upload, name='api_image_upload'),
-    path('api/token/', api_views.api_token_create, name='api_token_create'),
-    path('api/token/revoke/', api_views.api_token_revoke, name='api_token_revoke'),
+    path('api/upload/', api_views.api_image_upload,                     name='api_image_upload'),
+    path('api/token/', api_views.api_token_create,                      name='api_token_create'),
+    path('api/token/revoke/', api_views.api_token_revoke,               name='api_token_revoke'),
+
+    # GET  /app/images/api/images/<id>/annotations/  → list all annotations
+    # POST /app/images/api/images/<id>/annotations/  → create annotation
+    path('api/images/<int:image_id>/annotations/', api_views.api_annotations, name='api_annotations'),
+
+    # DELETE /app/images/api/annotations/bbox/3/
+    path('api/annotations/<str:annotation_type>/<int:annotation_id>/', api_views.api_annotation_delete, name='api_annotation_delete'),
 
 ]
