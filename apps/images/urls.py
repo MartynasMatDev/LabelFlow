@@ -1,5 +1,6 @@
 from django.urls import path
 from . import views
+from . import api_views
 
 urlpatterns = [
     # Image list / upload
@@ -29,4 +30,9 @@ urlpatterns = [
     path('project/<int:project_id>/export/json/', views.export_json, name='export_json'),
 
     path('<int:image_id>/comments/', views.image_comment, name='image_comment'),
+
+    path('api/upload/', api_views.api_image_upload, name='api_image_upload'),
+    path('api/token/', api_views.api_token_create, name='api_token_create'),
+    path('api/token/revoke/', api_views.api_token_revoke, name='api_token_revoke'),
+
 ]
