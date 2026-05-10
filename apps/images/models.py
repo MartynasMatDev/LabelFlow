@@ -4,6 +4,9 @@ from django.db import models
 from django.contrib.auth.models import User
 from apps.projects.models import Project
 
+import hashlib
+import secrets
+
 
 class Tag(models.Model):
     name = models.CharField(max_length=64, unique=True)
@@ -232,3 +235,29 @@ class ImageComment(models.Model):
             'created_at': self.created_at.strftime('%Y-%m-%d %H:%M'),
             'can_delete': False,   # filled in by the view per-request-user
         }
+
+class APIToken(models.Model):
+
+    user = models.ForeignKey(
+        User,
+        on_delete=models.CASCADE,
+        related_name="api_tokens",
+    )
+    key = models.CharField(
+        max_length=64,
+        unique=True,
+        help_text="SHA-256 hex digest of the raw token.",
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self):
+        return f"APIToken for {self.user} (active={self.is_active})"
+
+    @staticmethod
+    def hash_key(raw_key: str) -> str:
+        """Return the SHA-256 hex digest of *raw_key*."""
+        return hashlib.sha256(raw_key.encode()).hexdigest()
