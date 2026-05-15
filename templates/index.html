@@ -10,6 +10,7 @@
 <nav class="web-nav">
   <a href="/" class="web-nav-logo">Label<em>Flow</em></a>
   <div class="web-nav-links">
+    <a href="{% url 'blog:list' %}" class="btn btn-ghost">Blog</a>
     <button class="web-theme-btn" id="theme-btn" title="Toggle theme" aria-label="Toggle theme">&#x2600;</button>
     <a href="{% url 'login' %}" class="btn btn-ghost">Sign in</a>
     <a href="{% url 'register' %}" class="btn btn-primary">Get started free</a>
