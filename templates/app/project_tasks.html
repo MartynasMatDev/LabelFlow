@@ -1,0 +1,715 @@
+{% extends "app/app_base.html" %}
+
+{% block app_title %}Tasks — {{ project.name }}{% endblock %}
+{% block toolbar_title %}{{ project.name }} — Tasks{% endblock %}
+
+{% block toolbar_actions %}
+<a href="{% url 'project_detail' project.id %}" class="btn btn-ghost btn-sm"><i class="fa-solid fa-arrow-left"></i> Project</a>
+{% if is_admin %}
+<button class="btn btn-primary btn-sm" onclick="openCreateTaskModal()"><i class="fa-solid fa-plus"></i> Create Task</button>
+{% endif %}
+{% endblock %}
+
+{% block app_content %}
+<div class="page-header">
+  <div class="page-title">
+    <h1>Project Tasks</h1>
+    <p>{{ tasks.count }} task(s) total</p>
+  </div>
+</div>
+
+<!-- Filters -->
+<form method="get" class="filters-bar">
+  <select name="status" onchange="this.form.submit()">
+    <option value="">All statuses</option>
+    {% for value, label in status_choices %}
+    <option value="{{ value }}" {% if status_filter == value %}selected{% endif %}>{{ label }}</option>
+    {% endfor %}
+  </select>
+  
+  <select name="priority" onchange="this.form.submit()">
+    <option value="">All priorities</option>
+    {% for value, label in priority_choices %}
+    <option value="{{ value }}" {% if priority_filter == value %}selected{% endif %}>{{ label }}</option>
+    {% endfor %}
+  </select>
+  
+  <select name="assigned_to" onchange="this.form.submit()">
+    <option value="">All members</option>
+    {% for member in members %}
+    <option value="{{ member.id }}" {% if assigned_to_filter == member.id|stringformat:"s" %}selected{% endif %}>{{ member.name }}</option>
+    {% endfor %}
+  </select>
+</form>
+
+<!-- Task List -->
+<div class="tasks-container">
+  {% for task in tasks %}
+  <div class="task-card" data-task-id="{{ task.id }}" onclick="openTaskDetail({{ task.id }})">
+    <div class="task-card-header">
+      <div class="task-title">{{ task.title }}</div>
+      <div class="task-badges">
+        <span class="badge badge-{{ task.priority_color }}">{{ task.get_priority_display }}</span>
+        <span class="badge badge-secondary">{{ task.get_status_display }}</span>
+        {% if task.is_overdue %}
+        <span class="badge badge-danger">Overdue</span>
+        {% endif %}
+      </div>
+    </div>
+    
+    <div class="task-card-body">
+      <div class="task-description">{{ task.description|truncatechars:150 }}</div>
+      
+      <div class="task-meta">
+        <div class="task-assigned">
+          <i class="fa-solid fa-user"></i> Assigned to: {{ task.assigned_to.get_full_name|default:task.assigned_to.username }}
+        </div>
+        {% if task.due_date %}
+        <div class="task-due">
+          <i class="fa-solid fa-calendar"></i> Due: {{ task.due_date|date:"Y-m-d H:i" }}
+        </div>
+        {% endif %}
+        <div class="task-comments">
+          <i class="fa-solid fa-comment"></i> {{ task.comments.count }} comment(s)
+        </div>
+      </div>
+    </div>
+  </div>
+  {% empty %}
+  <div class="empty-state">
+    <div class="empty-icon"><i class="fa-solid fa-tasks"></i></div>
+    <h3>No tasks yet</h3>
+    <p>Create tasks to assign work to team members.</p>
+  </div>
+  {% endfor %}
+</div>
+
+<!-- Create Task Modal -->
+<div class="modal-overlay" id="create-task-modal">
+  <div class="modal modal-md">
+    <div class="modal-header">
+      <h2>Create New Task</h2>
+      <button class="modal-close" onclick="closeCreateTaskModal()"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <form id="create-task-form">
+      {% csrf_token %}
+      <div class="form-group">
+        <label>Title *</label>
+        <input type="text" name="title" required>
+      </div>
+      
+      <div class="form-group">
+        <label>Description</label>
+        <textarea name="description" rows="4"></textarea>
+      </div>
+      
+      <div class="form-group">
+        <label>Assign To *</label>
+        <select name="assigned_to" required>
+          <option value="">Select a team member</option>
+          {% for member in members %}
+          <option value="{{ member.id }}">{{ member.name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      
+      <div class="form-group">
+        <label>Priority</label>
+        <select name="priority">
+          {% for value, label in priority_choices %}
+          <option value="{{ value }}">{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      
+      <div class="form-group">
+        <label>Due Date</label>
+        <input type="datetime-local" name="due_date">
+      </div>
+      
+      <div class="modal-footer">
+        <button type="button" class="btn btn-ghost" onclick="closeCreateTaskModal()">Cancel</button>
+        <button type="submit" class="btn btn-primary">Create Task</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Task Detail Modal -->
+<div class="modal-overlay" id="task-detail-modal">
+  <div class="modal modal-lg" style="max-width: 800px;">
+    <div class="modal-header">
+      <h2 id="task-detail-title"></h2>
+      <button class="modal-close" onclick="closeTaskDetailModal()"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    <div id="task-detail-content"></div>
+  </div>
+</div>
+
+<input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}">
+
+<style>
+.tasks-container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.task-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 20px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.task-card:hover {
+  border-color: var(--accent);
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+
+.task-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 12px;
+}
+
+.task-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.task-badges {
+  display: flex;
+  gap: 8px;
+}
+
+.task-description {
+  color: var(--text-muted);
+  font-size: 14px;
+  margin-bottom: 16px;
+  line-height: 1.5;
+}
+
+.task-meta {
+  display: flex;
+  gap: 24px;
+  font-size: 12px;
+  color: var(--text-muted);
+  padding-top: 12px;
+  border-top: 1px solid var(--border);
+}
+
+.task-meta i {
+  margin-right: 6px;
+  width: 14px;
+}
+
+.modal-md { max-width: 500px; }
+.modal-lg { max-width: 800px; }
+
+.task-comment {
+  padding: 12px;
+  background: var(--surface2);
+  border-radius: 8px;
+  margin-bottom: 12px;
+}
+
+.task-comment-header {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 8px;
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.task-comment-author {
+  font-weight: 600;
+  color: var(--text);
+}
+
+/* Modal styles - ADD THESE */
+.modal-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+}
+
+.modal-overlay.active {
+    display: flex;
+}
+
+.modal {
+    background: var(--surface);
+    border-radius: 12px;
+    max-width: 500px;
+    width: 90%;
+    max-height: 90vh;
+    overflow-y: auto;
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+}
+
+.modal-md {
+    max-width: 500px;
+}
+
+.modal-lg {
+    max-width: 800px;
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border);
+}
+
+.modal-header h2 {
+    margin: 0;
+    font-size: 18px;
+}
+
+.modal-close {
+    background: none;
+    border: none;
+    font-size: 20px;
+    cursor: pointer;
+    color: var(--text-muted);
+    padding: 4px 8px;
+}
+
+.modal-close:hover {
+    color: var(--text);
+}
+
+.modal-footer {
+    padding: 16px 20px;
+    border-top: 1px solid var(--border);
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+}
+
+.form-group {
+    margin-bottom: 16px;
+    padding: 0 20px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 6px;
+    font-weight: 500;
+    font-size: 13px;
+}
+
+.form-group input,
+.form-group select,
+.form-group textarea {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--surface);
+    color: var(--text);
+    font-size: 14px;
+}
+
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+    outline: none;
+    border-color: var(--accent);
+}
+
+.form-control {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--surface);
+    color: var(--text);
+}
+
+.form-select {
+    padding: 8px 12px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    background: var(--surface);
+    color: var(--text);
+}
+
+/* Badge styles */
+.badge {
+    display: inline-block;
+    padding: 4px 8px;
+    border-radius: 12px;
+    font-size: 11px;
+    font-weight: 500;
+}
+
+.badge-success {
+    background: #10b98120;
+    color: #10b981;
+}
+
+.badge-warning {
+    background: #f59e0b20;
+    color: #f59e0b;
+}
+
+.badge-danger {
+    background: #ef444420;
+    color: #ef4444;
+}
+
+.badge-secondary {
+    background: var(--surface3);
+    color: var(--text-muted);
+}
+
+/* Button styles if missing */
+.btn {
+    padding: 8px 16px;
+    border-radius: 6px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.15s;
+    border: 1px solid transparent;
+}
+
+.btn-sm {
+    padding: 6px 12px;
+    font-size: 12px;
+}
+
+.btn-primary {
+    background: var(--accent);
+    color: white;
+}
+
+.btn-primary:hover {
+    opacity: 0.9;
+}
+
+.btn-danger {
+    background: #ef4444;
+    color: white;
+}
+
+.btn-danger:hover {
+    background: #dc2626;
+}
+
+.btn-ghost {
+    background: transparent;
+    border-color: var(--border);
+    color: var(--text);
+}
+
+.btn-ghost:hover {
+    background: var(--surface2);
+}
+</style>
+
+<script>
+// Make sure these functions are globally available
+function openCreateTaskModal() {
+    const modal = document.getElementById('create-task-modal');
+    if (modal) {
+        modal.classList.add('active');
+        // Reset form
+        const form = document.getElementById('create-task-form');
+        if (form) form.reset();
+    } else {
+        console.error('Modal not found');
+    }
+}
+
+function closeCreateTaskModal() {
+    const modal = document.getElementById('create-task-modal');
+    if (modal) {
+        modal.classList.remove('active');
+    }
+}
+
+// Handle form submission
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('create-task-form');
+    if (form) {
+        form.addEventListener('submit', async function(e) {
+            e.preventDefault();
+
+            const formData = new FormData(e.target);
+            const data = {
+                title: formData.get('title'),
+                description: formData.get('description'),
+                assigned_to: formData.get('assigned_to'),
+                priority: formData.get('priority'),
+                due_date: formData.get('due_date'),
+            };
+
+            // Validate required fields
+            if (!data.title) {
+                alert('Please enter a task title');
+                return;
+            }
+            if (!data.assigned_to) {
+                alert('Please assign the task to someone');
+                return;
+            }
+
+            const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+            try {
+                const response = await fetch(`/app/project/{{ project.id }}/tasks/create/`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': csrfToken,
+                    },
+                    body: JSON.stringify(data),
+                });
+
+                if (response.ok) {
+                    const result = await response.json();
+                    if (result.success) {
+                        closeCreateTaskModal();
+                        location.reload(); // Reload to show the new task
+                    } else {
+                        alert(result.error || 'Failed to create task');
+                    }
+                } else {
+                    const error = await response.json();
+                    alert(error.error || 'Failed to create task');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                alert('An error occurred while creating the task');
+            }
+        });
+    }
+});
+
+// Task detail functions
+async function openTaskDetail(taskId) {
+    const modal = document.getElementById('task-detail-modal');
+    if (!modal) return;
+
+    modal.classList.add('active');
+
+    try {
+        const response = await fetch(`/app/project/{{ project.id }}/tasks/${taskId}/`);
+        const data = await response.json();
+        const task = data.task;
+
+        document.getElementById('task-detail-title').textContent = task.title;
+
+        const content = `
+            <div style="margin-bottom: 20px;">
+                <div style="display: flex; gap: 12px; margin-bottom: 16px; flex-wrap: wrap;">
+                    <select id="task-status" onchange="updateTaskStatus(${task.id}, this.value)" class="form-select">
+                        {% for value, label in status_choices %}
+                        <option value="${value}" ${task.status === '${value}' ? 'selected' : ''}>${label}</option>
+                        {% endfor %}
+                    </select>
+                    <select id="task-priority" onchange="updateTaskPriority(${task.id}, this.value)" class="form-select">
+                        {% for value, label in priority_choices %}
+                        <option value="${value}" ${task.priority === '${value}' ? 'selected' : ''}>${label}</option>
+                        {% endfor %}
+                    </select>
+                    {% if is_admin %}
+                    <button onclick="deleteTask(${task.id})" class="btn btn-danger btn-sm">Delete</button>
+                    {% endif %}
+                </div>
+
+                <div class="form-group">
+                    <label>Description</label>
+                    <textarea id="task-description" rows="4" class="form-control">${escapeHtml(task.description || '')}</textarea>
+                </div>
+
+                <div class="form-group">
+                    <label>Due Date</label>
+                    <input type="datetime-local" id="task-due-date" value="${task.due_date ? task.due_date.slice(0, 16) : ''}" class="form-control">
+                </div>
+
+                <button onclick="updateTaskDetails(${task.id})" class="btn btn-primary btn-sm">Save Changes</button>
+            </div>
+
+            <div style="border-top: 1px solid var(--border); padding-top: 20px;">
+                <h3 style="margin-bottom: 16px;">Comments</h3>
+                <div id="task-comments">
+                    ${task.comments && task.comments.length ? task.comments.map(c => `
+                        <div class="task-comment">
+                            <div class="task-comment-header">
+                                <span class="task-comment-author">${escapeHtml(c.author)}</span>
+                                <span class="task-comment-date">${c.created_at}</span>
+                            </div>
+                            <div class="task-comment-body">${escapeHtml(c.body)}</div>
+                        </div>
+                    `).join('') : '<p>No comments yet.</p>'}
+                </div>
+                <div style="margin-top: 16px;">
+                    <textarea id="new-comment" rows="3" placeholder="Write a comment..." class="form-control"></textarea>
+                    <button onclick="addTaskComment(${task.id})" style="margin-top: 8px;" class="btn btn-primary btn-sm">Post Comment</button>
+                </div>
+            </div>
+        `;
+
+        document.getElementById('task-detail-content').innerHTML = content;
+
+    } catch (error) {
+        console.error('Error loading task:', error);
+        document.getElementById('task-detail-content').innerHTML = '<p>Error loading task details</p>';
+    }
+}
+
+function closeTaskDetailModal() {
+    const modal = document.getElementById('task-detail-modal');
+    if (modal) {
+        modal.classList.remove('active');
+    }
+}
+
+async function updateTaskStatus(taskId, status) {
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+    const response = await fetch(`/app/project/{{ project.id }}/tasks/${taskId}/`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': csrfToken,
+        },
+        body: JSON.stringify({ action: 'update_status', status: status }),
+    });
+
+    if (response.ok) {
+        location.reload();
+    } else {
+        alert('Failed to update status');
+    }
+}
+
+async function updateTaskPriority(taskId, priority) {
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+    const response = await fetch(`/app/project/{{ project.id }}/tasks/${taskId}/`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': csrfToken,
+        },
+        body: JSON.stringify({ action: 'update_priority', priority: priority }),
+    });
+
+    if (response.ok) {
+        location.reload();
+    } else {
+        alert('Failed to update priority');
+    }
+}
+
+async function updateTaskDetails(taskId) {
+    const description = document.getElementById('task-description').value;
+    const dueDate = document.getElementById('task-due-date').value;
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+    const response = await fetch(`/app/project/{{ project.id }}/tasks/${taskId}/`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': csrfToken,
+        },
+        body: JSON.stringify({
+            action: 'update_task',
+            description: description,
+            due_date: dueDate,
+        }),
+    });
+
+    if (response.ok) {
+        location.reload();
+    } else {
+        alert('Failed to update task');
+    }
+}
+
+async function addTaskComment(taskId) {
+    const body = document.getElementById('new-comment').value;
+    if (!body.trim()) return;
+
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+    const response = await fetch(`/app/project/{{ project.id }}/tasks/${taskId}/`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRFToken': csrfToken,
+        },
+        body: JSON.stringify({ action: 'add_comment', body: body }),
+    });
+
+    if (response.ok) {
+        document.getElementById('new-comment').value = '';
+        openTaskDetail(taskId);
+    } else {
+        alert('Failed to add comment');
+    }
+}
+
+async function deleteTask(taskId) {
+    if (!confirm('Delete this task? This action cannot be undone.')) return;
+
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+    const response = await fetch(`/app/project/{{ project.id }}/tasks/${taskId}/delete/`, {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': csrfToken,
+        },
+    });
+
+    if (response.ok) {
+        location.reload();
+    } else {
+        alert('Failed to delete task');
+    }
+}
+
+function escapeHtml(text) {
+    if (!text) return '';
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
+}
+
+// Close modals when clicking outside
+document.addEventListener('click', function(event) {
+    const createModal = document.getElementById('create-task-modal');
+    if (createModal && createModal.classList.contains('active')) {
+        if (event.target === createModal) {
+            closeCreateTaskModal();
+        }
+    }
+
+    const detailModal = document.getElementById('task-detail-modal');
+    if (detailModal && detailModal.classList.contains('active')) {
+        if (event.target === detailModal) {
+            closeTaskDetailModal();
+        }
+    }
+});
+</script>
+{% endblock %}
