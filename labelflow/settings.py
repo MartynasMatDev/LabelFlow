@@ -26,6 +26,7 @@ INSTALLED_APPS = [
     'apps.accounts',
     'apps.projects',
     'apps.images',
+    'apps.blog',
 ]
 
 SITE_ID = 1
