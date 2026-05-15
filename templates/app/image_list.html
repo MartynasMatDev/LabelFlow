@@ -46,6 +46,13 @@
     {% endfor %}
   </select>
 
+  <select name="annotation_type" onchange="this.form.submit()">
+    <option value="">All annotation types</option>
+    {% for value, label in annotation_types %}
+    <option value="{{ value }}" {% if annotation_type_filter == value %}selected{% endif %}>{{ label }}</option>
+    {% endfor %}
+  </select>
+
   <input type="date" name="start_date" value="{{ start_date }}" onchange="this.form.submit()">
   <input type="date" name="end_date"   value="{{ end_date }}"   onchange="this.form.submit()">
 
