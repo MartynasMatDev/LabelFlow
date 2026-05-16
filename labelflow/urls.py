@@ -14,6 +14,7 @@ from apps.projects.views import public_share_landing
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('', TemplateView.as_view(template_name='index.html'), name='index'),
+    path('api-docs/', TemplateView.as_view(template_name='api_docs.html'), name='api_docs'),
     path('accounts/', include('apps.accounts.urls')),
     path('oauth/', include('allauth.urls')),
     path('app/', include('apps.projects.urls')),
