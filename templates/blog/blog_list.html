@@ -1,0 +1,85 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}Blog — LabelFlow{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{% static 'css/landing.css' %}">
+<link rel="stylesheet" href="{% static 'css/blog.css' %}">
+{% endblock %}
+
+{% block body %}
+<nav class="web-nav">
+  <a href="/" class="web-nav-logo">Label<em>Flow</em></a>
+  <div class="web-nav-links">
+    <a href="{% url 'blog:list' %}" class="btn btn-ghost">Blog</a>
+    <button class="web-theme-btn" id="theme-btn" title="Toggle theme" aria-label="Toggle theme">&#x2600;</button>
+    <a href="{% url 'login' %}" class="btn btn-ghost">Sign in</a>
+    <a href="{% url 'register' %}" class="btn btn-primary">Get started free</a>
+  </div>
+</nav>
+
+<section class="blog-hero">
+  <div class="hero-tag" style="margin:0 auto 18px;">&#9670; LabelFlow Blog</div>
+  <h1>Insights from the <em>annotation frontier</em></h1>
+  <p class="blog-hero-lead">Updates, tutorials, and lessons from teams shipping ML models in the real world.</p>
+
+  <form class="blog-search" method="get" action="{% url 'blog:list' %}">
+    <input type="search" name="q" placeholder="Search posts…" value="{{ query|default:'' }}">
+    <button type="submit" class="btn btn-secondary">Search</button>
+  </form>
+</section>
+
+<section class="blog-list-section">
+  {% if posts %}
+    <div class="blog-grid">
+      {% for post in posts %}
+        <article class="blog-card">
+          <a href="{{ post.get_absolute_url }}" class="blog-card-link">
+            {% if post.cover_image %}
+              <div class="blog-card-cover">
+                <img src="{{ post.cover_image.url }}" alt="{{ post.title }}">
+              </div>
+            {% else %}
+              <div class="blog-card-cover blog-card-cover--placeholder">
+                <span>Label<em>Flow</em></span>
+              </div>
+            {% endif %}
+            <div class="blog-card-body">
+              <div class="blog-card-meta">
+                {% if post.published_at %}{{ post.published_at|date:"M j, Y" }}{% endif %}
+                {% if post.author %} &middot; {{ post.author.get_full_name|default:post.author.username }}{% endif %}
+              </div>
+              <h3>{{ post.title }}</h3>
+              {% if post.excerpt %}<p>{{ post.excerpt }}</p>{% endif %}
+              <span class="blog-card-cta">Read post &rarr;</span>
+            </div>
+          </a>
+        </article>
+      {% endfor %}
+    </div>
+
+    {% if page_obj.paginator.num_pages > 1 %}
+      <div class="blog-pagination">
+        {% if page_obj.has_previous %}
+          <a class="btn btn-ghost" href="?{% if query %}q={{ query }}&{% endif %}page={{ page_obj.previous_page_number }}">&larr; Previous</a>
+        {% endif %}
+        <span class="blog-page-info">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+        {% if page_obj.has_next %}
+          <a class="btn btn-ghost" href="?{% if query %}q={{ query }}&{% endif %}page={{ page_obj.next_page_number }}">Next &rarr;</a>
+        {% endif %}
+      </div>
+    {% endif %}
+  {% else %}
+    <div class="blog-empty">
+      <h2>No posts yet</h2>
+      <p>{% if query %}No posts match &ldquo;{{ query }}&rdquo;.{% else %}Check back soon — the team is writing.{% endif %}</p>
+      {% if query %}<a class="btn btn-secondary" href="{% url 'blog:list' %}">Clear search</a>{% endif %}
+    </div>
+  {% endif %}
+</section>
+
+<footer class="web-footer">
+  <a href="/" class="web-footer-logo">Label<em>Flow</em></a>
+  <span>&copy; 2026 LabelFlow &middot; built by Team404 | KTU</span>
+</footer>
+{% endblock %}
