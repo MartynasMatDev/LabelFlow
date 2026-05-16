@@ -25,6 +25,7 @@ import requests
 from django.core.files.base import ContentFile
 import io, urllib.request, urllib.parse, urllib.error, imghdr
 from django.core.files.base import ContentFile
+from apps.projects.models import Project as ProjectModel
 
 ALLOWED_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.webp', '.bmp', '.gif'}
 MAX_FILE_BYTES = 20 * 1024 * 1024  # 20 MB
@@ -161,12 +162,16 @@ def image_list(request, project_id=None):
     if tag_filter:
         images = images.filter(tags__id=tag_filter)
 
+    annotation_type_filter = request.GET.get('annotation_type', '')
+    if annotation_type_filter:
+        images = images.filter(project__annotation_type=annotation_type_filter)
+
     q = request.GET.get('q', '').strip()
     if q:
         images = images.filter(name__icontains=q)
 
     start_date = request.GET.get('start_date', '').strip()
-    end_date   = request.GET.get('end_date', '').strip()
+    end_date = request.GET.get('end_date', '').strip()
 
     if start_date:
         try:
@@ -188,6 +193,8 @@ def image_list(request, project_id=None):
 
     all_tags = Tag.objects.all()
 
+    annotation_types = ProjectModel.ANNOTATION_TYPE_CHOICES
+
     # Project-filter dropdown should list only projects the user can
     # see in the currently active workspace (unless a specific project
     # is already selected, in which case we still need its list).
@@ -200,6 +207,8 @@ def image_list(request, project_id=None):
         'image_count': images.count(),
         'status_filter': status_filter,
         'tag_filter': tag_filter,
+        'annotation_type_filter': annotation_type_filter,
+        'annotation_types': annotation_types,
         'all_tags': all_tags,
         'q': q,
         'sort': sort,
