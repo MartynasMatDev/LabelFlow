@@ -524,12 +524,12 @@ async function openTaskDetail(taskId) {
                 <div style="display: flex; gap: 12px; margin-bottom: 16px; flex-wrap: wrap;">
                     <select id="task-status" onchange="updateTaskStatus(${task.id}, this.value)" class="form-select">
                         {% for value, label in status_choices %}
-                        <option value="${value}" ${task.status === '${value}' ? 'selected' : ''}>${label}</option>
+                        <option value="{{ value }}" ${task.status === '{{ value }}' ? 'selected' : ''}>{{ label }}</option>
                         {% endfor %}
                     </select>
                     <select id="task-priority" onchange="updateTaskPriority(${task.id}, this.value)" class="form-select">
                         {% for value, label in priority_choices %}
-                        <option value="${value}" ${task.priority === '${value}' ? 'selected' : ''}>${label}</option>
+                        <option value="{{ value }}" ${task.priority === '{{ value }}' ? 'selected' : ''}>{{ label }}</option>
                         {% endfor %}
                     </select>
                     {% if is_admin %}
