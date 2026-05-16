@@ -2,6 +2,7 @@ from django.urls import path
 from . import views
 from . import workspace_views
 from . import notifications as notification_views
+from . import chat_views
 
 urlpatterns = [
     path('',                                         views.dashboard,          name='dashboard'),
@@ -27,4 +28,7 @@ urlpatterns = [
     path('notifications/unread/',                    notification_views.notifications_unread_json,  name='notifications_unread_json'),
     path('notifications/<int:notification_id>/read/', notification_views.notification_mark_read,    name='notification_mark_read'),
     path('notifications/mark-all-read/',             notification_views.notifications_mark_all_read, name='notifications_mark_all_read'),
+
+    # Chat
+    path('project/<int:project_id>/chat/',           chat_views.chat_room,     name='chat_room'),
 ]
