@@ -7,7 +7,7 @@ from django.http import JsonResponse
 from django.urls import reverse
 from django.utils import timezone
 
-from .models import Project, ProjectMember, ActivityLog, Invitation, Workspace, WorkspaceMember
+from .models import Project, ProjectMember, ActivityLog, Invitation, Workspace, WorkspaceMember, ProjectAttachment
 from .email import send_invitation_email
 from .activity import log_activity
 from .workspace_utils import get_active_workspace, workspaces_for
@@ -258,10 +258,15 @@ def project_detail(request, project_id):
         .order_by('day')
     )
 
+    images_all  = Image.objects.filter(project=project).order_by('name')
+    attachments = ProjectAttachment.objects.filter(project=project).select_related('uploaded_by')
+
     ctx = {
         'active_nav': 'projects',
         'project': project,
         'images': images,
+        'images_all': images_all,
+        'attachments': attachments,
         'user_role': project.get_user_role(request.user) or 'admin',
         'is_admin': project.user_is_admin(request.user),
         'metrics': metrics,
@@ -277,6 +282,93 @@ def project_detail(request, project_id):
         'filter_action': filter_action,
     }
     return render(request, 'app/project_detail.html', ctx)
+
+
+@login_required
+def project_edit(request, project_id):
+    project = get_object_or_404(Project, id=project_id)
+    if not project.user_is_admin(request.user):
+        messages.error(request, 'Only an admin can edit project settings.')
+        return redirect('project_detail', project_id=project_id)
+
+    if request.method != 'POST':
+        return redirect('project_detail', project_id=project_id)
+
+    name = request.POST.get('name', '').strip()
+    description = request.POST.get('description', '').strip()
+    annotation_type = request.POST.get('annotation_type', '').strip()
+
+    valid_types = [c[0] for c in Project.ANNOTATION_TYPE_CHOICES]
+    if not name:
+        messages.error(request, 'Project name cannot be empty.')
+        return redirect('project_detail', project_id=project_id)
+    if annotation_type not in valid_types:
+        annotation_type = project.annotation_type
+
+    project.name = name[:200]
+    project.description = description
+    project.annotation_type = annotation_type
+    project.save(update_fields=['name', 'description', 'annotation_type', 'updated_at'])
+    log_activity(project, request.user, 'project_created', detail='Project settings updated')
+    messages.success(request, 'Project updated.')
+    return redirect('project_detail', project_id=project_id)
+
+
+@login_required
+def attachment_upload(request, project_id):
+    project = get_object_or_404(Project, id=project_id)
+    if not project.user_has_access(request.user):
+        messages.error(request, 'Access denied.')
+        return redirect('project_list')
+
+    if request.method != 'POST':
+        return redirect('project_detail', project_id=project_id)
+
+    f = request.FILES.get('attachment_file')
+    if not f:
+        messages.error(request, 'No file selected.')
+        return redirect('project_detail', project_id=project_id)
+
+    ext = os.path.splitext(f.name)[1].lower()
+    if ext not in ProjectAttachment.ALLOWED_EXTENSIONS:
+        messages.error(request, f'File type "{ext}" not allowed.')
+        return redirect('project_detail', project_id=project_id)
+
+    if f.size > ProjectAttachment.MAX_FILE_BYTES:
+        messages.error(request, 'File exceeds 20 MB limit.')
+        return redirect('project_detail', project_id=project_id)
+
+    description = request.POST.get('attachment_description', '').strip()[:300]
+
+    attachment = ProjectAttachment.objects.create(
+        project=project,
+        uploaded_by=request.user,
+        file=f,
+        original_name=f.name,
+        file_size=f.size,
+        description=description,
+    )
+    log_activity(project, request.user, 'attachment_uploaded', detail=attachment.original_name)
+    messages.success(request, f'"{f.name}" uploaded.')
+    return redirect('project_detail', project_id=project_id)
+
+
+@login_required
+def attachment_delete(request, project_id, attachment_id):
+    project    = get_object_or_404(Project, id=project_id)
+    attachment = get_object_or_404(ProjectAttachment, id=attachment_id, project=project)
+
+    if not project.user_is_admin(request.user) and attachment.uploaded_by != request.user:
+        messages.error(request, 'Only an admin or the uploader can delete this file.')
+        return redirect('project_detail', project_id=project_id)
+
+    name = attachment.original_name
+    attachment.file.delete(save=False)
+    attachment.delete()
+    log_activity(project, request.user, 'attachment_deleted', detail=name)
+    messages.success(request, f'"{name}" deleted.')
+    return redirect('project_detail', project_id=project_id)
+
 
 
 @login_required

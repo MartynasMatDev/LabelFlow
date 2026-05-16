@@ -1,0 +1,75 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}{{ post.title }} — LabelFlow Blog{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{% static 'css/landing.css' %}">
+<link rel="stylesheet" href="{% static 'css/blog.css' %}">
+{% endblock %}
+
+{% block body %}
+<nav class="web-nav">
+  <a href="/" class="web-nav-logo">Label<em>Flow</em></a>
+  <div class="web-nav-links">
+    <a href="{% url 'api_docs' %}" class="btn btn-ghost">API Docs</a>
+    <a href="{% url 'blog:list' %}" class="btn btn-ghost" aria-current="page">Blog</a>
+    <button class="web-theme-btn" id="theme-btn" title="Toggle theme" aria-label="Toggle theme">&#x2600;</button>
+    <a href="{% url 'login' %}" class="btn btn-ghost">Sign in</a>
+    <a href="{% url 'register' %}" class="btn btn-primary">Get started free</a>
+  </div>
+</nav>
+
+<article class="blog-article">
+  <div class="blog-article-breadcrumb">
+    <a href="{% url 'blog:list' %}">&larr; All posts</a>
+  </div>
+
+  <header class="blog-article-header">
+    <div class="blog-article-meta">
+      {% if post.published_at %}{{ post.published_at|date:"F j, Y" }}{% endif %}
+      {% if post.author %} &middot; {{ post.author.get_full_name|default:post.author.username }}{% endif %}
+    </div>
+    <h1>{{ post.title }}</h1>
+    {% if post.excerpt %}<p class="blog-article-lead">{{ post.excerpt }}</p>{% endif %}
+  </header>
+
+  {% if post.cover_image %}
+    <div class="blog-article-cover">
+      <img src="{{ post.cover_image.url }}" alt="{{ post.title }}">
+    </div>
+  {% endif %}
+
+  <div class="blog-article-content">
+    {{ post.content|safe|linebreaks }}
+  </div>
+</article>
+
+{% if related %}
+<section class="blog-related">
+  <h2>More posts</h2>
+  <div class="blog-grid">
+    {% for r in related %}
+      <article class="blog-card">
+        <a href="{{ r.get_absolute_url }}" class="blog-card-link">
+          {% if r.cover_image %}
+            <div class="blog-card-cover"><img src="{{ r.cover_image.url }}" alt="{{ r.title }}"></div>
+          {% else %}
+            <div class="blog-card-cover blog-card-cover--placeholder"><span>Label<em>Flow</em></span></div>
+          {% endif %}
+          <div class="blog-card-body">
+            <div class="blog-card-meta">{% if r.published_at %}{{ r.published_at|date:"M j, Y" }}{% endif %}</div>
+            <h3>{{ r.title }}</h3>
+            {% if r.excerpt %}<p>{{ r.excerpt }}</p>{% endif %}
+          </div>
+        </a>
+      </article>
+    {% endfor %}
+  </div>
+</section>
+{% endif %}
+
+<footer class="web-footer">
+  <a href="/" class="web-footer-logo">Label<em>Flow</em></a>
+  <span>&copy; 2026 LabelFlow &middot; built by Team404 | KTU</span>
+</footer>
+{% endblock %}

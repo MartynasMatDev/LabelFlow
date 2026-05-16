@@ -4,6 +4,7 @@
 {% block toolbar_title %}{% if project %}{{ project.name }} — Images{% else %}All images{% endif %}{% endblock %}
 
 {% block toolbar_actions %}
+<a href="{% url 'dataset_import' %}{% if project %}?project={{ project.id }}{% endif %}" class="btn btn-secondary btn-sm"><i class="fa-solid fa-file-import"></i> Import</a>
 <a href="{% url 'image_upload' %}{% if project %}?project={{ project.id }}{% endif %}" class="btn btn-primary btn-sm"><i class="fa-solid fa-upload"></i> Upload</a>
 {% endblock %}
 
@@ -43,6 +44,13 @@
     <option value="">All tags</option>
     {% for tag in all_tags %}
     <option value="{{ tag.id }}" {% if tag_filter == tag.id|stringformat:"s" %}selected{% endif %}>{{ tag.name }}</option>
+    {% endfor %}
+  </select>
+
+  <select name="annotation_type" onchange="this.form.submit()">
+    <option value="">All annotation types</option>
+    {% for value, label in annotation_types %}
+    <option value="{{ value }}" {% if annotation_type_filter == value %}selected{% endif %}>{{ label }}</option>
     {% endfor %}
   </select>
 
@@ -210,6 +218,8 @@
   <button type="button" class="btn btn-primary btn-sm"   onclick="openTagModal('add')">＋ Tag</button>
   <button type="button" class="btn btn-danger btn-sm"    onclick="openTagModal('remove')">− Tag</button>
   <div class="batch-sep"></div>
+  <button type="button" class="btn btn-secondary btn-sm" onclick="openExportModal()"><i class="fa-solid fa-download"></i> Export</button>
+  <div class="batch-sep"></div>
   <button type="button" class="btn btn-danger btn-sm"    onclick="openDeleteModal()"><i class="fa-solid fa-trash"></i> Delete</button>
 </div>
 
@@ -282,6 +292,48 @@
   </div>
 </div>
 
+<!-- ── BATCH EXPORT MODAL ─────────────────────────────────── -->
+<div class="modal-overlay" id="export-modal">
+  <div class="modal modal-sm">
+    <div class="modal-header">
+      <h2>Export selected images</h2>
+      <button class="modal-close" onclick="closeExportModal()">✕</button>
+    </div>
+    <form method="post" action="{% url 'batch_export' %}" id="export-form">
+      {% csrf_token %}
+      <input type="hidden" name="next" value="{{ request.get_full_path }}">
+      <div id="export-image-inputs"></div>
+
+      <div class="form-group">
+        <label>Format</label>
+        <div style="display:flex;flex-direction:column;gap:8px;margin-top:6px;">
+          <label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
+            <input type="radio" name="format" value="yolo" checked>
+            <span><strong>YOLO</strong> — images + label .txt files</span>
+          </label>
+          <label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
+            <input type="radio" name="format" value="coco">
+            <span><strong>COCO</strong> — images + instances JSON</span>
+          </label>
+          <label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
+            <input type="radio" name="format" value="csv">
+            <span><strong>CSV</strong> — images + annotations.csv</span>
+          </label>
+          <label style="display:flex;align-items:center;gap:10px;cursor:pointer;">
+            <input type="radio" name="format" value="json">
+            <span><strong>JSON</strong> — images + annotations.json</span>
+          </label>
+        </div>
+      </div>
+
+      <div class="modal-footer">
+        <button type="button" class="btn btn-ghost" onclick="closeExportModal()">Cancel</button>
+        <button type="submit" class="btn btn-primary"><i class="fa-solid fa-download"></i> Download</button>
+      </div>
+    </form>
+  </div>
+</div>
+
 <!-- ── IMAGE PREVIEW LIGHTBOX ────────────────────────────── -->
 <div class="modal-overlay" id="preview-modal" onclick="closePreview()">
   <div class="modal"
@@ -325,5 +377,17 @@
 <!-- ── PREVIEW LIGHTBOX JS ────────────────────────────────── -->
 {% block extra_scripts %}
 <script src="{% static 'js/preview_lightbox.js' %}" defer></script>
+<script>
+window.openExportModal = function () {
+  var ids = getChecked();
+  if (!ids.length) return;
+  document.getElementById('export-image-inputs').innerHTML =
+    ids.map(function(id) { return '<input type="hidden" name="image_ids" value="' + id + '">'; }).join('');
+  document.getElementById('export-modal').classList.add('open');
+};
+window.closeExportModal = function () {
+  document.getElementById('export-modal').classList.remove('open');
+};
+</script>
 {% endblock %}
 {% endblock %}

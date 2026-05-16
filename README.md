@@ -165,6 +165,147 @@ bugfixes/* → dev → main
 
 ---
 
+## API Usage (PowerShell)
+
+LabelFlow exposes a small REST API for uploading and annotating images directly from a terminal. The examples below use **Windows PowerShell**.
+
+> **Prerequisites**
+> - The dev server is running: `python manage.py runserver`
+> - You have an account on the running instance
+> - Open a **new** terminal and activate your virtualenv:
+>   ```powershell
+>   cd C:\path\to\LabelFlow
+>   venv\Scripts\activate
+>   ```
+
+### Authentication — Get an API token
+
+Run once per session. Replace `REAL_USERNAME` / `REAL_PASSWORD` with your credentials. The token is stored in `$token` for the commands that follow.
+
+```powershell
+$login = Invoke-WebRequest -Method POST `
+  -Uri "http://127.0.0.1:8000/app/images/api/token/" `
+  -ContentType "application/json" `
+  -Body '{"username": "REAL_USERNAME", "password": "REAL_PASSWORD"}' `
+  -UseBasicParsing
+$token = ($login.Content | ConvertFrom-Json).token
+Write-Host "Token:" $token
+```
+
+---
+
+### Upload images
+
+**1. Find your project ID** in the project page URL:
+
+```text
+http://127.0.0.1:8000/app/images/project/4/
+                                         ↑
+                                   projectId = 4
+```
+
+**2. Set up the upload helper.** Replace the placeholder values with your own token and project ID:
+
+```powershell
+Add-Type -AssemblyName System.Net.Http
+$token     = "YOUR_TOKEN_HERE"
+$projectId = "YOUR_PROJECT_ID"
+
+function Upload-Image($path) {
+    $client = New-Object System.Net.Http.HttpClient
+    $client.DefaultRequestHeaders.Add("Authorization", "Token $token")
+
+    $content = New-Object System.Net.Http.MultipartFormDataContent
+    $content.Add((New-Object System.Net.Http.StringContent($projectId)), "project")
+
+    $bytes = [System.IO.File]::ReadAllBytes($path)
+    $file  = New-Object System.Net.Http.ByteArrayContent(, $bytes)
+    $file.Headers.ContentType = [System.Net.Http.Headers.MediaTypeHeaderValue]::Parse("image/png")
+    $content.Add($file, "image_file", [System.IO.Path]::GetFileName($path))
+
+    $client.PostAsync("http://127.0.0.1:8000/app/images/api/upload/", $content).Result.Content.ReadAsStringAsync().Result | ConvertFrom-Json
+}
+```
+
+**3. Upload one or more images:**
+
+```powershell
+Upload-Image "C:\Users\abc\photo.png"
+Upload-Image "C:\Users\abc\another_photo.png"
+```
+
+---
+
+### Annotate images
+
+**1. Find your image ID** in the annotation page URL:
+
+```text
+http://127.0.0.1:8000/app/images/67/annotate/
+                                 ↑
+                            imageId = 67
+```
+
+#### List annotations on an image
+
+```powershell
+Invoke-WebRequest -Method GET `
+  -Uri "http://127.0.0.1:8000/app/images/api/images/67/annotations/" `
+  -Headers @{ Authorization = "Token $token" } `
+  -UseBasicParsing | Select-Object -ExpandProperty Content
+```
+
+#### Add a bounding box
+
+`x`, `y`, `width`, `height` are percentages of the image size (0–100).
+
+```powershell
+Invoke-WebRequest -Method POST `
+  -Uri "http://127.0.0.1:8000/app/images/api/images/88/annotations/" `
+  -Headers @{ Authorization = "Token $token" } `
+  -ContentType "application/json" `
+  -Body '{"type":"bbox","x":10.5,"y":20.0,"width":30.0,"height":25.0}' `
+  -UseBasicParsing | Select-Object -ExpandProperty Content
+```
+
+#### Add a polygon
+
+Minimum 3 points. Each `x` / `y` is a percentage (0–100).
+
+```powershell
+Invoke-WebRequest -Method POST `
+  -Uri "http://127.0.0.1:8000/app/images/api/images/88/annotations/" `
+  -Headers @{ Authorization = "Token $token" } `
+  -ContentType "application/json" `
+  -Body '{"type":"polygon","points":[{"x":10,"y":10},{"x":50,"y":10},{"x":30,"y":50}]}' `
+  -UseBasicParsing | Select-Object -ExpandProperty Content
+```
+
+#### Delete an annotation
+
+First list annotations to find the ID (e.g. `"boxes": [{"id": 11, ...}]`), then delete by type (`bbox` or `polygon`) and annotation ID:
+
+```powershell
+Invoke-WebRequest -Method DELETE `
+  -Uri "http://127.0.0.1:8000/app/images/api/annotations/bbox/11/" `
+  -Headers @{ Authorization = "Token $token" } `
+  -UseBasicParsing | Select-Object -ExpandProperty Content
+```
+
+---
+
+### Endpoint summary
+
+| Method | Endpoint | Purpose |
+|---|---|---|
+| `POST` | `/app/images/api/token/` | Obtain an API token |
+| `POST` | `/app/images/api/upload/` | Upload an image to a project |
+| `GET`  | `/app/images/api/images/<image_id>/annotations/` | List annotations on an image |
+| `POST` | `/app/images/api/images/<image_id>/annotations/` | Add a bbox or polygon annotation |
+| `DELETE` | `/app/images/api/annotations/<type>/<annotation_id>/` | Delete an annotation |
+
+---
+
 ## License
 
 This project is created for educational purposes.

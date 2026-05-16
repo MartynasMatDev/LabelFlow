@@ -1,5 +1,6 @@
 from django.urls import path
 from . import views
+from . import api_views
 
 urlpatterns = [
     # Image list / upload
@@ -21,6 +22,8 @@ urlpatterns = [
     # Batch actions
     path('batch-tag/',                    views.batch_tag,              name='batch_tag'),
     path('batch-delete/',                 views.batch_delete,           name='batch_delete'),
+    path('batch-export/',                 views.batch_export,           name='batch_export'),
+    path('import/',                       views.dataset_import,         name='dataset_import'),
 
     # Export
     path('project/<int:project_id>/export/yolo/', views.export_yolo, name='export_yolo'),
@@ -29,4 +32,20 @@ urlpatterns = [
     path('project/<int:project_id>/export/json/', views.export_json, name='export_json'),
 
     path('<int:image_id>/comments/', views.image_comment, name='image_comment'),
+
+    path('api/upload/', api_views.api_image_upload,                     name='api_image_upload'),
+    path('api/token/', api_views.api_token_create,                      name='api_token_create'),
+    path('api/token/revoke/', api_views.api_token_revoke,               name='api_token_revoke'),
+    path('api/tokens/', api_views.api_token_list,                       name='api_token_list'),
+    path('api/tokens/<int:token_id>/', api_views.api_token_revoke_one,  name='api_token_revoke_one'),
+
+    # GET  /app/images/api/images/<id>/annotations/  → list all annotations
+    # POST /app/images/api/images/<id>/annotations/  → create annotation
+    path('api/images/<int:image_id>/annotations/', api_views.api_annotations, name='api_annotations'),
+
+    # DELETE /app/images/api/annotations/bbox/3/
+    path('api/annotations/<str:annotation_type>/<int:annotation_id>/', api_views.api_annotation_delete, name='api_annotation_delete'),
+
+
+
 ]

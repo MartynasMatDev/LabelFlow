@@ -996,6 +996,26 @@ const Annotator = (() => {
     segCanvas.addEventListener('mousedown', e => {
       if (tool !== 'brush' && tool !== 'eraser') return;
       if (e.button !== 0) return;
+
+      // Brush needs a label. Auto-pick the first chip if none is active;
+      // otherwise tell the user why nothing happens.
+      if (tool === 'brush' && !segActiveLbl) {
+        const firstChip = document.querySelector('#seg-label-grid .label-chip');
+        if (firstChip) {
+          setSegLabel(+firstChip.dataset.id, firstChip.dataset.name, firstChip.dataset.color);
+        } else {
+          saveStatus.textContent = 'Add or pick a label to paint with';
+          saveStatus.style.color = 'var(--warning)';
+          const nameInput = document.getElementById('seg-new-label-name');
+          if (nameInput) nameInput.focus();
+          return;
+        }
+      }
+
+      // Make sure the canvas is sized — if the image loaded after init or
+      // the layout shifted, the canvas may be 0×0 and paint silently misses.
+      if (!segCanvas.width || !segCanvas.height) segFitCanvas();
+
       segPushUndo();
       segPainting = true;
       const pt = clientToImgPx(e.clientX, e.clientY);
