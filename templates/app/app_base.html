@@ -57,6 +57,19 @@
       </a>
       {% endif %}
 
+      <div class="nav-label">Blog</div>
+      <a href="{% url 'blog:list' %}" class="nav-item" target="_blank" rel="noopener">
+        <span class="nav-icon"><i class="fa-solid fa-newspaper"></i></span> View blog
+      </a>
+      {% if user.is_staff %}
+      <a href="/admin/blog/blogpost/" class="nav-item" target="_blank" rel="noopener">
+        <span class="nav-icon"><i class="fa-solid fa-pen-to-square"></i></span> Manage posts
+      </a>
+      <a href="/admin/blog/blogpost/add/" class="nav-item" target="_blank" rel="noopener">
+        <span class="nav-icon"><i class="fa-solid fa-plus"></i></span> New blog post
+      </a>
+      {% endif %}
+
       {% if project %}
       <div class="nav-label">This project</div>
       <a href="{% url 'project_detail' project.id %}" class="nav-item {% if active_nav == 'project_detail' %}active{% endif %}">
