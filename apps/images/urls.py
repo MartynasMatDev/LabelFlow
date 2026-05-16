@@ -22,6 +22,8 @@ urlpatterns = [
     # Batch actions
     path('batch-tag/',                    views.batch_tag,              name='batch_tag'),
     path('batch-delete/',                 views.batch_delete,           name='batch_delete'),
+    path('batch-export/',                 views.batch_export,           name='batch_export'),
+    path('import/',                       views.dataset_import,         name='dataset_import'),
 
     # Export
     path('project/<int:project_id>/export/yolo/', views.export_yolo, name='export_yolo'),
