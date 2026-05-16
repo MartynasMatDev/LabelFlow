@@ -165,82 +165,147 @@ bugfixes/* → dev → main
 
 ---
 
-## License
+## API Usage (PowerShell)
 
-This project is created for educational purposes.
+LabelFlow exposes a small REST API for uploading and annotating images directly from a terminal. The examples below use **Windows PowerShell**.
 
+> **Prerequisites**
+> - The dev server is running: `python manage.py runserver`
+> - You have an account on the running instance
+> - Open a **new** terminal and activate your virtualenv:
+>   ```powershell
+>   cd C:\path\to\LabelFlow
+>   venv\Scripts\activate
+>   ```
 
+### Authentication — Get an API token
 
-## Upload images with API, directly from terminal
+Run once per session. Replace `REAL_USERNAME` / `REAL_PASSWORD` with your credentials. The token is stored in `$token` for the commands that follow.
 
-1)  Run the project in your main terminal:
-python manage.py runserver
+```powershell
+$login = Invoke-WebRequest -Method POST `
+  -Uri "http://127.0.0.1:8000/app/images/api/token/" `
+  -ContentType "application/json" `
+  -Body '{"username": "REAL_USERNAME", "password": "REAL_PASSWORD"}' `
+  -UseBasicParsing
+$token = ($login.Content | ConvertFrom-Json).token
+Write-Host "Token:" $token
+```
 
-2) Open a new local terminal. We will use only this one from now on. Set it up with:
-cd C:\Users\misei\PycharmProjects\LabelFlow
-venv\Scripts\activate
+---
 
-3) Use your real username and password. Paste this:
-$login = Invoke-WebRequest -Method POST -Uri "http://127.0.0.1:8000/app/images/api/token/" -ContentType "application/json" -Body '{"username": "REAL_USERNAME", "password": "REAL_PASSWORD"}' -UseBasicParsing; $token = ($login.Content | ConvertFrom-Json).token; Write-Host "Token:" $token
+### Upload images
 
-4) Get the project ID from the project page URL. For example:
+**1. Find your project ID** in the project page URL:
+
+```text
 http://127.0.0.1:8000/app/images/project/4/
                                          ↑
-                                     projectId = 4
-5) Change $token and $projectId to your own values, then paste all of this into the terminal:
+                                   projectId = 4
+```
+
+**2. Set up the upload helper.** Replace the placeholder values with your own token and project ID:
+
+```powershell
 Add-Type -AssemblyName System.Net.Http
-$token = "975de635b239286364f08f"
-$projectId = "69"
+$token     = "YOUR_TOKEN_HERE"
+$projectId = "YOUR_PROJECT_ID"
+
 function Upload-Image($path) {
     $client = New-Object System.Net.Http.HttpClient
     $client.DefaultRequestHeaders.Add("Authorization", "Token $token")
+
     $content = New-Object System.Net.Http.MultipartFormDataContent
     $content.Add((New-Object System.Net.Http.StringContent($projectId)), "project")
+
     $bytes = [System.IO.File]::ReadAllBytes($path)
-    $file = New-Object System.Net.Http.ByteArrayContent(,$bytes)
+    $file  = New-Object System.Net.Http.ByteArrayContent(, $bytes)
     $file.Headers.ContentType = [System.Net.Http.Headers.MediaTypeHeaderValue]::Parse("image/png")
     $content.Add($file, "image_file", [System.IO.Path]::GetFileName($path))
+
     $client.PostAsync("http://127.0.0.1:8000/app/images/api/upload/", $content).Result.Content.ReadAsStringAsync().Result | ConvertFrom-Json
 }
+```
 
-6) Upload an image from your PC with:
-Upload-Image "C:\User\abc\photo.png"
-Upload-Image "C:\User\abc\another_photo.png"
+**3. Upload one or more images:**
 
+```powershell
+Upload-Image "C:\Users\abc\photo.png"
+Upload-Image "C:\Users\abc\another_photo.png"
+```
 
-## Annotate images with API, directly from terminal
+---
 
-1)  Run the project in your main terminal:
-python manage.py runserver
+### Annotate images
 
-2) Open a new local terminal. We will use only this one from now on. Set it up with:
-cd C:\Users\misei\PycharmProjects\LabelFlow
-venv\Scripts\activate
+**1. Find your image ID** in the annotation page URL:
 
-3) Use your real username and password. Paste this:
-$login = Invoke-WebRequest -Method POST -Uri "http://127.0.0.1:8000/app/images/api/token/" -ContentType "application/json" -Body '{"username": "REAL_USERNAME", "password": "REAL_PASSWORD"}' -UseBasicParsing; $token = ($login.Content | ConvertFrom-Json).token; Write-Host "Token:" $token
-
-4) Get the image ID from the image annotation URL. For example:
+```text
 http://127.0.0.1:8000/app/images/67/annotate/
-                                  ↑ 
+                                 ↑
                             imageId = 67
-5) Now you can: 
-a) List of annotations on an image, using your image ID:                        
-Invoke-WebRequest -Method GET -Uri "http://127.0.0.1:8000/app/images/api/images/67/annotations/" -Headers @{ Authorization = "Token $token" } -UseBasicParsing | Select-Object -ExpandProperty Content
-                                                                                 ↑
-                                                                           /your_image_id/
-b)  Add a bounding box (x, y, width, height are percentages 0–100 of image size):  
-Invoke-WebRequest -Method POST -Uri "http://127.0.0.1:8000/app/images/api/images/88/annotations/" -Headers @{ Authorization = "Token $token" } -ContentType "application/json" -Body '{"type":"bbox","x":10.5,"y":20.0,"width":30.0,"height":25.0}' -UseBasicParsing | Select-Object -ExpandProperty Content
-                                                                                 ↑                                                                                                                         ↑        ↑            ↑             ↑
-                                                                           /your_image_id/ 
-c) Add a polygon (minimum 3 points, each x/y is a percentage 0–100):
-Invoke-WebRequest -Method POST -Uri "http://127.0.0.1:8000/app/images/api/images/88/annotations/" -Headers @{ Authorization = "Token $token" } -ContentType "application/json" -Body '{"type":"polygon","points":[{"x":10,"y":10},{"x":50,"y":10},{"x":30,"y":50}]}' -UseBasicParsing | Select-Object -ExpandProperty Content
-                                                                                 ↑                                                                                                                                      ↑      ↑        ↑      ↑        ↑      ↑                 
-d) Delete an annotation:
-get annotation Id, using your image ID (for example: "boxes": [{"id": 11, "label": null...): 
-Invoke-WebRequest -Method GET -Uri "http://127.0.0.1:8000/app/images/api/images/88/annotations/" -Headers @{ Authorization = "Token $token" } -UseBasicParsing | Select-Object -ExpandProperty Content
-                                                                                 ↑
-delete by type and annotation id:
-Invoke-WebRequest -Method DELETE -Uri "http://127.0.0.1:8000/app/images/api/annotations/bbox/11/" -Headers @{ Authorization = "Token $token" } -UseBasicParsing | Select-Object -ExpandProperty Content
-                                                                                            ↑
-                                                                                   /type/annotation_id/
+```
+
+#### List annotations on an image
+
+```powershell
+Invoke-WebRequest -Method GET `
+  -Uri "http://127.0.0.1:8000/app/images/api/images/67/annotations/" `
+  -Headers @{ Authorization = "Token $token" } `
+  -UseBasicParsing | Select-Object -ExpandProperty Content
+```
+
+#### Add a bounding box
+
+`x`, `y`, `width`, `height` are percentages of the image size (0–100).
+
+```powershell
+Invoke-WebRequest -Method POST `
+  -Uri "http://127.0.0.1:8000/app/images/api/images/88/annotations/" `
+  -Headers @{ Authorization = "Token $token" } `
+  -ContentType "application/json" `
+  -Body '{"type":"bbox","x":10.5,"y":20.0,"width":30.0,"height":25.0}' `
+  -UseBasicParsing | Select-Object -ExpandProperty Content
+```
+
+#### Add a polygon
+
+Minimum 3 points. Each `x` / `y` is a percentage (0–100).
+
+```powershell
+Invoke-WebRequest -Method POST `
+  -Uri "http://127.0.0.1:8000/app/images/api/images/88/annotations/" `
+  -Headers @{ Authorization = "Token $token" } `
+  -ContentType "application/json" `
+  -Body '{"type":"polygon","points":[{"x":10,"y":10},{"x":50,"y":10},{"x":30,"y":50}]}' `
+  -UseBasicParsing | Select-Object -ExpandProperty Content
+```
+
+#### Delete an annotation
+
+First list annotations to find the ID (e.g. `"boxes": [{"id": 11, ...}]`), then delete by type (`bbox` or `polygon`) and annotation ID:
+
+```powershell
+Invoke-WebRequest -Method DELETE `
+  -Uri "http://127.0.0.1:8000/app/images/api/annotations/bbox/11/" `
+  -Headers @{ Authorization = "Token $token" } `
+  -UseBasicParsing | Select-Object -ExpandProperty Content
+```
+
+---
+
+### Endpoint summary
+
+| Method | Endpoint | Purpose |
+|---|---|---|
+| `POST` | `/app/images/api/token/` | Obtain an API token |
+| `POST` | `/app/images/api/upload/` | Upload an image to a project |
+| `GET`  | `/app/images/api/images/<image_id>/annotations/` | List annotations on an image |
+| `POST` | `/app/images/api/images/<image_id>/annotations/` | Add a bbox or polygon annotation |
+| `DELETE` | `/app/images/api/annotations/<type>/<annotation_id>/` | Delete an annotation |
+
+---
+
+## License
+
+This project is created for educational purposes.

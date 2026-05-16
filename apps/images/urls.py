@@ -34,6 +34,8 @@ urlpatterns = [
     path('api/upload/', api_views.api_image_upload,                     name='api_image_upload'),
     path('api/token/', api_views.api_token_create,                      name='api_token_create'),
     path('api/token/revoke/', api_views.api_token_revoke,               name='api_token_revoke'),
+    path('api/tokens/', api_views.api_token_list,                       name='api_token_list'),
+    path('api/tokens/<int:token_id>/', api_views.api_token_revoke_one,  name='api_token_revoke_one'),
 
     # GET  /app/images/api/images/<id>/annotations/  → list all annotations
     # POST /app/images/api/images/<id>/annotations/  → create annotation
@@ -41,5 +43,7 @@ urlpatterns = [
 
     # DELETE /app/images/api/annotations/bbox/3/
     path('api/annotations/<str:annotation_type>/<int:annotation_id>/', api_views.api_annotation_delete, name='api_annotation_delete'),
+
+
 
 ]
