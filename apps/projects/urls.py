@@ -39,4 +39,11 @@ urlpatterns = [
     path('project/<int:project_id>/tasks/<int:task_id>/', task_views.task_detail, name='task_detail'),
     path('project/<int:project_id>/tasks/<int:task_id>/delete/', task_views.task_delete, name='task_delete'),
     path('my-tasks/', task_views.my_tasks, name='my_tasks'),
+
+    # Project edit
+    path('projects/<int:project_id>/edit/', views.project_edit, name='project_edit'),
+
+    # Attachments
+    path('projects/<int:project_id>/attachments/upload/', views.attachment_upload, name='attachment_upload'),
+    path('projects/<int:project_id>/attachments/<int:attachment_id>/delete/', views.attachment_delete, name='attachment_delete'),
 ]

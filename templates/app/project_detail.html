@@ -10,27 +10,34 @@
 
 {% block toolbar_actions %}
 <a href="{% url 'project_images' project.id %}" class="btn btn-secondary btn-sm">All images</a>
+<a href="{% url 'dataset_import' %}?project={{ project.id }}" class="btn btn-secondary btn-sm"><i class="fa-solid fa-file-import"></i> Import</a>
 <a href="{% url 'image_upload' %}?project={{ project.id }}" class="btn btn-secondary btn-sm"><i class="fa-solid fa-upload"></i> Upload</a>
+
+<!-- Export dropdown — opens modal instead of direct link -->
 <div class="dropdown" id="export-dropdown">
   <button class="btn btn-secondary btn-sm" onclick="toggleDropdown('export-dropdown')">
     <i class="fa-solid fa-download"></i> Export <i class="fa-solid fa-chevron-down" style="font-size:10px;margin-left:2px;"></i>
   </button>
   <div class="dropdown-menu">
-  <a href="{% url 'export_yolo' project.id %}?status=done" class="dropdown-item">
-    <i class="fa-solid fa-file-lines"></i> YOLO format
-  </a>
-  <a href="{% url 'export_csv' project.id %}?status=done" class="dropdown-item">
-    <i class="fa-solid fa-file-csv"></i> CSV
-  </a>
-  <a href="{% url 'export_coco' project.id %}?status=done" class="dropdown-item">
-    <i class="fa-solid fa-brackets-curly"></i> COCO JSON
-  </a>
-  <a href="{% url 'export_json' project.id %}?status=done" class="dropdown-item">
-    <i class="fa-solid fa-code"></i> JSON
-  </a>
+    <a href="#" class="dropdown-item" onclick="openExportModal('yolo');return false;">
+      <i class="fa-solid fa-file-lines"></i> YOLO format
+    </a>
+    <a href="#" class="dropdown-item" onclick="openExportModal('csv');return false;">
+      <i class="fa-solid fa-file-csv"></i> CSV
+    </a>
+    <a href="#" class="dropdown-item" onclick="openExportModal('coco');return false;">
+      <i class="fa-solid fa-brackets-curly"></i> COCO JSON
+    </a>
+    <a href="#" class="dropdown-item" onclick="openExportModal('json');return false;">
+      <i class="fa-solid fa-code"></i> JSON
+    </a>
+  </div>
 </div>
-</div>
+
 {% if is_admin %}
+<button type="button" class="btn btn-ghost btn-sm" onclick="document.getElementById('edit-project-modal').style.display='flex';">
+  <i class="fa-solid fa-pen"></i> Edit
+</button>
 <a href="{% url 'team_management' project.id %}" class="btn btn-ghost btn-sm"><i class="fa-solid fa-users"></i> Team</a>
 <button type="button" class="btn btn-ghost btn-sm" onclick="document.getElementById('share-modal').style.display='flex';">
   <i class="fa-solid fa-share-nodes"></i> Share
@@ -155,14 +162,12 @@
             <option value="{{ key }}" {% if filter_action == key %}selected{% endif %}>{{ label }}</option>
             {% endfor %}
           </select>
-          <!-- preserve tab anchor -->
           <input type="hidden" name="_tab" value="activity">
           {% if filter_user or filter_action %}
           <a href="?_tab=activity#tab-activity" class="btn btn-ghost btn-sm" style="flex-shrink:0;">✕ Clear</a>
           {% endif %}
         </form>
 
-        <!-- Auto-refresh toggle -->
         <label class="activity-autorefresh" title="Auto-refresh every 30 s">
           <span class="activity-autorefresh__dot" id="refresh-dot"></span>
           <input type="checkbox" id="auto-refresh-toggle" checked style="display:none;">
@@ -209,7 +214,6 @@
     <!-- ── Tab: Metrics ───────────────────────────── -->
     <div class="pd-panel pd-panel--hidden" id="tab-metrics" role="tabpanel">
 
-      <!-- Hidden data container -->
       <div id="metrics-data"
            data-progress-pending="{{ metrics.pending }}"
            data-progress-partial="{{ metrics.partial }}"
@@ -262,7 +266,6 @@
       <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:1px;
                   background:var(--border);border-radius:8px;overflow:hidden;">
 
-        <!-- Project size -->
         <div style="background:var(--surface);padding:16px 18px;">
           <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;
                       letter-spacing:.06em;font-family:'DM Mono',monospace;margin-bottom:8px;">
@@ -275,7 +278,6 @@
           <div style="font-size:12px;color:var(--text-muted);margin-top:6px;">image files on disk</div>
         </div>
 
-        <!-- Server used -->
         <div style="background:var(--surface);padding:16px 18px;">
           <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;
                       letter-spacing:.06em;font-family:'DM Mono',monospace;margin-bottom:8px;">
@@ -290,7 +292,6 @@
           </div>
         </div>
 
-        <!-- Server free + bar -->
         <div style="background:var(--surface);padding:16px 18px;">
           <div style="font-size:11px;color:var(--text-muted);text-transform:uppercase;
                       letter-spacing:.06em;font-family:'DM Mono',monospace;margin-bottom:8px;">
@@ -375,6 +376,137 @@
   </div>
 </div>
 
+<!-- ── Attachments section ─────────────────────────────────── -->
+<div class="card" style="margin-top:24px;">
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+    <h3 style="font-size:13px;margin:0;color:var(--text-muted);text-transform:uppercase;letter-spacing:.06em;font-family:'DM Mono',monospace;">
+      <i class="fa-solid fa-paperclip" style="margin-right:6px;"></i>Attachments
+    </h3>
+    {% if not project.is_archived %}
+    <button type="button" class="btn btn-secondary btn-sm" onclick="document.getElementById('attach-upload-modal').style.display='flex';">
+      <i class="fa-solid fa-plus"></i> Add file
+    </button>
+    {% endif %}
+  </div>
+
+  {% if attachments %}
+  <div style="display:flex;flex-direction:column;gap:6px;">
+    {% for att in attachments %}
+    <div style="display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:8px;border:1px solid var(--border);background:var(--surface2);">
+      <i class="fa-regular {{ att.icon }}" style="font-size:20px;color:var(--accent);flex-shrink:0;width:22px;text-align:center;"></i>
+      <div style="flex:1;min-width:0;">
+        <a href="{{ att.file.url }}" target="_blank" download
+           style="font-size:13px;font-weight:600;color:var(--text);text-decoration:none;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+          {{ att.original_name }}
+        </a>
+        <div style="font-size:11px;color:var(--text-muted);margin-top:2px;">
+          {{ att.size_display }} · {{ att.uploaded_at|date:"Y-m-d" }}
+          {% if att.uploaded_by %} · {{ att.uploaded_by.get_full_name|default:att.uploaded_by.username }}{% endif %}
+          {% if att.description %} · <em>{{ att.description }}</em>{% endif %}
+        </div>
+      </div>
+      {% if is_admin or att.uploaded_by == request.user %}
+      <form method="post" action="{% url 'attachment_delete' project.id att.id %}"
+            onsubmit="return confirm('Delete {{ att.original_name }}?');" style="margin:0;">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-icon btn-ghost btn-sm" title="Delete" style="color:var(--danger);">
+          <i class="fa-solid fa-trash"></i>
+        </button>
+      </form>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div style="text-align:center;padding:28px 0;color:var(--text-muted);font-size:13px;">
+    <i class="fa-regular fa-folder-open" style="font-size:28px;display:block;margin-bottom:10px;opacity:.4;"></i>
+    No attachments yet.
+    {% if not project.is_archived %}
+    <div style="margin-top:8px;">
+      <button type="button" class="btn btn-secondary btn-sm" onclick="document.getElementById('attach-upload-modal').style.display='flex';">
+        Upload a file
+      </button>
+    </div>
+    {% endif %}
+  </div>
+  {% endif %}
+</div>
+
+<!-- ── Edit project modal ──────────────────────────────────── -->
+{% if is_admin %}
+<div id="edit-project-modal"
+     style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:2000;align-items:center;justify-content:center;"
+     onclick="if(event.target===this)this.style.display='none';">
+  <div class="card" style="max-width:480px;width:92%;padding:22px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+      <h2 style="font-size:16px;margin:0;"><i class="fa-solid fa-pen" style="margin-right:8px;"></i>Edit project</h2>
+      <button type="button" class="btn btn-ghost btn-sm" onclick="document.getElementById('edit-project-modal').style.display='none';">✕</button>
+    </div>
+    <form method="post" action="{% url 'project_edit' project.id %}">
+      {% csrf_token %}
+      <div class="form-group" style="margin-bottom:14px;">
+        <label style="font-size:13px;font-weight:600;display:block;margin-bottom:6px;">Name</label>
+        <input type="text" name="name" value="{{ project.name }}" required maxlength="200"
+               style="width:100%;padding:8px 10px;border-radius:6px;border:1px solid var(--border-hover);background:var(--surface);color:var(--text);font-size:13px;">
+      </div>
+      <div class="form-group" style="margin-bottom:14px;">
+        <label style="font-size:13px;font-weight:600;display:block;margin-bottom:6px;">Description</label>
+        <textarea name="description" rows="4" placeholder="Describe this project…"
+                  style="width:100%;padding:8px 10px;border-radius:6px;border:1px solid var(--border-hover);background:var(--surface);color:var(--text);font-size:13px;resize:vertical;">{{ project.description }}</textarea>
+      </div>
+      <div class="form-group" style="margin-bottom:18px;">
+        <label style="font-size:13px;font-weight:600;display:block;margin-bottom:6px;">Annotation type</label>
+        <select name="annotation_type"
+                style="width:100%;padding:8px 10px;border-radius:6px;border:1px solid var(--border-hover);background:var(--surface);color:var(--text);font-size:13px;">
+          {% for value, label in project.ANNOTATION_TYPE_CHOICES %}
+          <option value="{{ value }}" {% if project.annotation_type == value %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div style="display:flex;justify-content:flex-end;gap:8px;">
+        <button type="button" class="btn btn-ghost btn-sm" onclick="document.getElementById('edit-project-modal').style.display='none';">Cancel</button>
+        <button type="submit" class="btn btn-primary btn-sm"><i class="fa-solid fa-check"></i> Save</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endif %}
+
+<!-- ── Attachment upload modal ──────────────────────────────── -->
+{% if not project.is_archived %}
+<div id="attach-upload-modal"
+     style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:2000;align-items:center;justify-content:center;"
+     onclick="if(event.target===this)this.style.display='none';">
+  <div class="card" style="max-width:480px;width:92%;padding:22px;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+      <h2 style="font-size:16px;margin:0;"><i class="fa-solid fa-paperclip" style="margin-right:8px;"></i>Add attachment</h2>
+      <button type="button" class="btn btn-ghost btn-sm" onclick="document.getElementById('attach-upload-modal').style.display='none';">✕</button>
+    </div>
+    <form method="post" action="{% url 'attachment_upload' project.id %}" enctype="multipart/form-data">
+      {% csrf_token %}
+      <div class="form-group" style="margin-bottom:14px;">
+        <label style="font-size:13px;font-weight:600;display:block;margin-bottom:6px;">File</label>
+        <input type="file" name="attachment_file" required
+               accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,.md"
+               style="width:100%;font-size:13px;">
+        <p style="font-size:11px;color:var(--text-muted);margin-top:4px;">
+          PDF, Word, Excel, PowerPoint, TXT, CSV, MD · max 20 MB
+        </p>
+      </div>
+      <div class="form-group" style="margin-bottom:18px;">
+        <label style="font-size:13px;font-weight:600;display:block;margin-bottom:6px;">Note <span style="font-weight:400;color:var(--text-muted);">(optional)</span></label>
+        <input type="text" name="attachment_description" maxlength="300" placeholder="Short description…"
+               style="width:100%;padding:8px 10px;border-radius:6px;border:1px solid var(--border-hover);background:var(--surface);color:var(--text);font-size:13px;">
+      </div>
+      <div style="display:flex;justify-content:flex-end;gap:8px;">
+        <button type="button" class="btn btn-ghost btn-sm" onclick="document.getElementById('attach-upload-modal').style.display='none';">Cancel</button>
+        <button type="submit" class="btn btn-primary btn-sm"><i class="fa-solid fa-upload"></i> Upload</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endif %}
+
 {% if is_admin %}
 <!-- ── Share modal ─────────────────────────────────────────── -->
 <div id="share-modal"
@@ -426,7 +558,83 @@
 </div>
 {% endif %}
 
-<!-- ── Tab + Activity JS ───────────────────────────────────── -->
+<!-- ── Export selection modal ─────────────────────────────── -->
+<div id="export-modal"
+     style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:2000;align-items:center;justify-content:center;"
+     onclick="if(event.target===this)closeExportModal();">
+  <div class="card" style="max-width:620px;width:94%;padding:22px;max-height:90vh;display:flex;flex-direction:column;overflow:hidden;">
+
+    <!-- Header -->
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;flex-shrink:0;">
+      <h2 style="font-size:16px;margin:0;"><i class="fa-solid fa-download" style="margin-right:8px;"></i>Export images</h2>
+      <button type="button" class="btn btn-ghost btn-sm" onclick="closeExportModal()">✕</button>
+    </div>
+    <p style="font-size:13px;color:var(--text-muted);margin-bottom:14px;flex-shrink:0;">
+      Select the images you want to export. Filter by annotation status or pick them individually.
+    </p>
+
+    <!-- Format badge (read-only, shows current format) -->
+    <div style="margin-bottom:14px;flex-shrink:0;">
+      <span style="font-size:12px;color:var(--text-muted);margin-right:8px;">Format:</span>
+      <span id="export-format-badge"
+            style="font-size:12px;font-weight:600;padding:3px 10px;border-radius:4px;
+                   background:var(--accent-faint,var(--surface2));color:var(--accent);border:1px solid var(--accent);">
+        YOLO
+      </span>
+    </div>
+
+    <!-- Filters row -->
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-shrink:0;flex-wrap:wrap;">
+      <label style="font-size:13px;color:var(--text-muted);">Show:</label>
+      <select id="export-status-filter"
+              style="font-size:13px;padding:5px 10px;border-radius:6px;border:1px solid var(--surface3);
+                     background:var(--surface2);color:var(--text);"
+              onchange="applyExportFilter()">
+        <option value="">All statuses</option>
+        <option value="done">✓ Done</option>
+        <option value="partial">~ Partial</option>
+        <option value="pending">○ Pending</option>
+      </select>
+      <div style="margin-left:auto;display:flex;gap:6px;">
+        <button type="button" class="btn btn-ghost btn-sm" onclick="exportSelectAll()">Select all</button>
+        <button type="button" class="btn btn-ghost btn-sm" onclick="exportDeselectAll()">Deselect all</button>
+      </div>
+    </div>
+
+    <!-- Selection counter -->
+    <div style="font-size:12px;color:var(--text-muted);margin-bottom:8px;flex-shrink:0;">
+      Selected: <strong id="export-sel-count">0</strong> image(s)
+    </div>
+
+    <!-- Image grid (scrollable) -->
+    <div id="export-img-grid"
+         style="display:grid;grid-template-columns:repeat(auto-fill,minmax(88px,1fr));gap:6px;
+                overflow-y:auto;flex:1;min-height:140px;
+                padding:8px;border:1px solid var(--surface3);border-radius:8px;margin-bottom:14px;">
+      <div style="grid-column:1/-1;text-align:center;padding:20px;color:var(--text-muted);font-size:13px;">
+        Loading images…
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div style="display:flex;align-items:center;justify-content:flex-end;gap:10px;
+                padding-top:12px;border-top:1px solid var(--surface3);flex-shrink:0;">
+      <button type="button" class="btn btn-ghost btn-sm" onclick="closeExportModal()">Cancel</button>
+      <!-- The form submits via POST so image_ids are sent in the body -->
+      <form id="export-form" method="post" style="margin:0;">
+        {% csrf_token %}
+        <div id="export-hidden-ids"></div>
+        <button type="submit" class="btn btn-primary btn-sm" id="export-submit-btn" disabled>
+          <i class="fa-solid fa-download"></i>
+          Export <span id="export-btn-count">0</span> image(s)
+        </button>
+      </form>
+    </div>
+
+  </div>
+</div>
+
+<!-- ── Tab + Activity + Export JS ───────────────────────────── -->
 <script>
 (function () {
   // ── Tab switching ───────────────────────────────────────
@@ -442,13 +650,11 @@
     panels.forEach(p => {
       p.classList.toggle('pd-panel--hidden', p.id !== 'tab-' + tabId);
     });
-    // Persist choice in URL hash without reloading
     history.replaceState(null, '', '#tab-' + tabId);
   }
 
   tabs.forEach(tab => tab.addEventListener('click', () => activateTab(tab.dataset.tab)));
 
-  // Restore tab from URL hash or GET param
   const urlParams = new URLSearchParams(location.search);
   const hashTab   = location.hash.replace('#tab-', '');
   const paramTab  = urlParams.get('_tab');
@@ -461,13 +667,11 @@
   const toggle   = document.getElementById('auto-refresh-toggle');
   const dot      = document.getElementById('refresh-dot');
   const timeline = document.getElementById('activity-timeline');
-  const PROJECT_ID = '{{ project.id }}';
-  const FEED_URL   = '{% url "activity_feed_json" project.id %}';
+  const FEED_URL = '{% url "activity_feed_json" project.id %}';
 
   let latestId = null;
   let timer    = null;
 
-  // Seed latest id from rendered items
   const firstItem = timeline && timeline.querySelector('.activity-item[data-id]');
   if (firstItem) latestId = parseInt(firstItem.dataset.id, 10);
 
@@ -479,7 +683,6 @@
     const div = document.createElement('div');
     div.className = 'activity-item activity-item--new';
     div.dataset.id = entry.id;
-    // Alternate avatar color
     const avatarClass = (parseInt(entry.id, 10) % 2 === 0) ? 'activity-avatar--true' : 'activity-avatar--false';
     div.innerHTML = `
       <div class="activity-item__line"></div>
@@ -507,7 +710,6 @@
       const data = await res.json();
       const items = data.activities || [];
       if (items.length) {
-        // Remove empty-state if present
         const empty = timeline.querySelector('.empty-state');
         if (empty) empty.remove();
 
@@ -520,85 +722,190 @@
           if (!latestId || entry.id > latestId) latestId = entry.id;
         });
 
-        // Update badge count
         const badge = document.getElementById('activity-count-badge');
         if (badge) badge.textContent = timeline.querySelectorAll('.activity-item').length;
       }
-    } catch (e) {
-      // silently ignore
-    }
+    } catch (e) {}
   }
 
-  function startPolling() {
-    setLive(true);
-    timer = setInterval(pollActivity, 30000);
-  }
-
-  function stopPolling() {
-    setLive(false);
-    clearInterval(timer);
-  }
+  function startPolling() { setLive(true); timer = setInterval(pollActivity, 30000); }
+  function stopPolling()  { setLive(false); clearInterval(timer); }
 
   toggle.addEventListener('change', () => toggle.checked ? startPolling() : stopPolling());
   startPolling();
 
+  // ── Metrics charts ──────────────────────────────────────
   const colors = [
-        'rgba(99,102,241,0.6)',   // Pending
-        'rgba(52,211,153,0.6)',   // Partial
-        'rgba(251,191,36,0.6)',   // Done
-    ];
+    'rgba(99,102,241,0.6)',
+    'rgba(52,211,153,0.6)',
+    'rgba(251,191,36,0.6)',
+  ];
 
-    const el = document.getElementById('metrics-data');
+  const el = document.getElementById('metrics-data');
 
-    if (el) {
-      const ctx = document.getElementById('chart-progress');
-
-      if (ctx) {
-        new Chart(ctx, {
-          type: 'doughnut',
-          data: {
-            labels: ['Pending', 'Partial', 'Done'],
-            datasets: [{
-              data: [
-                parseInt(el.dataset.progressPending || 0),
-                parseInt(el.dataset.progressPartial || 0),
-                parseInt(el.dataset.progressDone || 0)
-              ],
-              backgroundColor: colors,   // ✅ ADD THIS
-              borderWidth: 0,            // optional cleaner look
-              hoverOffset: 6             // optional nice interaction
-            }]
+  if (el) {
+    const ctx = document.getElementById('chart-progress');
+    if (ctx) {
+      new Chart(ctx, {
+        type: 'doughnut',
+        data: {
+          labels: ['Pending', 'Partial', 'Done'],
+          datasets: [{
+            data: [
+              parseInt(el.dataset.progressPending || 0),
+              parseInt(el.dataset.progressPartial || 0),
+              parseInt(el.dataset.progressDone || 0)
+            ],
+            backgroundColor: colors,
+            borderWidth: 0,
+            hoverOffset: 6
+          }]
+        },
+        options: {
+          plugins: {
+            title: {
+              display: true,
+              text: 'Annotation Status',
+              color: getComputedStyle(document.documentElement).getPropertyValue('--text-muted').trim(),
+              font: { size: 12, weight: '600' },
+              padding: { bottom: 8 }
+            },
+            legend: {
+              display: true,
+              labels: { color: getComputedStyle(document.documentElement).getPropertyValue('--text-muted') }
+            }
           },
-          options: {
-              plugins: {
-                title: {
-                  display: true,
-                  text: 'Annotation Status',
-                  color: getComputedStyle(document.documentElement)
-                  .getPropertyValue('--text-muted')
-                  .trim(),
-                  font: {
-                    size: 12,
-                    weight: '600'
-                  },
-                  padding: {
-                    bottom: 8
-                  }
-                },
-                legend: {
-                  display: true,
-                  labels: {
-                    color: getComputedStyle(document.documentElement)
-                    .getPropertyValue('--text-muted')
-                  }
-                }
-              },
-              cutout: '65%'
-          }
-        });
-      }
+          cutout: '65%'
+        }
+      });
+    }
+  }
+
+  // ── Export modal ────────────────────────────────────────
+  // All project images are embedded here as JSON for the picker.
+  // The view must pass `images_all` in context (see note below).
+  const ALL_IMAGES = [
+    {% for img in images_all %}
+    {
+      id: {{ img.pk }},
+      name: "{{ img.name|escapejs }}",
+      status: "{{ img.status }}",
+      url: "{% if img.image_file %}{{ img.image_file.url }}{% endif %}"
+    }{% if not forloop.last %},{% endif %}
+    {% endfor %}
+  ];
+
+  const EXPORT_URLS = {
+    yolo: "{% url 'export_yolo' project.id %}",
+    csv:  "{% url 'export_csv'  project.id %}",
+    coco: "{% url 'export_coco' project.id %}",
+    json: "{% url 'export_json' project.id %}",
+  };
+
+  const FORMAT_LABELS = { yolo: 'YOLO', csv: 'CSV', coco: 'COCO JSON', json: 'JSON' };
+
+  let exportSelectedIds = new Set();
+  let exportVisibleImages = [];
+  let exportCurrentFormat = 'yolo';
+
+  window.openExportModal = function(fmt) {
+    exportCurrentFormat = fmt;
+    document.getElementById('export-format-badge').textContent = FORMAT_LABELS[fmt] || fmt.toUpperCase();
+    document.getElementById('export-status-filter').value = '';
+    document.getElementById('export-modal').style.display = 'flex';
+    exportVisibleImages = [...ALL_IMAGES];
+    exportSelectedIds   = new Set(ALL_IMAGES.map(i => i.id));
+    renderExportGrid();
+  };
+
+  window.closeExportModal = function() {
+    document.getElementById('export-modal').style.display = 'none';
+  };
+
+  window.applyExportFilter = function() {
+    const sf = document.getElementById('export-status-filter').value;
+    exportVisibleImages = sf ? ALL_IMAGES.filter(i => i.status === sf) : [...ALL_IMAGES];
+    exportSelectedIds   = new Set(exportVisibleImages.map(i => i.id));
+    renderExportGrid();
+  };
+
+  window.exportSelectAll   = function() { exportSelectedIds = new Set(exportVisibleImages.map(i => i.id)); renderExportGrid(); };
+  window.exportDeselectAll = function() { exportSelectedIds = new Set(); renderExportGrid(); };
+
+  window.toggleExportImg = function(id) {
+    if (exportSelectedIds.has(id)) exportSelectedIds.delete(id);
+    else exportSelectedIds.add(id);
+    renderExportGrid();
+  };
+
+  const STATUS_LABEL = { done: 'done', partial: 'partial', pending: 'pending' };
+  const STATUS_COLOR = { done: '#10b981', partial: '#f59e0b', pending: '#6b7280' };
+
+  function renderExportGrid() {
+    const grid = document.getElementById('export-img-grid');
+
+    if (!exportVisibleImages.length) {
+      grid.innerHTML = '<div style="grid-column:1/-1;text-align:center;padding:24px;color:var(--text-muted);font-size:13px;">No images match this filter.</div>';
+      updateExportCount();
+      return;
     }
 
+    grid.innerHTML = exportVisibleImages.map(img => {
+      const sel = exportSelectedIds.has(img.id);
+      const thumb = img.url
+        ? `<img src="${img.url}" alt="${img.name}" loading="lazy"
+               style="width:100%;height:100%;object-fit:cover;display:block;pointer-events:none;">`
+        : `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;
+                       font-size:22px;color:var(--text-dim);pointer-events:none;">
+             <i class="fa-solid fa-image"></i>
+           </div>`;
+
+      return `<div onclick="toggleExportImg(${img.id})"
+                   title="${img.name}"
+                   style="aspect-ratio:1;border-radius:7px;overflow:hidden;cursor:pointer;position:relative;
+                          border:2.5px solid ${sel ? 'var(--accent)' : 'transparent'};
+                          background:var(--surface2);transition:border-color .1s;">
+        ${thumb}
+        <!-- Tick indicator top-left -->
+        <div style="position:absolute;top:4px;left:4px;width:18px;height:18px;border-radius:50%;
+                    background:${sel ? 'var(--accent)' : 'rgba(0,0,0,.35)'};
+                    display:flex;align-items:center;justify-content:center;pointer-events:none;">
+          ${sel ? '<i class="fa-solid fa-check" style="font-size:9px;color:#fff;"></i>' : ''}
+        </div>
+        <!-- Status badge top-right -->
+        <div style="position:absolute;top:4px;right:4px;font-size:9px;padding:2px 5px;border-radius:3px;
+                    background:${STATUS_COLOR[img.status]};color:#fff;pointer-events:none;line-height:1.4;">
+          ${STATUS_LABEL[img.status]}
+        </div>
+        <!-- Name bottom -->
+        <div style="position:absolute;bottom:0;left:0;right:0;padding:3px 5px;
+                    background:rgba(0,0,0,.5);font-size:9px;color:#fff;
+                    white-space:nowrap;overflow:hidden;text-overflow:ellipsis;pointer-events:none;">
+          ${img.name}
+        </div>
+      </div>`;
+    }).join('');
+
+    updateExportCount();
+  }
+
+  function updateExportCount() {
+    const n = exportSelectedIds.size;
+    document.getElementById('export-sel-count').textContent = n;
+    document.getElementById('export-btn-count').textContent = n;
+
+    const btn = document.getElementById('export-submit-btn');
+    btn.disabled = n === 0;
+
+    // Build hidden inputs
+    const hiddenDiv = document.getElementById('export-hidden-ids');
+    hiddenDiv.innerHTML = [...exportSelectedIds]
+      .map(id => `<input type="hidden" name="image_ids" value="${id}">`)
+      .join('');
+
+    // Point form to correct export URL
+    document.getElementById('export-form').action = EXPORT_URLS[exportCurrentFormat];
+  }
 
 })();
 </script>
