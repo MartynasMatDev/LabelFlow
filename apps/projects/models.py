@@ -263,6 +263,9 @@ class ActivityLog(models.Model):
         ('export_csv', 'Exported CSV'),
         ('export_coco', 'Exported COCO'),
         ('export_json', 'Exported JSON'),
+        # Attachments
+        ('attachment_uploaded', 'Uploaded attachment'),
+        ('attachment_deleted',  'Deleted attachment'),
     ]
 
     project    = models.ForeignKey(Project, on_delete=models.CASCADE, related_name='activity_logs')
@@ -446,3 +449,56 @@ class WorkspaceInvitation(models.Model):
             user=user,
             defaults={'role': self.role},
         )
+
+
+def _attachment_upload_path(instance, filename):
+    return f'project_attachments/{instance.project_id}/{filename}'
+
+
+class ProjectAttachment(models.Model):
+    ALLOWED_EXTENSIONS = {
+        '.pdf', '.doc', '.docx', '.xls', '.xlsx',
+        '.ppt', '.pptx', '.txt', '.csv', '.md',
+    }
+    MAX_FILE_BYTES = 20 * 1024 * 1024  # 20 MB
+
+    project     = models.ForeignKey(Project, on_delete=models.CASCADE, related_name='attachments')
+    uploaded_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='project_attachments')
+    file        = models.FileField(upload_to=_attachment_upload_path)
+    original_name = models.CharField(max_length=255)
+    file_size   = models.PositiveIntegerField(default=0)
+    description = models.CharField(max_length=300, blank=True)
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-uploaded_at']
+
+    def __str__(self):
+        return f'{self.original_name} → {self.project.name}'
+
+    @property
+    def extension(self):
+        import os
+        return os.path.splitext(self.original_name)[1].lower()
+
+    @property
+    def icon(self):
+        ext = self.extension
+        if ext == '.pdf':
+            return 'fa-file-pdf'
+        if ext in ('.doc', '.docx'):
+            return 'fa-file-word'
+        if ext in ('.xls', '.xlsx'):
+            return 'fa-file-excel'
+        if ext in ('.ppt', '.pptx'):
+            return 'fa-file-powerpoint'
+        return 'fa-file-lines'
+
+    @property
+    def size_display(self):
+        b = self.file_size
+        if b < 1024:
+            return f'{b} B'
+        if b < 1024 ** 2:
+            return f'{b / 1024:.1f} KB'
+        return f'{b / 1024**2:.1f} MB'
