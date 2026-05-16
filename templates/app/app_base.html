@@ -70,6 +70,10 @@
         <span class="nav-icon"><i class="fa-solid fa-user-group"></i></span> Team
         <span class="nav-count">{{ project.member_count }}</span>
       </a>
+      <a href="{% url 'project_tasks' project.id %}" class="nav-item {% if active_nav == 'tasks' %}active{% endif %}">
+        <span class="nav-icon"><i class="fa-solid fa-tasks"></i></span> Tasks
+        <span class="nav-count">{{ project.tasks.count }}</span>
+      </a>
       {% endif %}
     </nav>
 
