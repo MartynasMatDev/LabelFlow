@@ -5,13 +5,28 @@ from django.contrib import messages
 from django.http import JsonResponse
 from django.views.decorators.http import require_POST, require_http_methods
 from django.utils import timezone
-from django.contrib.auth.models import User  # Add this import
+from django.contrib.auth.models import User
 from django.db import models as db_models
 import json
 
 from .models import Project, ProjectMember
 from .task_models import Task, TaskComment
 from .workspace_utils import get_active_workspace, workspaces_for
+
+
+def _parse_due_date(value: str):
+    """Parse an ISO date string and guarantee a timezone-aware datetime.
+
+    The frontend may send:
+      - "2026-05-20T16:23:00Z"        → already UTC, replace keeps +00:00
+      - "2026-05-20T16:23:00+02:00"   → already aware, no-op
+      - "2026-05-20 16:23:00"         → naive; make_aware uses settings.TIME_ZONE
+      - "2026-05-20"                  → date-only string, also handled
+    """
+    dt = timezone.datetime.fromisoformat(value.replace('Z', '+00:00'))
+    if timezone.is_naive(dt):
+        dt = timezone.make_aware(dt)
+    return dt
 
 
 @login_required
@@ -106,7 +121,7 @@ def task_detail(request, project_id, task_id):
                 if 'description' in data:
                     task.description = data.get('description', task.description)
                 if data.get('due_date'):
-                    task.due_date = timezone.datetime.fromisoformat(data['due_date'].replace('Z', '+00:00'))
+                    task.due_date = _parse_due_date(data['due_date'])  # ← fixed
                 task.save()
                 return JsonResponse({'success': True, 'task': task.to_dict()})
 
@@ -114,10 +129,13 @@ def task_detail(request, project_id, task_id):
             return JsonResponse({'error': str(e)}, status=400)
 
     # GET request - return task data as JSON
-    task_dict = task.to_dict()
-    comments = [c.to_dict() for c in task.comments.all()]
-    task_dict['comments'] = comments
-    return JsonResponse({'task': task_dict})
+    try:
+        task_dict = task.to_dict()
+        comments = [c.to_dict() for c in task.comments.all()]
+        task_dict['comments'] = comments
+        return JsonResponse({'task': task_dict})
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=500)
 
 
 @login_required
@@ -145,7 +163,7 @@ def task_create(request, project_id):
             assigned_to=assigned_to,
             assigned_by=request.user,
             priority=data.get('priority', 'medium'),
-            due_date=timezone.datetime.fromisoformat(data['due_date'].replace('Z', '+00:00')) if data.get('due_date') else None,
+            due_date=_parse_due_date(data['due_date']) if data.get('due_date') else None,  # ← fixed
         )
 
         return JsonResponse({'success': True, 'task': task.to_dict()})

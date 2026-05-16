@@ -80,7 +80,7 @@ class Task(models.Model):
                 'name': self.assigned_to.get_full_name() or self.assigned_to.username,
                 'initials': self._get_initials(self.assigned_to),
             },
-            'assigned_by_name': self.assigned_by.get_full_name() or self.assigned_by.username if self.assigned_by else 'Unknown',
+            'assigned_by_name': (self.assigned_by.get_full_name() or self.assigned_by.username) if self.assigned_by else 'Unknown',
             'priority': self.priority,
             'priority_label': self.get_priority_display(),
             'priority_color': self.priority_color,
