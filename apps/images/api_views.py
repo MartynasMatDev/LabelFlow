@@ -526,3 +526,59 @@ def _log(image, user, ann_type):
         log_activity(image.project, user, "annotation_added", detail=f"{ann_type} on {image.name}")
     except Exception:
         pass
+
+
+@csrf_exempt
+@require_http_methods(["GET"])
+def api_token_list(request):
+    """
+    GET /app/images/api/tokens/
+
+    Grąžina prisijungusio vartotojo aktyvių API raktų sąrašą.
+    Paties rakto negrąžina — tik ID ir sukūrimo datą.
+
+    Response 200  { "tokens": [{"id": 1, "created_at": "..."}, ...] }
+    Response 401  { "error": "Authentication required." }
+    """
+    user = _resolve_user(request)
+    if user is None:
+        return JsonResponse({"error": "Authentication required."}, status=401)
+
+    tokens = list(
+        APIToken.objects.filter(user=user, is_active=True)
+        .values("id", "created_at")
+        .order_by("-created_at")
+    )
+    for t in tokens:
+        t["created_at"] = t["created_at"].isoformat()
+
+    return JsonResponse({"tokens": tokens})
+
+
+@csrf_exempt
+@require_http_methods(["DELETE"])
+def api_token_revoke_one(request, token_id):
+    """
+    DELETE /app/images/api/tokens/<token_id>/
+
+    Atšaukia konkretų raktą pagal jo ID.
+    Vartotojas gali atšaukti tik savo raktus.
+
+    Response 200  { "revoked": true, "id": <token_id> }
+    Response 401  { "error": "Authentication required." }
+    Response 404  { "error": "Token not found." }
+    """
+    user = _resolve_user(request)
+    if user is None:
+        return JsonResponse({"error": "Authentication required."}, status=401)
+
+    updated = APIToken.objects.filter(
+        pk=token_id,
+        user=user,
+        is_active=True,
+    ).update(is_active=False)
+
+    if not updated:
+        return JsonResponse({"error": "Token not found."}, status=404)
+
+    return JsonResponse({"revoked": True, "id": token_id})
