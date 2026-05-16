@@ -2,8 +2,8 @@ from django.urls import path
 from . import views
 from . import workspace_views
 from . import notifications as notification_views
+from . import chat_views
 from django.urls import path, include
-from . import views
 from . import task_views
 
 urlpatterns = [
@@ -31,6 +31,8 @@ urlpatterns = [
     path('notifications/<int:notification_id>/read/', notification_views.notification_mark_read,    name='notification_mark_read'),
     path('notifications/mark-all-read/',             notification_views.notifications_mark_all_read, name='notifications_mark_all_read'),
 
+    # Chat
+    path('project/<int:project_id>/chat/',           chat_views.chat_room,     name='chat_room'),
     # Tasks
     path('project/<int:project_id>/tasks/', task_views.project_tasks, name='project_tasks'),
     path('project/<int:project_id>/tasks/create/', task_views.task_create, name='task_create'),

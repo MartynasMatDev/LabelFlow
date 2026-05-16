@@ -3,6 +3,7 @@ from django.contrib.auth.models import User
 import uuid
 from django.utils import timezone
 from django.utils.text import slugify
+from .chat_models import ChatRoom, ChatMessage
 
 
 class Workspace(models.Model):
