@@ -8,7 +8,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('projects', '0015_alter_activitylog_action_notification'),
+        ('projects', '0016_task_taskcomment'),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 
