@@ -1,7 +1,35 @@
 # LabelFlow
 
-**LabelFlow** is a Django-based web application developed as a **team / university project**. The goal is to provide a platform for managing image-labeling workflows — from organizing projects and teams to annotating images with bounding boxes and polygons.
+**LabelFlow** is a Django-based web application built as a **team / university project** at KTU.
+It provides an end-to-end platform for managing image-labeling workflows: from organizing
+projects and teams, through annotating images with bounding boxes, polygons, and segmentation
+masks, all the way to exporting training-ready datasets for ML pipelines.
 
+The project is aimed at small research groups, indie ML builders, and student teams who
+need a self-hosted alternative to commercial annotation tools — without the licensing cost,
+vendor lock-in, or feature bloat.
+
+### What you can do with LabelFlow
+
+- **Organize work** into personal and organization workspaces, with multiple projects per
+  workspace and role-based access control (admin / annotator / reviewer).
+- **Invite teammates** via email and manage permissions per project.
+- **Upload images** through drag-and-drop, bulk folder upload, URL, or the REST API.
+  Supports JPG, PNG, WEBP, BMP, and GIF (up to 20 MB).
+- **Annotate** with bounding boxes, polygons, and segmentation masks in a clean, focused
+  canvas. Add labels with custom colors. Track per-image annotation status.
+- **Collaborate** with in-app chat per project, task assignments, an activity log, and
+  real-time notifications for team events.
+- **Export** datasets in the format your training pipeline expects: YOLO, COCO JSON,
+  Pascal VOC, CSV, or raw JSON. Filter by annotation status before export.
+- **Share datasets publicly** via tokenized share links — no login required for
+  downloaders, useful for distributing benchmark sets or coordinating with external
+  collaborators.
+- **Automate** via the REST API: authenticate with an API token and programmatically
+  upload images, create and delete annotations, and query status. See the in-app
+  [API documentation](/api-docs/) for the full endpoint reference.
+- **Authenticate** with username/password, Google, or GitHub (OAuth via django-allauth).
+- **Switch themes** between light and dark mode.
 ---
 
 ## Screenshots
