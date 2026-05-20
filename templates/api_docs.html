@@ -1,0 +1,557 @@
+{% extends "base.html" %}
+{% load static %}
+{% block title %}API Documentation — LabelFlow{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{% static 'css/landing.css' %}">
+{% endblock %}
+
+{% block body %}
+<nav class="web-nav">
+  <a href="/" class="web-nav-logo">Label<em>Flow</em></a>
+  <div class="web-nav-links">
+    <a href="{% url 'api_docs' %}" class="btn btn-ghost" aria-current="page">API Docs</a>
+    <a href="{% url 'blog:list' %}" class="btn btn-ghost">Blog</a>
+    <button class="web-theme-btn" id="theme-btn" title="Toggle theme" aria-label="Toggle theme">&#x2600;</button>
+    <a href="{% url 'login' %}" class="btn btn-ghost">Sign in</a>
+    <a href="{% url 'register' %}" class="btn btn-primary">Get started free</a>
+  </div>
+</nav>
+
+<div class="api-docs">
+
+  <!-- ── Hero ─────────────────────────────────────────── -->
+  <header class="api-hero">
+    <div>
+      <h1>LabelFlow REST API</h1>
+      <p class="api-hero-sub">
+        Programmatic access to upload images, manage annotations, and authenticate with API tokens.
+        All endpoints return JSON.
+      </p>
+      <div class="api-hero-meta">
+        <span class="pill"><i class="fa-solid fa-link"></i> Base URL <code>{{ request.scheme }}://{{ request.get_host }}</code></span>
+        <span class="pill"><i class="fa-solid fa-shield-halved"></i> Auth: Token or Session</span>
+        <span class="pill"><i class="fa-solid fa-code"></i> 8 endpoints</span>
+      </div>
+    </div>
+  </header>
+
+  <div class="api-layout">
+
+    <!-- ── Table of contents ──────────────────────────── -->
+    <aside class="api-toc">
+      <div class="api-toc-inner">
+        <div class="api-toc-title">On this page</div>
+        <ul>
+          <li><a href="#overview">Overview</a></li>
+          <li><a href="#authentication">Authentication</a></li>
+          <li class="api-toc-section">Tokens</li>
+          <li><a href="#ep-token-create"><span class="m m-post">POST</span> Create token</a></li>
+          <li><a href="#ep-token-revoke"><span class="m m-delete">DELETE</span> Revoke current token</a></li>
+          <li><a href="#ep-token-list"><span class="m m-get">GET</span> List tokens</a></li>
+          <li><a href="#ep-token-delete-one"><span class="m m-delete">DELETE</span> Revoke specific token</a></li>
+          <li class="api-toc-section">Images</li>
+          <li><a href="#ep-image-upload"><span class="m m-post">POST</span> Upload image</a></li>
+          <li class="api-toc-section">Annotations</li>
+          <li><a href="#ep-annotations-list"><span class="m m-get">GET</span> List annotations</a></li>
+          <li><a href="#ep-annotations-create"><span class="m m-post">POST</span> Create annotation</a></li>
+          <li><a href="#ep-annotations-delete"><span class="m m-delete">DELETE</span> Delete annotation</a></li>
+          <li class="api-toc-section">Reference</li>
+          <li><a href="#errors">Error format</a></li>
+          <li><a href="#summary">Endpoint summary</a></li>
+        </ul>
+      </div>
+    </aside>
+
+    <!-- ── Main content ───────────────────────────────── -->
+    <main class="api-main">
+
+      <!-- Overview -->
+      <section id="overview" class="api-section">
+        <h2>Overview</h2>
+        <p>
+          The LabelFlow REST API lets you upload images, fetch and create annotations
+          (bounding boxes, polygons, masks), and manage authentication tokens — all without
+          opening the web UI. It is designed for automation scripts, dataset pipelines, and
+          third-party integrations.
+        </p>
+        <ul class="api-bullets">
+          <li>All endpoints live under <code>/app/images/api/</code>.</li>
+          <li>All requests and responses use <code>application/json</code>, except image upload, which uses <code>multipart/form-data</code>.</li>
+          <li>All endpoints are CSRF-exempt — safe to call from non-browser clients.</li>
+          <li>Coordinates are <strong>percentages (0–100)</strong> of the image's dimensions, not pixels.</li>
+        </ul>
+      </section>
+
+      <!-- Authentication -->
+      <section id="authentication" class="api-section">
+        <h2>Authentication</h2>
+        <p>
+          Most endpoints require authentication. You can authenticate in one of two ways:
+        </p>
+        <ol class="api-ordered">
+          <li>
+            <strong>API Token</strong> — recommended for scripts. Obtain a token from
+            <a href="#ep-token-create"><code>POST /app/images/api/token/</code></a>,
+            then send it in the <code>Authorization</code> header:
+            <pre class="api-code"><code>Authorization: Token &lt;your_token_here&gt;</code></pre>
+            <p class="api-note"><code>Authorization: Bearer &lt;token&gt;</code> is also accepted.</p>
+          </li>
+          <li>
+            <strong>Session cookie</strong> — automatic when you call the API from a browser
+            already logged into LabelFlow.
+          </li>
+        </ol>
+        <div class="api-callout api-callout-warn">
+          <i class="fa-solid fa-triangle-exclamation"></i>
+          <div>
+            <strong>One active token per user.</strong>
+            Calling <code>POST /app/images/api/token/</code> again will revoke any previously
+            issued token. Tokens are also invalidated automatically when you change your password.
+          </div>
+        </div>
+      </section>
+
+      <!-- ── ENDPOINT: Create token ────────────────────── -->
+      <section id="ep-token-create" class="api-section api-endpoint">
+        <header class="api-endpoint-header">
+          <span class="m m-post">POST</span>
+          <code class="api-path">/app/images/api/token/</code>
+        </header>
+        <h3>Create an API token</h3>
+        <p>Exchange username and password for an API token. No authentication required.</p>
+
+        <h4>Request body</h4>
+        <table class="api-table">
+          <thead><tr><th>Field</th><th>Type</th><th>Required</th><th>Description</th></tr></thead>
+          <tbody>
+            <tr><td><code>username</code></td><td>string</td><td>Yes</td><td>Your LabelFlow username</td></tr>
+            <tr><td><code>password</code></td><td>string</td><td>Yes</td><td>Your LabelFlow password</td></tr>
+          </tbody>
+        </table>
+
+        <h4>Example</h4>
+<pre class="api-code"><code>curl -X POST {{ request.scheme }}://{{ request.get_host }}/app/images/api/token/ \
+  -H "Content-Type: application/json" \
+  -d '{"username": "alice", "password": "s3cret"}'</code></pre>
+
+        <h4>Response <span class="status status-200">200 OK</span></h4>
+<pre class="api-code"><code>{
+  "token": "a1b2c3d4...64-char-hex...",
+  "username": "alice"
+}</code></pre>
+
+        <h4>Errors</h4>
+        <table class="api-table">
+          <thead><tr><th>Status</th><th>Meaning</th></tr></thead>
+          <tbody>
+            <tr><td><span class="status status-400">400</span></td><td>Missing username/password or invalid JSON</td></tr>
+            <tr><td><span class="status status-401">401</span></td><td>Invalid credentials</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <!-- ── ENDPOINT: Revoke current token ──────────── -->
+      <section id="ep-token-revoke" class="api-section api-endpoint">
+        <header class="api-endpoint-header">
+          <span class="m m-delete">DELETE</span>
+          <code class="api-path">/app/images/api/token/</code>
+        </header>
+        <h3>Revoke the current token</h3>
+        <p>Invalidates the token used in the <code>Authorization</code> header.</p>
+
+        <h4>Example</h4>
+<pre class="api-code"><code>curl -X DELETE {{ request.scheme }}://{{ request.get_host }}/app/images/api/token/ \
+  -H "Authorization: Token $TOKEN"</code></pre>
+
+        <h4>Response <span class="status status-200">200 OK</span></h4>
+<pre class="api-code"><code>{ "revoked": true }</code></pre>
+      </section>
+
+      <!-- ── ENDPOINT: List tokens ─────────────────────── -->
+      <section id="ep-token-list" class="api-section api-endpoint">
+        <header class="api-endpoint-header">
+          <span class="m m-get">GET</span>
+          <code class="api-path">/app/images/api/tokens/</code>
+        </header>
+        <h3>List your active tokens</h3>
+        <p>Returns metadata only. The plaintext token value is never returned after creation.</p>
+
+        <h4>Response <span class="status status-200">200 OK</span></h4>
+<pre class="api-code"><code>{
+  "tokens": [
+    { "id": 1, "created_at": "2026-05-15T09:22:10.456789Z" },
+    { "id": 2, "created_at": "2026-05-14T14:15:30.123456Z" }
+  ]
+}</code></pre>
+      </section>
+
+      <!-- ── ENDPOINT: Revoke specific token ──────────── -->
+      <section id="ep-token-delete-one" class="api-section api-endpoint">
+        <header class="api-endpoint-header">
+          <span class="m m-delete">DELETE</span>
+          <code class="api-path">/app/images/api/tokens/&lt;token_id&gt;/</code>
+        </header>
+        <h3>Revoke a specific token</h3>
+        <p>Useful when revoking from a session and you don't want to invalidate the session's own token.</p>
+
+        <h4>Response <span class="status status-200">200 OK</span></h4>
+<pre class="api-code"><code>{ "revoked": true, "id": 42 }</code></pre>
+
+        <h4>Errors</h4>
+        <table class="api-table">
+          <thead><tr><th>Status</th><th>Meaning</th></tr></thead>
+          <tbody>
+            <tr><td><span class="status status-401">401</span></td><td>Not authenticated</td></tr>
+            <tr><td><span class="status status-404">404</span></td><td>Token not found, or belongs to another user</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <!-- ── ENDPOINT: Upload image ───────────────────── -->
+      <section id="ep-image-upload" class="api-section api-endpoint">
+        <header class="api-endpoint-header">
+          <span class="m m-post">POST</span>
+          <code class="api-path">/app/images/api/upload/</code>
+        </header>
+        <h3>Upload an image to a project</h3>
+        <p>
+          Accepts a single image file via <code>multipart/form-data</code>. The image is
+          normalized (RGB, ~1024px on the long edge, center-cropped to square) and stored.
+        </p>
+
+        <h4>Form fields</h4>
+        <table class="api-table">
+          <thead><tr><th>Field</th><th>Type</th><th>Required</th><th>Description</th></tr></thead>
+          <tbody>
+            <tr><td><code>image_file</code></td><td>file</td><td>Yes</td><td>JPG, JPEG, PNG, WEBP, BMP, or GIF. Max <strong>20 MB</strong>.</td></tr>
+            <tr><td><code>project</code></td><td>integer</td><td>Yes</td><td>Target project ID. You must have access to it.</td></tr>
+          </tbody>
+        </table>
+
+        <h4>Example</h4>
+<pre class="api-code"><code>curl -X POST {{ request.scheme }}://{{ request.get_host }}/app/images/api/upload/ \
+  -H "Authorization: Token $TOKEN" \
+  -F "project=123" \
+  -F "image_file=@/path/to/photo.jpg"</code></pre>
+
+        <h4>Response <span class="status status-201">201 Created</span></h4>
+<pre class="api-code"><code>{
+  "id": 456,
+  "name": "photo.jpg",
+  "url": "{{ request.scheme }}://{{ request.get_host }}/media/images/2026/05/photo.jpg",
+  "project_id": 123,
+  "status": "pending",
+  "width": 1024,
+  "height": 768,
+  "file_size_bytes": 102400,
+  "file_size_kb": 100.0,
+  "resolution": "1024×768",
+  "uploaded_at": "2026-05-16T10:30:45.123456Z",
+  "uploaded_by": "alice"
+}</code></pre>
+
+        <h4>Errors</h4>
+        <table class="api-table">
+          <thead><tr><th>Status</th><th>Meaning</th></tr></thead>
+          <tbody>
+            <tr><td><span class="status status-400">400</span></td><td>Missing field, unsupported file type, file too large, or invalid image</td></tr>
+            <tr><td><span class="status status-401">401</span></td><td>Not authenticated</td></tr>
+            <tr><td><span class="status status-403">403</span></td><td>You don't have access to the project</td></tr>
+            <tr><td><span class="status status-404">404</span></td><td>Project not found</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <!-- ── ENDPOINT: List annotations ───────────────── -->
+      <section id="ep-annotations-list" class="api-section api-endpoint">
+        <header class="api-endpoint-header">
+          <span class="m m-get">GET</span>
+          <code class="api-path">/app/images/api/images/&lt;image_id&gt;/annotations/</code>
+        </header>
+        <h3>List annotations on an image</h3>
+        <p>Returns all bounding boxes, polygons, and masks attached to an image.</p>
+
+        <h4>Example</h4>
+<pre class="api-code"><code>curl {{ request.scheme }}://{{ request.get_host }}/app/images/api/images/456/annotations/ \
+  -H "Authorization: Token $TOKEN"</code></pre>
+
+        <h4>Response <span class="status status-200">200 OK</span></h4>
+<pre class="api-code"><code>{
+  "image_id": 456,
+  "image_name": "photo.jpg",
+  "status": "partial",
+  "bboxes": [
+    {
+      "id": 10,
+      "label": { "id": 5, "name": "person", "color": "#ff6b6b" },
+      "x": 10.5, "y": 20.0, "width": 30.0, "height": 25.0
+    }
+  ],
+  "polygons": [
+    {
+      "id": 20,
+      "label": { "id": 6, "name": "tree", "color": "#51cf66" },
+      "points": [
+        { "x": 15.0, "y": 10.0 },
+        { "x": 45.0, "y": 10.0 },
+        { "x": 30.0, "y": 40.0 }
+      ]
+    }
+  ],
+  "masks": [
+    {
+      "id": 30,
+      "label": { "id": 7, "name": "road", "color": "#868e96" }
+    }
+  ]
+}</code></pre>
+
+        <div class="api-callout api-callout-info">
+          <i class="fa-solid fa-circle-info"></i>
+          <div>
+            <strong>About the <code>status</code> field</strong> — <code>"pending"</code> means no annotations,
+            <code>"partial"</code> means some, <code>"done"</code> means complete. Mask data is intentionally
+            omitted from list responses to keep payloads small.
+          </div>
+        </div>
+      </section>
+
+      <!-- ── ENDPOINT: Create annotation ──────────────── -->
+      <section id="ep-annotations-create" class="api-section api-endpoint">
+        <header class="api-endpoint-header">
+          <span class="m m-post">POST</span>
+          <code class="api-path">/app/images/api/images/&lt;image_id&gt;/annotations/</code>
+        </header>
+        <h3>Create an annotation</h3>
+        <p>
+          Add a bounding box, polygon, or segmentation mask to an image. Send JSON with a
+          <code>type</code> field and the shape-specific fields below.
+        </p>
+
+        <h4>Common fields</h4>
+        <table class="api-table">
+          <thead><tr><th>Field</th><th>Type</th><th>Required</th><th>Description</th></tr></thead>
+          <tbody>
+            <tr><td><code>type</code></td><td>string</td><td>Yes</td><td>One of <code>"bbox"</code>, <code>"polygon"</code>, <code>"mask"</code></td></tr>
+            <tr><td><code>label_id</code></td><td>integer</td><td>No</td><td>ID of the tag/label. Omit or send <code>null</code> for unlabeled.</td></tr>
+          </tbody>
+        </table>
+
+        <h4>Bounding box — <code>type: "bbox"</code></h4>
+        <table class="api-table">
+          <thead><tr><th>Field</th><th>Type</th><th>Description</th></tr></thead>
+          <tbody>
+            <tr><td><code>x</code>, <code>y</code></td><td>number (0–100)</td><td>Top-left corner as % of image width/height</td></tr>
+            <tr><td><code>width</code>, <code>height</code></td><td>number (0–100)</td><td>Size as % of image width/height</td></tr>
+          </tbody>
+        </table>
+<pre class="api-code"><code>curl -X POST {{ request.scheme }}://{{ request.get_host }}/app/images/api/images/456/annotations/ \
+  -H "Authorization: Token $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"type":"bbox","label_id":5,"x":10.5,"y":20.0,"width":30.0,"height":25.0}'</code></pre>
+
+        <h4>Polygon — <code>type: "polygon"</code></h4>
+        <p>
+          <code>points</code>: array of <code>{ "x": 0–100, "y": 0–100 }</code> objects.
+          Minimum 3 points required.
+        </p>
+<pre class="api-code"><code>curl -X POST {{ request.scheme }}://{{ request.get_host }}/app/images/api/images/456/annotations/ \
+  -H "Authorization: Token $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "type":"polygon",
+    "label_id":6,
+    "points":[{"x":15,"y":10},{"x":45,"y":10},{"x":30,"y":40}]
+  }'</code></pre>
+
+        <h4>Mask — <code>type: "mask"</code></h4>
+        <p>
+          <code>mask_data</code> must be a PNG data URI starting with
+          <code>data:image/png;base64,</code>.
+        </p>
+<pre class="api-code"><code>{
+  "type": "mask",
+  "label_id": 7,
+  "mask_data": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA..."
+}</code></pre>
+
+        <h4>Response <span class="status status-201">201 Created</span></h4>
+<pre class="api-code"><code>{
+  "type": "bbox",
+  "annotation": {
+    "id": 10,
+    "label": { "id": 5, "name": "person", "color": "#ff6b6b" },
+    "x": 10.5, "y": 20.0, "width": 30.0, "height": 25.0
+  }
+}</code></pre>
+
+        <h4>Errors</h4>
+        <table class="api-table">
+          <thead><tr><th>Status</th><th>Meaning</th></tr></thead>
+          <tbody>
+            <tr><td><span class="status status-400">400</span></td><td>Invalid JSON, unknown type, missing/invalid fields, polygon &lt; 3 points, bad mask data, or unknown <code>label_id</code></td></tr>
+            <tr><td><span class="status status-401">401</span></td><td>Not authenticated</td></tr>
+            <tr><td><span class="status status-403">403</span></td><td>You don't have access to this image's project</td></tr>
+            <tr><td><span class="status status-404">404</span></td><td>Image not found</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <!-- ── ENDPOINT: Delete annotation ──────────────── -->
+      <section id="ep-annotations-delete" class="api-section api-endpoint">
+        <header class="api-endpoint-header">
+          <span class="m m-delete">DELETE</span>
+          <code class="api-path">/app/images/api/annotations/&lt;type&gt;/&lt;annotation_id&gt;/</code>
+        </header>
+        <h3>Delete an annotation</h3>
+        <p>
+          Where <code>&lt;type&gt;</code> is <code>bbox</code>, <code>polygon</code>, or <code>mask</code>.
+        </p>
+
+        <h4>Example</h4>
+<pre class="api-code"><code>curl -X DELETE {{ request.scheme }}://{{ request.get_host }}/app/images/api/annotations/bbox/10/ \
+  -H "Authorization: Token $TOKEN"</code></pre>
+
+        <h4>Response <span class="status status-200">200 OK</span></h4>
+<pre class="api-code"><code>{ "deleted": true, "type": "bbox", "id": 10 }</code></pre>
+      </section>
+
+      <!-- Errors -->
+      <section id="errors" class="api-section">
+        <h2>Error format</h2>
+        <p>All errors return JSON with an <code>error</code> field describing the problem.</p>
+<pre class="api-code"><code>{ "error": "You do not have access to this project." }</code></pre>
+        <p>Validation errors may return an array of messages:</p>
+<pre class="api-code"><code>{ "error": ["x is required.", "width must be between 0 and 100."] }</code></pre>
+
+        <h3>Status codes</h3>
+        <table class="api-table">
+          <thead><tr><th>Code</th><th>Meaning</th></tr></thead>
+          <tbody>
+            <tr><td><span class="status status-200">200</span></td><td>OK — request succeeded</td></tr>
+            <tr><td><span class="status status-201">201</span></td><td>Created — new resource created</td></tr>
+            <tr><td><span class="status status-400">400</span></td><td>Bad Request — invalid input</td></tr>
+            <tr><td><span class="status status-401">401</span></td><td>Unauthorized — missing or invalid auth</td></tr>
+            <tr><td><span class="status status-403">403</span></td><td>Forbidden — authenticated but not permitted</td></tr>
+            <tr><td><span class="status status-404">404</span></td><td>Not Found — resource doesn't exist</td></tr>
+            <tr><td><span class="status status-405">405</span></td><td>Method Not Allowed</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+      <!-- Summary -->
+      <section id="summary" class="api-section">
+        <h2>Endpoint summary</h2>
+        <table class="api-table api-table-summary">
+          <thead>
+            <tr><th>Method</th><th>Endpoint</th><th>Purpose</th></tr>
+          </thead>
+          <tbody>
+            <tr><td><span class="m m-post">POST</span></td><td><code>/app/images/api/token/</code></td><td>Create an API token</td></tr>
+            <tr><td><span class="m m-delete">DELETE</span></td><td><code>/app/images/api/token/</code></td><td>Revoke the current token</td></tr>
+            <tr><td><span class="m m-get">GET</span></td><td><code>/app/images/api/tokens/</code></td><td>List your active tokens</td></tr>
+            <tr><td><span class="m m-delete">DELETE</span></td><td><code>/app/images/api/tokens/&lt;id&gt;/</code></td><td>Revoke a specific token</td></tr>
+            <tr><td><span class="m m-post">POST</span></td><td><code>/app/images/api/upload/</code></td><td>Upload an image</td></tr>
+            <tr><td><span class="m m-get">GET</span></td><td><code>/app/images/api/images/&lt;id&gt;/annotations/</code></td><td>List annotations</td></tr>
+            <tr><td><span class="m m-post">POST</span></td><td><code>/app/images/api/images/&lt;id&gt;/annotations/</code></td><td>Create an annotation</td></tr>
+            <tr><td><span class="m m-delete">DELETE</span></td><td><code>/app/images/api/annotations/&lt;type&gt;/&lt;id&gt;/</code></td><td>Delete an annotation</td></tr>
+          </tbody>
+        </table>
+      </section>
+
+    </main>
+  </div>
+</div>
+
+<footer class="web-footer">
+  <a href="/" class="web-footer-logo">Label<em>Flow</em></a>
+  <span>&copy; 2026 LabelFlow &middot; built by Team404 | KTU</span>
+</footer>
+
+<style>
+.api-docs { max-width: 1200px; margin: 0 auto; padding: 32px 24px 80px; }
+
+.api-hero {
+  padding: 32px;
+  border-radius: 16px;
+  background: linear-gradient(135deg, var(--accent-soft, rgba(99, 102, 241, 0.12)), transparent);
+  border: 1px solid var(--border);
+  margin-bottom: 32px;
+}
+.api-hero h1 { font-size: 32px; margin: 0 0 8px; color: var(--text); }
+.api-hero-sub { font-size: 15px; color: var(--text-muted); margin: 0 0 18px; max-width: 720px; line-height: 1.6; }
+.api-hero-meta { display: flex; flex-wrap: wrap; gap: 8px; }
+
+.pill {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 6px 12px; border-radius: 999px;
+  background: var(--surface); border: 1px solid var(--border);
+  font-size: 12px; color: var(--text-muted);
+}
+.pill code { background: transparent; padding: 0; color: var(--text); }
+.pill i { font-size: 11px; }
+
+.api-layout { display: grid; grid-template-columns: 240px minmax(0, 1fr); gap: 40px; align-items: start; }
+
+.api-toc { position: sticky; top: 80px; align-self: start; }
+.api-toc-inner { border-left: 1px solid var(--border); padding-left: 16px; max-height: calc(100vh - 120px); overflow-y: auto; }
+.api-toc-title { font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); font-weight: 700; margin-bottom: 10px; }
+.api-toc ul { list-style: none; padding: 0; margin: 0; }
+.api-toc li { margin: 2px 0; }
+.api-toc-section { font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); font-weight: 700; margin-top: 14px !important; padding-bottom: 4px; }
+.api-toc a { display: flex; align-items: center; gap: 8px; padding: 5px 8px; border-radius: 6px; font-size: 13px; color: var(--text-muted); text-decoration: none; transition: background 0.12s, color 0.12s; }
+.api-toc a:hover { background: var(--surface2); color: var(--text); }
+.api-toc a .m { font-size: 9px; padding: 1px 5px; min-width: 38px; text-align: center; }
+
+.api-section { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 28px; margin-bottom: 24px; scroll-margin-top: 80px; }
+.api-section h2 { font-size: 22px; margin: 0 0 12px; color: var(--text); border-bottom: 1px solid var(--border); padding-bottom: 12px; }
+.api-section h3 { font-size: 18px; margin: 0 0 8px; color: var(--text); }
+.api-section h4 { font-size: 12px; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); font-weight: 700; margin: 22px 0 8px; }
+.api-section p { color: var(--text-muted); line-height: 1.65; margin: 0 0 12px; }
+.api-section code { background: var(--surface2); padding: 2px 6px; border-radius: 4px; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 13px; color: var(--text); }
+.api-bullets, .api-ordered { color: var(--text-muted); line-height: 1.7; padding-left: 22px; margin: 0 0 12px; }
+.api-bullets li, .api-ordered li { margin-bottom: 6px; }
+
+.api-endpoint-header { display: flex; align-items: center; gap: 12px; padding: 12px 16px; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; margin-bottom: 18px; flex-wrap: wrap; }
+.api-path { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 14px; color: var(--text); background: transparent !important; padding: 0 !important; word-break: break-all; }
+
+.m { display: inline-block; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 4px; letter-spacing: 0.04em; color: #fff; text-transform: uppercase; line-height: 1.3; }
+.m-get    { background: #2563eb; }
+.m-post   { background: #16a34a; }
+.m-delete { background: #dc2626; }
+.m-put    { background: #d97706; }
+.m-patch  { background: #7c3aed; }
+
+.status { display: inline-block; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 11px; font-weight: 700; padding: 2px 7px; border-radius: 4px; margin-left: 6px; vertical-align: middle; }
+.status-200, .status-201 { background: rgba(22, 163, 74, 0.18); color: #16a34a; }
+.status-400, .status-401, .status-403, .status-404, .status-405 { background: rgba(220, 38, 38, 0.18); color: #dc2626; }
+
+.api-table { width: 100%; border-collapse: collapse; margin: 8px 0 14px; font-size: 13px; }
+.api-table th, .api-table td { text-align: left; padding: 9px 12px; border-bottom: 1px solid var(--border); vertical-align: top; color: var(--text); }
+.api-table th { font-size: 11px; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); font-weight: 700; background: var(--surface2); }
+.api-table tbody tr:hover { background: var(--surface2); }
+.api-table-summary code { font-size: 12px; }
+
+.api-code { background: #0f172a; color: #e2e8f0; border-radius: 8px; padding: 16px; overflow-x: auto; font-size: 13px; line-height: 1.6; margin: 8px 0 14px; border: 1px solid #1e293b; }
+.api-code code { background: transparent !important; color: inherit !important; padding: 0 !important; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; white-space: pre; }
+
+.api-callout { display: flex; gap: 12px; padding: 14px 16px; border-radius: 8px; margin: 14px 0; font-size: 13px; line-height: 1.55; border: 1px solid; }
+.api-callout i { font-size: 16px; margin-top: 2px; }
+.api-callout code { font-size: 12px; }
+.api-callout-info { background: rgba(37, 99, 235, 0.08); border-color: rgba(37, 99, 235, 0.25); color: var(--text); }
+.api-callout-info i { color: #2563eb; }
+.api-callout-warn { background: rgba(217, 119, 6, 0.08); border-color: rgba(217, 119, 6, 0.25); color: var(--text); }
+.api-callout-warn i { color: #d97706; }
+.api-note { font-size: 12px; color: var(--text-muted); margin: 6px 0 0 !important; font-style: italic; }
+
+@media (max-width: 960px) {
+  .api-layout { grid-template-columns: minmax(0, 1fr); }
+  .api-toc { position: static; margin-bottom: 24px; }
+  .api-toc-inner { max-height: none; }
+  .api-hero { padding: 24px; }
+  .api-hero h1 { font-size: 26px; }
+  .api-section { padding: 20px; }
+}
+</style>
+{% endblock %}
